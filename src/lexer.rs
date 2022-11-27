@@ -29,34 +29,37 @@ impl<'a> Lexer<'a> {
             operators: HashSet::from_iter("~!@$%^&*-+=|/,<>".chars()),
         }
     }
-    fn get_token(&mut self) -> Option<Token> {
-        let (start, ch) = self.chars.peek()?.to_owned();
+    fn get_token(&mut self) -> Token {
+        let (start, ch) = match self.chars.peek() {
+            Some(p) => p.to_owned(),
+            None => return Token::EndOfInput,
+        };
         match ch {
             '#' => {
                 self.chars.next();
-                Some(self.comment(start))
+                self.comment(start)
             }
             ':' => {
                 self.chars.next();
                 if let Some((_, '=')) = self.chars.peek() {
                     self.chars.next();
-                    return Some(Token::ColonEquals(Source::new(start, 2)));
+                    return Token::ColonEquals(Source::new(start, 2));
                 } else {
                     unimplemented!()
                 }
             }
             '0'..='9' => {
-                return Some(self.integer(start));
+                return self.integer(start);
             }
             'a'..='z' | 'A'..='Z' => {
-                return Some(self.ident_or_keyword(start));
+                return self.ident_or_keyword(start);
             }
             ' ' | '\t' | '\n' => {
-                return Some(self.whitespace(start));
+                return self.whitespace(start);
             }
             _ => {
                 if self.operators.contains(&ch) {
-                    return Some(self.operator(start));
+                    return self.operator(start);
                 } else {
                     unimplemented!()
                 }
@@ -137,7 +140,17 @@ impl<'a> Iterator for Lexer<'a> {
     type Item = Token;
 
     fn next(&mut self) -> Option<Self::Item> {
-        self.get_token()
+        loop {
+            match self.get_token() {
+                // drop non-semantic tokens
+                Token::Whitespace(_) => {}
+                Token::Comment(_, _) => {}
+                // stop at End of Input
+                Token::EndOfInput => return None,
+                // produce value
+                tok => return Some(tok),
+            }
+        }
     }
 }
 

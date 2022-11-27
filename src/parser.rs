@@ -37,18 +37,6 @@ impl<'a> Parser<'a> {
         }
     }
     fn peek(&mut self) -> &mut Token {
-        // drop non-semantic tokens
-        loop {
-            match self.tokens.peek() {
-                Some(Token::Whitespace(_)) => {
-                    self.advance();
-                }
-                Some(Token::Comment(_, _)) => {
-                    self.advance();
-                }
-                _ => break,
-            }
-        }
         self.tokens.peek_mut().unwrap_or(&mut self.eof)
     }
     fn advance(&mut self) -> Token {
