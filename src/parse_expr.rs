@@ -1,9 +1,7 @@
-use crate::compiler::CompileError;
-use crate::compiler::CompileResult;
-use crate::compiler::Compiler;
-use crate::ir::Value;
+use crate::compiler::{CompileResult, Compiler};
 use crate::ir::IR;
 use crate::source::Source;
+use crate::value::Value;
 
 #[derive(Debug, PartialEq, Clone, Copy)]
 pub enum Expr {

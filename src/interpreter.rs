@@ -1,0 +1,32 @@
+use crate::{ir::IR, value::Value};
+
+#[derive(Debug)]
+pub struct Interpreter {
+    stack: Vec<Value>,
+}
+
+#[derive(Debug, PartialEq, Clone)]
+pub enum RuntimeError {}
+
+#[derive(Debug, PartialEq, Clone)]
+pub enum Eval {
+    Ok,
+    Error(RuntimeError),
+}
+
+impl Interpreter {
+    pub fn program(program: Vec<IR>) -> Result<Value, RuntimeError> {
+        let mut ctx = Interpreter { stack: Vec::new() };
+        for stmt in program.iter() {
+            match stmt.eval(&mut ctx) {
+                Eval::Ok => continue,
+                Eval::Error(err) => return Err(err),
+            }
+        }
+        ctx.stack.pop().map(Ok).unwrap_or(Ok(Value::Unit))
+    }
+
+    pub fn push(&mut self, value: Value) {
+        self.stack.push(value)
+    }
+}
