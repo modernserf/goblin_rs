@@ -1,3 +1,5 @@
+use std::collections::HashSet;
+
 use crate::source::Source;
 
 #[derive(Debug, PartialEq, Clone)]
@@ -8,6 +10,7 @@ pub enum Token {
     Identifier(String, Source),
     Let(Source),
     ColonEquals(Source),
+    Operator(String, Source),
     EndOfInput,
 }
 
@@ -15,12 +18,16 @@ type CharIter<'a> = std::iter::Peekable<std::iter::Enumerate<std::str::Chars<'a>
 
 pub struct Lexer<'a> {
     chars: CharIter<'a>,
+    operators: HashSet<char>,
 }
 
 impl<'a> Lexer<'a> {
     pub fn from_string(string: &str) -> Lexer {
         let chars = string.chars().enumerate().peekable();
-        Lexer { chars }
+        Lexer {
+            chars,
+            operators: HashSet::from_iter("~!@$%^&*-+=|/,<>".chars()),
+        }
     }
     fn get_token(&mut self) -> Option<Token> {
         let (start, ch) = self.chars.peek()?.to_owned();
@@ -47,7 +54,13 @@ impl<'a> Lexer<'a> {
             ' ' | '\t' | '\n' => {
                 return Some(self.whitespace(start));
             }
-            _ => unimplemented!(),
+            _ => {
+                if self.operators.contains(&ch) {
+                    return Some(self.operator(start));
+                } else {
+                    unimplemented!()
+                }
+            }
         }
     }
     fn comment(&mut self, start: usize) -> Token {
@@ -106,6 +119,18 @@ impl<'a> Lexer<'a> {
             _ => Token::Identifier(str, source),
         }
     }
+    fn operator(&mut self, start: usize) -> Token {
+        let mut str = String::new();
+        while let Some((_, ch)) = self.chars.peek() {
+            if !self.operators.contains(ch) {
+                break;
+            }
+            str.push(*ch);
+            self.chars.next();
+        }
+        let source = Source::new(start, str.len());
+        Token::Operator(str, source)
+    }
 }
 
 impl<'a> Iterator for Lexer<'a> {
@@ -143,5 +168,9 @@ pub mod tests {
     fn let_identifiers() {
         lex("let foo_bar := 1
         let baz := foo_bar");
+    }
+    #[test]
+    fn operators() {
+        lex("+ --> !@");
     }
 }

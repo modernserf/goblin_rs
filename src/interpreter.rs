@@ -6,7 +6,9 @@ pub struct Interpreter {
 }
 
 #[derive(Debug, PartialEq, Clone)]
-pub enum RuntimeError {}
+pub enum RuntimeError {
+    DoesNotUnderstand(String),
+}
 
 #[derive(Debug, PartialEq, Clone)]
 pub enum Eval {
@@ -46,5 +48,10 @@ impl Interpreter {
         } else {
             self.stack[idx] = top;
         }
+    }
+    pub fn send(&mut self, selector: &str, arity: usize) -> Eval {
+        let args = self.stack.split_off(self.stack.len() - arity);
+        let target = self.stack.pop().unwrap();
+        target.send(self, selector, &args)
     }
 }

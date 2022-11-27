@@ -11,12 +11,12 @@ mod source;
 mod value;
 
 #[allow(unused)]
-fn run(code: &str) -> value::Value {
+fn run(code: &str) -> Result<value::Value, interpreter::RuntimeError> {
     let lexer = lexer::Lexer::from_string(code);
     let mut parser = parser::Parser::new(lexer);
     let program = parser.program().unwrap();
     let ir = compiler::Compiler::program(program).unwrap();
-    let result = interpreter::Interpreter::program(ir).unwrap();
+    let result = interpreter::Interpreter::program(ir);
     result
 }
 
@@ -26,20 +26,34 @@ fn main() {
 
 #[cfg(test)]
 mod test {
+    use crate::interpreter::RuntimeError;
     use crate::run;
     use crate::value::Value;
 
     #[test]
-    fn smoke_test() {
-        assert_eq!(run("123"), Value::Integer(123));
-        assert_eq!(run("1_000"), Value::Integer(1000));
+    fn literals() {
+        assert_eq!(run("123").unwrap(), Value::Integer(123));
+        assert_eq!(run("1_000").unwrap(), Value::Integer(1000));
+    }
+    #[test]
+    fn assignment() {
         assert_eq!(
             run("
             let x := 2
             let y := 1
             x
-        "),
+        ")
+            .unwrap(),
             Value::Integer(2)
         );
+    }
+    #[test]
+    fn operators() {
+        assert_eq!(run("-10").unwrap(), Value::Integer(-10));
+        assert_eq!(run("- -10").unwrap(), Value::Integer(10));
+        assert_eq!(
+            run("~~10"),
+            Err(RuntimeError::DoesNotUnderstand("~~".to_string()))
+        )
     }
 }

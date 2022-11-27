@@ -60,8 +60,23 @@ impl<'a> Parser<'a> {
             _ => None,
         }
     }
+    fn unary_op_expr(&mut self) -> Option<Expr> {
+        match self.peek() {
+            Token::Operator(value, source) => {
+                let src = *source;
+                let selector = mem::take(value);
+                self.advance();
+                match self.unary_op_expr() {
+                    Some(expr) => Some(Expr::UnaryOp(selector, Box::new(expr), src)),
+                    None => unimplemented!(),
+                }
+            }
+            _ => self.base_expr(),
+        }
+    }
+
     fn expr(&mut self) -> Option<Expr> {
-        self.base_expr()
+        self.unary_op_expr()
     }
 
     fn binding(&mut self) -> Option<Binding> {
