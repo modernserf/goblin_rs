@@ -1,5 +1,3 @@
-use std::collections::HashMap;
-
 use crate::interpreter::{Eval, Interpreter, RuntimeError};
 
 // pub struct Class {
@@ -22,6 +20,16 @@ fn int_class(ctx: &mut Interpreter, selector: &str, target: i64, args: &[Value])
             ctx.push(Value::Integer(-target));
             Eval::Ok
         }
+        "+:" => match args[0] {
+            Value::Integer(r) => {
+                ctx.push(Value::Integer(target + r));
+                Eval::Ok
+            }
+            _ => Eval::Error(RuntimeError::PrimitiveTypeError {
+                expected: "integer".to_string(),
+                received: args[0].clone(),
+            }),
+        },
         _ => Eval::Error(RuntimeError::DoesNotUnderstand(selector.to_string())),
     }
 }

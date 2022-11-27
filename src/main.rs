@@ -48,12 +48,18 @@ mod test {
         );
     }
     #[test]
-    fn operators() {
+    fn unary_operators() {
         assert_eq!(run("-10").unwrap(), Value::Integer(-10));
         assert_eq!(run("- -10").unwrap(), Value::Integer(10));
         assert_eq!(
             run("~~10"),
             Err(RuntimeError::DoesNotUnderstand("~~".to_string()))
         )
+    }
+
+    #[test]
+    fn binary_operators() {
+        assert_eq!(run("1 + 2 + 3").unwrap(), Value::Integer(6));
+        assert_eq!(run("1 + 2 + -3").unwrap(), Value::Integer(0));
     }
 }

@@ -8,6 +8,7 @@ pub struct Interpreter {
 #[derive(Debug, PartialEq, Clone)]
 pub enum RuntimeError {
     DoesNotUnderstand(String),
+    PrimitiveTypeError { expected: String, received: Value },
 }
 
 #[derive(Debug, PartialEq, Clone)]

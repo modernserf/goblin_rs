@@ -8,6 +8,12 @@ pub enum Expr {
     Integer(u64, Source),
     Identifier(String, Source),
     UnaryOp(String, Box<Expr>, Source),
+    BinaryOp {
+        selector: String,
+        target: Box<Expr>,
+        operand: Box<Expr>,
+        source: Source,
+    },
 }
 
 impl Expr {
@@ -24,6 +30,18 @@ impl Expr {
             Expr::UnaryOp(op, expr, _) => {
                 let mut value = expr.compile(compiler)?;
                 value.push(IR::Send(op.to_string(), 0));
+                Ok(value)
+            }
+            Expr::BinaryOp {
+                selector,
+                target,
+                operand,
+                source,
+            } => {
+                let mut value = target.compile(compiler)?;
+                let mut right = operand.compile(compiler)?;
+                value.append(&mut right);
+                value.push(IR::Send(selector.to_string(), 1));
                 Ok(value)
             }
         }

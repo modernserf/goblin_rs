@@ -6,10 +6,21 @@ use crate::{
 };
 use std::mem;
 
-#[derive(Debug, Clone, Copy, PartialEq)]
+#[derive(Debug, Clone, PartialEq)]
 pub enum ParseError {
     ExpectedEndOfInput,
+    Expected(String),
 }
+
+fn expect<T>(value: ParseOpt<T>, error_msg: &str) -> ParseResult<T> {
+    match value? {
+        Some(x) => Ok(x),
+        None => Err(ParseError::Expected(error_msg.to_string())),
+    }
+}
+
+type ParseResult<T> = Result<T, ParseError>;
+type ParseOpt<T> = Result<Option<T>, ParseError>;
 
 type TokenIter<'a> = std::iter::Peekable<Lexer<'a>>;
 
@@ -43,76 +54,107 @@ impl<'a> Parser<'a> {
     fn advance(&mut self) -> Token {
         self.tokens.next().unwrap_or(Token::EndOfInput)
     }
-    fn base_expr(&mut self) -> Option<Expr> {
+    fn accept_token(&mut self, f: fn(t: &Token) -> bool) -> bool {
+        if f(self.peek()) {
+            self.advance();
+            return true;
+        }
+        return false;
+    }
+    fn expect_token(&mut self, error_msg: &str, f: fn(t: &Token) -> bool) -> ParseResult<()> {
+        if f(self.peek()) {
+            self.advance();
+            return Ok(());
+        }
+        return Err(ParseError::Expected(error_msg.to_string()));
+    }
+    fn base_expr(&mut self) -> ParseOpt<Expr> {
         match self.peek() {
             Token::Integer(value, source) => {
                 let val = *value;
                 let src = *source;
                 self.advance();
-                Some(Expr::Integer(val, src))
+                Ok(Some(Expr::Integer(val, src)))
             }
             Token::Identifier(value, source) => {
                 let key = mem::take(value);
                 let src = *source;
                 self.advance();
-                Some(Expr::Identifier(key, src))
+                Ok(Some(Expr::Identifier(key, src)))
             }
-            _ => None,
+            _ => Ok(None),
         }
     }
-    fn unary_op_expr(&mut self) -> Option<Expr> {
+    fn unary_op_expr(&mut self) -> ParseOpt<Expr> {
         match self.peek() {
             Token::Operator(value, source) => {
                 let src = *source;
                 let selector = mem::take(value);
                 self.advance();
-                match self.unary_op_expr() {
-                    Some(expr) => Some(Expr::UnaryOp(selector, Box::new(expr), src)),
-                    None => unimplemented!(),
-                }
+                let expr = expect(self.unary_op_expr(), "expr")?;
+                Ok(Some(Expr::UnaryOp(selector, Box::new(expr), src)))
             }
             _ => self.base_expr(),
         }
     }
-
-    fn expr(&mut self) -> Option<Expr> {
-        self.unary_op_expr()
+    fn binary_op_expr(&mut self) -> ParseOpt<Expr> {
+        let mut expr = match self.unary_op_expr()? {
+            Some(expr) => expr,
+            None => return Ok(None),
+        };
+        while let Token::Operator(value, source) = self.peek() {
+            let src = *source;
+            let mut selector = mem::take(value);
+            selector.push(':');
+            self.advance();
+            let operand = expect(self.unary_op_expr(), "expr")?;
+            expr = Expr::BinaryOp {
+                selector,
+                target: Box::new(expr),
+                operand: Box::new(operand),
+                source: src,
+            }
+        }
+        Ok(Some(expr))
     }
 
-    fn binding(&mut self) -> Option<Binding> {
+    fn expr(&mut self) -> ParseOpt<Expr> {
+        self.binary_op_expr()
+    }
+
+    fn binding(&mut self) -> ParseOpt<Binding> {
         match self.peek() {
             Token::Identifier(value, source) => {
                 let key = mem::take(value);
                 let src = *source;
                 self.advance();
-                Some(Binding::Identifier(key, src))
+                Ok(Some(Binding::Identifier(key, src)))
             }
-            _ => None,
+            _ => Ok(None),
         }
     }
-    fn stmt(&mut self) -> Option<Stmt> {
+    fn stmt(&mut self) -> ParseOpt<Stmt> {
         match self.peek() {
             Token::Let(_) => {
                 self.advance();
-                // TODO: parse errors
-                let binding = self.binding().unwrap();
-                match self.peek() {
-                    Token::ColonEquals(_) => self.advance(),
-                    _ => unimplemented!(),
-                };
-                let expr = self.expr().unwrap();
+                let binding = expect(self.binding(), "binding")?;
+                self.expect_token("colon equals", |t| match t {
+                    Token::ColonEquals(_) => true,
+                    _ => false,
+                })?;
+                let expr = expect(self.expr(), "expr")?;
 
-                Some(Stmt::Let(binding, expr))
+                Ok(Some(Stmt::Let(binding, expr)))
             }
-            _ => {
-                let expr = self.expr()?;
-                Some(Stmt::Expr(expr))
-            }
+            _ => match self.expr()? {
+                Some(expr) => Ok(Some(Stmt::Expr(expr))),
+                None => Ok(None),
+            },
         }
     }
     pub fn program(&mut self) -> Result<Vec<Stmt>, ParseError> {
         let mut out = Vec::new();
-        while let Some(stmt) = self.stmt() {
+        while let Some(stmt) = self.stmt()? {
             out.push(stmt)
         }
         if self.advance() == Token::EndOfInput {
