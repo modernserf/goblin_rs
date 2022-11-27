@@ -2,6 +2,8 @@ use crate::source::Source;
 
 #[derive(Debug, PartialEq, Clone)]
 pub enum Token {
+    Comment(String, Source),
+    Whitespace(Source),
     Integer(u64, Source),
     EndOfInput,
 }
@@ -18,39 +20,62 @@ impl<'a> Lexer<'a> {
         Lexer { chars }
     }
     fn get_token(&mut self) -> Option<Token> {
-        let (_, ch) = self.chars.peek()?;
+        let (start, ch) = self.chars.peek()?.to_owned();
         match ch {
-            // TODO: match specific chars
+            '#' => {
+                self.chars.next();
+                Some(self.comment(start))
+            }
             _ => {
                 if ch.is_numeric() {
-                    return self.integer();
+                    return Some(self.integer(start));
+                } else if ch.is_whitespace() {
+                    return Some(self.whitespace(start));
                 } else {
                     unimplemented!();
                 }
             }
         }
     }
-    fn integer(&mut self) -> Option<Token> {
-        let start = self.chars.peek()?.0;
+    fn comment(&mut self, start: usize) -> Token {
+        let mut str = String::new();
+        while let Some((_, ch)) = self.chars.peek() {
+            if *ch == '\n' {
+                break;
+            }
+            str.push(*ch);
+            self.chars.next();
+        }
+        let len = str.len();
+        Token::Comment(str, Source::new(start, len))
+    }
+    fn whitespace(&mut self, start: usize) -> Token {
+        let mut length = 0;
+        while let Some((_, ch)) = self.chars.peek() {
+            if !ch.is_whitespace() {
+                break;
+            }
+            length += 1;
+            self.chars.next();
+        }
+        Token::Whitespace(Source::new(start, length))
+    }
+    fn integer(&mut self, start: usize) -> Token {
         let mut value: u64 = 0;
         let mut length = 0;
-        loop {
-            if let Some((_, ch)) = self.chars.peek() {
-                if let Some(digit) = ch.to_digit(10) {
-                    value = (value * 10) + (digit as u64);
-                    length += 1;
-                    self.chars.next();
-                    continue;
-                } else if *ch == '_' {
-                    self.chars.next();
-                    length += 1;
-                    continue;
-                }
+        while let Some((_, ch)) = self.chars.peek() {
+            if let Some(digit) = ch.to_digit(10) {
+                value = (value * 10) + (digit as u64);
+                length += 1;
+                self.chars.next();
+            } else if *ch == '_' {
+                length += 1;
+                self.chars.next();
+            } else {
+                break;
             }
-            break;
         }
-
-        Some(Token::Integer(value, Source::new(start, length)))
+        Token::Integer(value, Source::new(start, length))
     }
 }
 
@@ -77,5 +102,12 @@ pub mod tests {
         lex("0");
         lex("23");
         lex("1_000");
+    }
+
+    #[test]
+    fn numbers_comments_whitespace() {
+        lex("");
+        lex("# this is a comment");
+        lex("123 456 # comment\n789");
     }
 }

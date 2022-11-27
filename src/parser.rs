@@ -24,7 +24,18 @@ impl<'a> Parser<'a> {
         }
     }
     fn peek(&mut self) -> &mut Token {
-        // TODO: drop whitespace, comments
+        // drop non-semantic tokens
+        loop {
+            match self.tokens.peek() {
+                Some(Token::Whitespace(_)) => {
+                    self.advance();
+                }
+                Some(Token::Comment(_, _)) => {
+                    self.advance();
+                }
+                _ => break,
+            }
+        }
         self.tokens.peek_mut().unwrap_or(&mut self.eof)
     }
     fn advance(&mut self) -> Token {
@@ -70,5 +81,11 @@ pub mod tests {
     fn numbers() {
         assert!(parse("0").is_ok());
         assert!(parse("123_45").is_ok());
+        assert!(parse(
+            "123 # a comment
+            123_45
+            "
+        )
+        .is_ok())
     }
 }
