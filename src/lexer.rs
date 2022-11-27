@@ -5,6 +5,9 @@ pub enum Token {
     Comment(String, Source),
     Whitespace(Source),
     Integer(u64, Source),
+    Identifier(String, Source),
+    Let(Source),
+    ColonEquals(Source),
     EndOfInput,
 }
 
@@ -26,15 +29,25 @@ impl<'a> Lexer<'a> {
                 self.chars.next();
                 Some(self.comment(start))
             }
-            _ => {
-                if ch.is_numeric() {
-                    return Some(self.integer(start));
-                } else if ch.is_whitespace() {
-                    return Some(self.whitespace(start));
+            ':' => {
+                self.chars.next();
+                if let Some((_, '=')) = self.chars.peek() {
+                    self.chars.next();
+                    return Some(Token::ColonEquals(Source::new(start, 2)));
                 } else {
-                    unimplemented!();
+                    unimplemented!()
                 }
             }
+            '0'..='9' => {
+                return Some(self.integer(start));
+            }
+            'a'..='z' | 'A'..='Z' => {
+                return Some(self.ident_or_keyword(start));
+            }
+            ' ' | '\t' | '\n' => {
+                return Some(self.whitespace(start));
+            }
+            _ => unimplemented!(),
         }
     }
     fn comment(&mut self, start: usize) -> Token {
@@ -77,6 +90,22 @@ impl<'a> Lexer<'a> {
         }
         Token::Integer(value, Source::new(start, length))
     }
+    fn ident_or_keyword(&mut self, start: usize) -> Token {
+        let mut str = String::new();
+        while let Some((_, ch)) = self.chars.peek() {
+            if ch.is_alphabetic() || ch.is_numeric() || *ch == '_' {
+                str.push(*ch);
+                self.chars.next();
+            } else {
+                break;
+            }
+        }
+        let source = Source::new(start, str.len());
+        match str.as_str() {
+            "let" => Token::Let(source),
+            _ => Token::Identifier(str, source),
+        }
+    }
 }
 
 impl<'a> Iterator for Lexer<'a> {
@@ -109,5 +138,10 @@ pub mod tests {
         lex("");
         lex("# this is a comment");
         lex("123 456 # comment\n789");
+    }
+    #[test]
+    fn let_identifiers() {
+        lex("let foo_bar := 1
+        let baz := foo_bar");
     }
 }

@@ -1,21 +1,43 @@
-use crate::{ir::IR, parse_stmt::Stmt};
+use std::collections::HashMap;
 
-pub struct Compiler {}
+use crate::{
+    ir::IR,
+    parse_stmt::Stmt,
+    scope::{Scope, ScopeRecord, ScopeType},
+    source::Source,
+};
 
-#[derive(Debug, PartialEq, Clone, Copy)]
-pub enum CompileError {}
+pub struct Compiler {
+    scope: Scope,
+}
+
+#[derive(Debug, PartialEq, Clone)]
+pub enum CompileError {
+    UnknownIdentifier(String, Source),
+}
 
 pub type CompileResult = Result<Vec<IR>, CompileError>;
 
 impl Compiler {
+    fn new() -> Self {
+        Compiler {
+            scope: Scope::root(),
+        }
+    }
     pub fn program(program: Vec<Stmt>) -> CompileResult {
-        let mut compiler = Compiler {};
+        let mut compiler = Compiler::new();
         let mut out = Vec::new();
         for stmt in program.iter() {
             let mut res = stmt.compile(&mut compiler)?;
             out.append(&mut res)
         }
         Ok(out)
+    }
+    pub fn get(&self, key: &str) -> Option<ScopeRecord> {
+        self.scope.get(key)
+    }
+    pub fn add_let(&mut self, key: String) -> ScopeRecord {
+        self.scope.add(key, ScopeType::Let)
     }
 }
 

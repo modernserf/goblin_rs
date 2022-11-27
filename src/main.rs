@@ -2,9 +2,11 @@ mod compiler;
 mod interpreter;
 mod ir;
 mod lexer;
+mod parse_binding;
 mod parse_expr;
 mod parse_stmt;
 mod parser;
+mod scope;
 mod source;
 mod value;
 
@@ -31,5 +33,13 @@ mod test {
     fn smoke_test() {
         assert_eq!(run("123"), Value::Integer(123));
         assert_eq!(run("1_000"), Value::Integer(1000));
+        assert_eq!(
+            run("
+            let x := 2
+            let y := 1
+            x
+        "),
+            Value::Integer(2)
+        );
     }
 }

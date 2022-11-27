@@ -29,4 +29,22 @@ impl Interpreter {
     pub fn push(&mut self, value: Value) {
         self.stack.push(value)
     }
+    // TODO: convert frame-relative address to absolute address
+    fn local(&self, index: usize) -> usize {
+        index
+    }
+    pub fn get_local(&mut self, index: usize) {
+        let idx = self.local(index);
+        let value = self.stack[idx].clone();
+        self.stack.push(value);
+    }
+    pub fn assign(&mut self, index: usize) {
+        let idx = self.local(index);
+        let top = self.stack.pop().unwrap();
+        if idx == self.stack.len() {
+            self.stack.push(top);
+        } else {
+            self.stack[idx] = top;
+        }
+    }
 }

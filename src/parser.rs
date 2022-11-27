@@ -1,8 +1,10 @@
 use crate::{
     lexer::{Lexer, Token},
+    parse_binding::Binding,
     parse_expr::Expr,
     parse_stmt::Stmt,
 };
+use std::mem;
 
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub enum ParseError {
@@ -49,12 +51,49 @@ impl<'a> Parser<'a> {
                 self.advance();
                 Some(Expr::Integer(val, src))
             }
+            Token::Identifier(value, source) => {
+                let key = mem::take(value);
+                let src = *source;
+                self.advance();
+                Some(Expr::Identifier(key, src))
+            }
+            _ => None,
+        }
+    }
+    fn expr(&mut self) -> Option<Expr> {
+        self.base_expr()
+    }
+
+    fn binding(&mut self) -> Option<Binding> {
+        match self.peek() {
+            Token::Identifier(value, source) => {
+                let key = mem::take(value);
+                let src = *source;
+                self.advance();
+                Some(Binding::Identifier(key, src))
+            }
             _ => None,
         }
     }
     fn stmt(&mut self) -> Option<Stmt> {
-        let expr = self.base_expr()?;
-        Some(Stmt::Expr(expr))
+        match self.peek() {
+            Token::Let(_) => {
+                self.advance();
+                // TODO: parse errors
+                let binding = self.binding().unwrap();
+                match self.peek() {
+                    Token::ColonEquals(_) => self.advance(),
+                    _ => unimplemented!(),
+                };
+                let expr = self.expr().unwrap();
+
+                Some(Stmt::Let(binding, expr))
+            }
+            _ => {
+                let expr = self.expr()?;
+                Some(Stmt::Expr(expr))
+            }
+        }
     }
     pub fn program(&mut self) -> Result<Vec<Stmt>, ParseError> {
         let mut out = Vec::new();
