@@ -1,31 +1,9 @@
+use crate::source::Source;
+
 #[derive(Debug, PartialEq, Clone)]
-pub enum TokenValue {
-    Integer(u64),
+pub enum Token {
+    Integer(u64, Source),
     EndOfInput,
-}
-
-#[derive(Debug, PartialEq, Clone)]
-pub struct Token {
-    pub value: TokenValue,
-    pub start: usize,
-    pub length: usize,
-}
-
-impl Token {
-    pub fn integer(value: u64, start: usize, length: usize) -> Self {
-        Token {
-            value: TokenValue::Integer(value),
-            start,
-            length,
-        }
-    }
-    pub fn eof() -> Self {
-        Token {
-            value: TokenValue::EndOfInput,
-            start: 0,
-            length: 0,
-        }
-    }
 }
 
 type CharIter<'a> = std::iter::Peekable<std::iter::Enumerate<std::str::Chars<'a>>>;
@@ -72,7 +50,7 @@ impl<'a> Lexer<'a> {
             break;
         }
 
-        Some(Token::integer(value, start, length))
+        Some(Token::Integer(value, Source::new(start, length)))
     }
 }
 
@@ -96,8 +74,8 @@ pub mod tests {
 
     #[test]
     fn numbers() {
-        assert_eq!(lex("0"), vec![Token::integer(0, 0, 1)]);
-        assert_eq!(lex("23"), vec![Token::integer(23, 0, 2)]);
-        assert_eq!(lex("1_000"), vec![Token::integer(1000, 0, 5)]);
+        lex("0");
+        lex("23");
+        lex("1_000");
     }
 }

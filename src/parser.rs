@@ -1,27 +1,13 @@
-use crate::lexer::{Lexer, Token, TokenValue};
+use crate::{
+    lexer::{Lexer, Token},
+    parse_expr::Expr,
+    parse_stmt::Stmt,
+};
 
-#[derive(Debug, PartialEq, Clone, Copy)]
-pub struct Integer {
-    value: u64,
-    start: usize,
-    length: usize,
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub enum ParseError {
+    ExpectedEndOfInput,
 }
-
-fn integer(value: u64, token: Token) -> Integer {
-    Integer {
-        value,
-        start: token.start,
-        length: token.length,
-    }
-}
-
-trait Expr {}
-
-impl Expr for Integer {}
-
-trait Stmt {}
-
-impl<T: Expr> Stmt for T {}
 
 type TokenIter<'a> = std::iter::Peekable<Lexer<'a>>;
 
@@ -31,40 +17,43 @@ pub struct Parser<'a> {
 }
 
 impl<'a> Parser<'a> {
-    fn new(lexer: Lexer<'a>) -> Parser<'a> {
+    pub fn new(lexer: Lexer<'a>) -> Parser<'a> {
         Parser {
             tokens: lexer.peekable(),
-            eof: Token::eof(),
+            eof: Token::EndOfInput,
         }
     }
-    fn peek(&mut self) -> &Token {
-        // TODO: drop
-        self.tokens.peek().unwrap_or(&self.eof)
+    fn peek(&mut self) -> &mut Token {
+        // TODO: drop whitespace, comments
+        self.tokens.peek_mut().unwrap_or(&mut self.eof)
     }
-    fn next(&mut self) -> Token {
-        self.tokens.next().unwrap_or(Token::eof())
+    fn advance(&mut self) -> Token {
+        self.tokens.next().unwrap_or(Token::EndOfInput)
     }
-    fn base_expr(&mut self) -> Option<impl Expr> {
-        match self.peek().value {
-            TokenValue::Integer(value) => {
-                let token = self.next();
-                Some(integer(value, token))
+    fn base_expr(&mut self) -> Option<Expr> {
+        match self.peek() {
+            Token::Integer(value, source) => {
+                let val = *value;
+                let src = *source;
+                self.advance();
+                Some(Expr::Integer(val, src))
             }
             _ => None,
         }
     }
-    fn stmt(&mut self) -> Option<impl Stmt> {
-        self.base_expr()
+    fn stmt(&mut self) -> Option<Stmt> {
+        let expr = self.base_expr()?;
+        Some(Stmt::Expr(expr))
     }
-    fn program(&mut self) -> Option<Vec<impl Stmt>> {
+    pub fn program(&mut self) -> Result<Vec<Stmt>, ParseError> {
         let mut out = Vec::new();
         while let Some(stmt) = self.stmt() {
             out.push(stmt)
         }
-        if self.next().value == TokenValue::EndOfInput {
-            return Some(out);
+        if self.advance() == Token::EndOfInput {
+            return Ok(out);
         }
-        None
+        Err(ParseError::ExpectedEndOfInput)
     }
 }
 
@@ -72,14 +61,14 @@ impl<'a> Parser<'a> {
 pub mod tests {
     use super::*;
 
-    fn parse(string: &str) -> Option<Vec<impl Stmt>> {
+    fn parse(string: &str) -> Result<Vec<Stmt>, ParseError> {
         let lexer = Lexer::from_string(&string);
         Parser::new(lexer).program()
     }
 
     #[test]
     fn numbers() {
-        assert!(parse("0").is_some());
-        assert!(parse("123_45").is_some());
+        assert!(parse("0").is_ok());
+        assert!(parse("123_45").is_ok());
     }
 }
