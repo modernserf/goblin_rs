@@ -70,6 +70,20 @@ impl<'a> Parser<'a> {
                 self.advance();
                 Ok(Some(Expr::Identifier(key, src)))
             }
+            // TODO: parens create block, not just wrapping expr
+            Token::OpenParen(source) => {
+                let src = *source;
+                self.advance();
+                let mut body = Vec::new();
+                while let Some(stmt) = self.stmt()? {
+                    body.push(stmt);
+                }
+                self.expect_token(")", |t| match t {
+                    Token::CloseParen(_) => true,
+                    _ => false,
+                })?;
+                Ok(Some(Expr::Paren(body, src)))
+            }
             _ => Ok(None),
         }
     }
@@ -126,7 +140,7 @@ impl<'a> Parser<'a> {
             Token::Let(_) => {
                 self.advance();
                 let binding = expect(self.binding(), "binding")?;
-                self.expect_token("colon equals", |t| match t {
+                self.expect_token(":=", |t| match t {
                     Token::ColonEquals(_) => true,
                     _ => false,
                 })?;

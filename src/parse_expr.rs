@@ -1,5 +1,6 @@
 use crate::compiler::{CompileError, CompileResult, Compiler};
 use crate::ir::IR;
+use crate::parse_stmt::Stmt;
 use crate::source::Source;
 use crate::value::Value;
 
@@ -14,6 +15,7 @@ pub enum Expr {
         operand: Box<Expr>,
         source: Source,
     },
+    Paren(Vec<Stmt>, Source),
 }
 
 impl Expr {
@@ -43,6 +45,17 @@ impl Expr {
                 value.append(&mut right);
                 value.push(IR::Send(selector.to_string(), 1));
                 Ok(value)
+            }
+            Expr::Paren(body, _) => {
+                if body.len() == 0 {
+                    return Ok(vec![IR::Constant(Value::Unit)]);
+                }
+                if body.len() == 1 {
+                    if let Stmt::Expr(expr) = &body[0] {
+                        return expr.compile(compiler);
+                    }
+                }
+                unimplemented!()
             }
         }
     }

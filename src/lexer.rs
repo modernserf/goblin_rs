@@ -11,6 +11,8 @@ pub enum Token {
     Let(Source),
     ColonEquals(Source),
     Operator(String, Source),
+    OpenParen(Source),
+    CloseParen(Source),
     EndOfInput,
 }
 
@@ -38,6 +40,14 @@ impl<'a> Lexer<'a> {
             '#' => {
                 self.chars.next();
                 self.comment(start)
+            }
+            '(' => {
+                self.chars.next();
+                return Token::OpenParen(Source::new(start, 1));
+            }
+            ')' => {
+                self.chars.next();
+                return Token::CloseParen(Source::new(start, 1));
             }
             ':' => {
                 self.chars.next();

@@ -5,6 +5,7 @@ use crate::{
     parse_expr::Expr,
 };
 
+#[derive(Debug, PartialEq, Clone)]
 pub enum Stmt {
     Expr(Expr),
     Let(Binding, Expr),

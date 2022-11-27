@@ -31,6 +31,11 @@ mod test {
     use crate::value::Value;
 
     #[test]
+    fn empty_program() {
+        assert_eq!(run(""), Ok(Value::Unit));
+    }
+
+    #[test]
     fn literals() {
         assert_eq!(run("123").unwrap(), Value::Integer(123));
         assert_eq!(run("1_000").unwrap(), Value::Integer(1000));
@@ -61,5 +66,16 @@ mod test {
     fn binary_operators() {
         assert_eq!(run("1 + 2 + 3").unwrap(), Value::Integer(6));
         assert_eq!(run("1 + 2 + -3").unwrap(), Value::Integer(0));
+    }
+    #[test]
+    fn parens() {
+        assert_eq!(run("1 + (2 + 3)").unwrap(), Value::Integer(6));
+        assert_eq!(
+            run("1 + ()"),
+            Err(RuntimeError::PrimitiveTypeError {
+                expected: "integer".to_string(),
+                received: Value::Unit
+            })
+        )
     }
 }
