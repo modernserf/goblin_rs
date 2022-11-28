@@ -1,8 +1,9 @@
 use crate::{
     lexer::{Lexer, Token},
     parse_binding::Binding,
-    parse_expr::Expr,
+    parse_expr::{Expr, SendBuilder},
     parse_stmt::Stmt,
+    source::Source,
 };
 use std::mem;
 
@@ -10,6 +11,8 @@ use std::mem;
 pub enum ParseError {
     ExpectedEndOfInput,
     Expected(String),
+    ExpectedPairGotKey(String),
+    DuplicateKey(String),
 }
 
 fn expect<T>(value: ParseOpt<T>, error_msg: &str) -> ParseResult<T> {
@@ -19,7 +22,7 @@ fn expect<T>(value: ParseOpt<T>, error_msg: &str) -> ParseResult<T> {
     }
 }
 
-type ParseResult<T> = Result<T, ParseError>;
+pub type ParseResult<T> = Result<T, ParseError>;
 type ParseOpt<T> = Result<Option<T>, ParseError>;
 
 type TokenIter<'a> = std::iter::Peekable<Lexer<'a>>;
@@ -42,20 +45,47 @@ impl<'a> Parser<'a> {
     fn advance(&mut self) -> Token {
         self.tokens.next().unwrap_or(Token::EndOfInput)
     }
-    fn accept_token(&mut self, f: fn(t: &Token) -> bool) -> bool {
-        if f(self.peek()) {
-            self.advance();
-            return true;
+    fn expect_token(&mut self, expected: &str) -> ParseResult<()> {
+        match (self.peek(), expected) {
+            (Token::CloseParen(_), ")") => {
+                self.advance();
+            }
+            (Token::CloseBrace(_), "}") => {
+                self.advance();
+            }
+            (Token::ColonEquals(_), ":=") => {
+                self.advance();
+            }
+            (Token::Colon(_), ":") => {
+                self.advance();
+            }
+            (_, _) => return Err(ParseError::Expected(expected.to_string())),
         }
-        return false;
+        Ok(())
     }
-    fn expect_token(&mut self, error_msg: &str, f: fn(t: &Token) -> bool) -> ParseResult<()> {
-        if f(self.peek()) {
-            self.advance();
-            return Ok(());
+    fn key(&mut self) -> String {
+        let mut parts = Vec::new();
+
+        loop {
+            match self.peek() {
+                Token::Identifier(key, _) => {
+                    parts.push(mem::take(key));
+                    self.advance();
+                }
+                Token::Operator(key, _) => {
+                    parts.push(mem::take(key));
+                    self.advance();
+                }
+                Token::Integer(value, _) => {
+                    parts.push(value.to_string());
+                    self.advance();
+                }
+                _ => break,
+            }
         }
-        return Err(ParseError::Expected(error_msg.to_string()));
+        parts.join(" ")
     }
+
     fn base_expr(&mut self) -> ParseOpt<Expr> {
         match self.peek() {
             Token::Integer(value, source) => {
@@ -78,15 +108,43 @@ impl<'a> Parser<'a> {
                 while let Some(stmt) = self.stmt()? {
                     body.push(stmt);
                 }
-                self.expect_token(")", |t| match t {
-                    Token::CloseParen(_) => true,
-                    _ => false,
-                })?;
+                self.expect_token(")")?;
                 Ok(Some(Expr::Paren(body, src)))
             }
             _ => Ok(None),
         }
     }
+
+    fn call_expr_body(&mut self, target: Expr, source: Source) -> ParseOpt<Expr> {
+        let mut builder = SendBuilder::new();
+        loop {
+            let key = self.key();
+            if self.expect_token(":").is_ok() {
+                let arg = expect(self.expr(), "expr")?;
+                builder.add_value(key, arg)?;
+            } else if key.len() > 0 {
+                return Ok(Some(builder.build_key(key, target, source)?));
+            } else {
+                break;
+            }
+        }
+        Ok(Some(builder.build(target, source)?))
+    }
+
+    fn call_expr(&mut self) -> ParseOpt<Expr> {
+        let mut expr = match self.base_expr()? {
+            Some(expr) => expr,
+            None => return Ok(None),
+        };
+        while let Token::OpenBrace(src) = self.peek() {
+            let source = *src;
+            self.advance();
+            expr = expect(self.call_expr_body(expr, source), "arg")?;
+            self.expect_token("}")?;
+        }
+        Ok(Some(expr))
+    }
+
     fn unary_op_expr(&mut self) -> ParseOpt<Expr> {
         match self.peek() {
             Token::Operator(value, source) => {
@@ -96,7 +154,7 @@ impl<'a> Parser<'a> {
                 let expr = expect(self.unary_op_expr(), "expr")?;
                 Ok(Some(Expr::UnaryOp(selector, Box::new(expr), src)))
             }
-            _ => self.base_expr(),
+            _ => self.call_expr(),
         }
     }
     fn binary_op_expr(&mut self) -> ParseOpt<Expr> {
@@ -140,10 +198,7 @@ impl<'a> Parser<'a> {
             Token::Let(_) => {
                 self.advance();
                 let binding = expect(self.binding(), "binding")?;
-                self.expect_token(":=", |t| match t {
-                    Token::ColonEquals(_) => true,
-                    _ => false,
-                })?;
+                self.expect_token(":=")?;
                 let expr = expect(self.expr(), "expr")?;
 
                 Ok(Some(Stmt::Let(binding, expr)))
@@ -184,6 +239,15 @@ pub mod tests {
             123_45
             "
         )
-        .is_ok())
+        .is_ok());
+    }
+
+    #[test]
+    fn sends() {
+        assert!(parse("1{key: 2}").is_ok());
+        assert!(parse("1{key}").is_ok());
+        assert!(parse("1{long key 123}").is_ok());
+        assert!(parse("1{: 1}").is_ok());
+        assert!(parse("1{foo: 1 foo: 1}").is_err());
     }
 }

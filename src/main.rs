@@ -78,4 +78,9 @@ mod test {
             })
         )
     }
+    #[test]
+    fn send() {
+        assert_eq!(run("10{-}").unwrap(), Value::Integer(-10));
+        assert_eq!(run("1{+: 2}{+: 3}").unwrap(), Value::Integer(6));
+    }
 }

@@ -1,6 +1,10 @@
+use std::collections::HashMap;
+use std::hash::Hash;
+
 use crate::compiler::{CompileError, CompileResult, Compiler};
 use crate::ir::IR;
 use crate::parse_stmt::Stmt;
+use crate::parser::{ParseError, ParseResult};
 use crate::source::Source;
 use crate::value::Value;
 
@@ -8,6 +12,7 @@ use crate::value::Value;
 pub enum Expr {
     Integer(u64, Source),
     Identifier(String, Source),
+    Paren(Vec<Stmt>, Source),
     UnaryOp(String, Box<Expr>, Source),
     BinaryOp {
         selector: String,
@@ -15,7 +20,12 @@ pub enum Expr {
         operand: Box<Expr>,
         source: Source,
     },
-    Paren(Vec<Stmt>, Source),
+    Send {
+        selector: String,
+        target: Box<Expr>,
+        args: Vec<Expr>,
+        source: Source,
+    },
 }
 
 impl Expr {
@@ -57,6 +67,79 @@ impl Expr {
                 }
                 unimplemented!()
             }
+            Expr::Send {
+                selector,
+                target,
+                args,
+                source,
+            } => {
+                let mut value = target.compile(compiler)?;
+                let arity = args.len();
+                for arg in args.iter() {
+                    let mut result = arg.compile(compiler)?;
+                    value.append(&mut result);
+                }
+                value.push(IR::Send(selector.to_string(), arity));
+                Ok(value)
+            }
         }
+    }
+}
+
+pub struct SendBuilder {
+    args: HashMap<String, SendArg>,
+}
+
+#[derive(Debug, Clone)]
+pub enum SendArg {
+    Value(Expr),
+}
+
+// impl PartialOrd for SendArg {}
+
+impl SendBuilder {
+    pub fn new() -> Self {
+        SendBuilder {
+            args: HashMap::new(),
+        }
+    }
+    pub fn build_key(self, key: String, target: Expr, source: Source) -> ParseResult<Expr> {
+        if self.args.len() > 0 {
+            return Err(ParseError::ExpectedPairGotKey(key));
+        }
+        Ok(Expr::Send {
+            selector: key,
+            target: Box::new(target),
+            args: Vec::new(),
+            source,
+        })
+    }
+    pub fn add_value(&mut self, key: String, value: Expr) -> ParseResult<()> {
+        match self.args.insert(key.to_string(), SendArg::Value(value)) {
+            Some(x) => Err(ParseError::DuplicateKey(key.to_string())),
+            None => Ok(()),
+        }
+    }
+    pub fn build(mut self, target: Expr, source: Source) -> ParseResult<Expr> {
+        let mut selector = String::new();
+        let mut args = Vec::new();
+
+        let mut entries = self.args.into_iter().collect::<Vec<_>>();
+        entries.sort_by(|(a, _), (b, _)| a.cmp(b));
+
+        for (key, arg) in entries {
+            selector.push_str(&key);
+            selector.push(':');
+            match arg {
+                SendArg::Value(val) => args.push(val),
+            }
+        }
+
+        Ok(Expr::Send {
+            selector,
+            target: Box::new(target),
+            args,
+            source,
+        })
     }
 }

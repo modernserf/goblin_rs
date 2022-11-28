@@ -8,11 +8,14 @@ pub enum Token {
     Whitespace(Source),
     Integer(u64, Source),
     Identifier(String, Source),
-    Let(Source),
-    ColonEquals(Source),
     Operator(String, Source),
+    Let(Source),
+    Colon(Source),
+    ColonEquals(Source),
     OpenParen(Source),
     CloseParen(Source),
+    OpenBrace(Source),
+    CloseBrace(Source),
     EndOfInput,
 }
 
@@ -49,13 +52,21 @@ impl<'a> Lexer<'a> {
                 self.chars.next();
                 return Token::CloseParen(Source::new(start, 1));
             }
+            '{' => {
+                self.chars.next();
+                return Token::OpenBrace(Source::new(start, 1));
+            }
+            '}' => {
+                self.chars.next();
+                return Token::CloseBrace(Source::new(start, 1));
+            }
             ':' => {
                 self.chars.next();
                 if let Some((_, '=')) = self.chars.peek() {
                     self.chars.next();
                     return Token::ColonEquals(Source::new(start, 2));
                 } else {
-                    unimplemented!()
+                    return Token::Colon(Source::new(start, 1));
                 }
             }
             '0'..='9' => {
@@ -195,5 +206,9 @@ pub mod tests {
     #[test]
     fn operators() {
         lex("+ --> !@");
+    }
+    #[test]
+    fn sends() {
+        lex("1{key}");
     }
 }
