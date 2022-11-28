@@ -1,4 +1,7 @@
+use std::rc::Rc;
+
 use crate::{
+    class::Class,
     interpreter::{Eval, Interpreter},
     value::Value,
 };
@@ -9,6 +12,8 @@ pub enum IR {
     Local(usize),
     Assign(usize),
     Send(String, usize),
+    Object(Rc<Class>, usize),
+    IVar(usize),
 }
 
 impl IR {
@@ -20,6 +25,8 @@ impl IR {
             IR::Send(selector, arity) => {
                 return ctx.send(selector, *arity);
             }
+            IR::Object(class, arity) => return ctx.object(class, *arity),
+            IR::IVar(index) => ctx.get_ivar(*index),
         };
         Eval::Ok
     }

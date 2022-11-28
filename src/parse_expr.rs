@@ -1,14 +1,14 @@
 use std::collections::HashMap;
-use std::hash::Hash;
 
 use crate::compiler::{CompileError, CompileResult, Compiler};
 use crate::ir::IR;
+use crate::object_builder::ObjectBuilder;
 use crate::parse_stmt::Stmt;
 use crate::parser::{ParseError, ParseResult};
 use crate::source::Source;
 use crate::value::Value;
 
-#[derive(Debug, PartialEq, Clone)]
+#[derive(Debug, Clone)]
 pub enum Expr {
     Integer(u64, Source),
     Identifier(String, Source),
@@ -26,6 +26,7 @@ pub enum Expr {
         args: Vec<Expr>,
         source: Source,
     },
+    Object(ObjectBuilder, Source),
 }
 
 impl Expr {
@@ -36,7 +37,7 @@ impl Expr {
                 Ok(vec![IR::Constant(val)])
             }
             Expr::Identifier(key, src) => match compiler.get(key) {
-                Some(record) => Ok(vec![IR::Local(record.index)]),
+                Some(ir) => Ok(vec![ir]),
                 None => Err(CompileError::UnknownIdentifier(key.to_string(), *src)),
             },
             Expr::UnaryOp(op, expr, _) => {
@@ -82,6 +83,7 @@ impl Expr {
                 value.push(IR::Send(selector.to_string(), arity));
                 Ok(value)
             }
+            Expr::Object(builder, source) => builder.compile(compiler),
         }
     }
 }
@@ -94,8 +96,6 @@ pub struct SendBuilder {
 pub enum SendArg {
     Value(Expr),
 }
-
-// impl PartialOrd for SendArg {}
 
 impl SendBuilder {
     pub fn new() -> Self {

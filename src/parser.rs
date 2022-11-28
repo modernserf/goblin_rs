@@ -1,3 +1,4 @@
+use crate::object_builder::{ObjectBuilder, PairParamsBuilder, ParamsBuilder};
 use crate::{
     lexer::{Lexer, Token},
     parse_binding::Binding,
@@ -50,6 +51,9 @@ impl<'a> Parser<'a> {
             (Token::CloseParen(_), ")") => {
                 self.advance();
             }
+            (Token::OpenBrace(_), "{") => {
+                self.advance();
+            }
             (Token::CloseBrace(_), "}") => {
                 self.advance();
             }
@@ -57,6 +61,9 @@ impl<'a> Parser<'a> {
                 self.advance();
             }
             (Token::Colon(_), ":") => {
+                self.advance();
+            }
+            (Token::CloseBracket(_), "]") => {
                 self.advance();
             }
             (_, _) => return Err(ParseError::Expected(expected.to_string())),
@@ -86,6 +93,49 @@ impl<'a> Parser<'a> {
         parts.join(" ")
     }
 
+    fn param(&mut self, key: String, builder: &mut PairParamsBuilder) -> ParseResult<()> {
+        let binding = expect(self.binding(), "binding")?;
+        builder.add_value(key, binding)?;
+        Ok(())
+    }
+
+    fn params(&mut self) -> ParseResult<ParamsBuilder> {
+        let mut builder = PairParamsBuilder::new();
+        loop {
+            let key = self.key();
+            if self.expect_token(":").is_ok() {
+                self.param(key, &mut builder)?;
+            } else if key.len() > 0 {
+                return Ok(ParamsBuilder::key(key));
+            } else {
+                break;
+            }
+        }
+        Ok(ParamsBuilder::PairBuilder(builder))
+    }
+
+    fn object(&mut self, src: Source) -> ParseResult<Expr> {
+        let mut builder = ObjectBuilder::new();
+        loop {
+            match self.peek() {
+                Token::On(_) => {
+                    self.advance();
+                    self.expect_token("{")?;
+                    let params = self.params()?;
+                    self.expect_token("}")?;
+                    let body = self.body()?;
+                    builder.add_on(params, body)?;
+                }
+                _ => break,
+            }
+        }
+        Ok(Expr::Object(builder, src))
+    }
+
+    fn frame(&mut self, src: Source) -> ParseResult<Expr> {
+        unimplemented!()
+    }
+
     fn base_expr(&mut self) -> ParseOpt<Expr> {
         match self.peek() {
             Token::Integer(value, source) => {
@@ -104,15 +154,27 @@ impl<'a> Parser<'a> {
             Token::OpenParen(source) => {
                 let src = *source;
                 self.advance();
-                let mut body = Vec::new();
-                while let Some(stmt) = self.stmt()? {
-                    body.push(stmt);
-                }
+                let body = self.body()?;
                 self.expect_token(")")?;
                 Ok(Some(Expr::Paren(body, src)))
             }
+            Token::OpenBracket(source) => {
+                let src = *source;
+                self.advance();
+                let expr = match self.peek() {
+                    Token::On(_) => self.object(src)?,
+                    _ => self.frame(src)?,
+                };
+                self.expect_token("]")?;
+                Ok(Some(expr))
+            }
             _ => Ok(None),
         }
+    }
+
+    fn arg(&mut self, builder: &mut SendBuilder, key: String) -> ParseResult<()> {
+        let arg = expect(self.expr(), "expr")?;
+        builder.add_value(key, arg)
     }
 
     fn call_expr_body(&mut self, target: Expr, source: Source) -> ParseOpt<Expr> {
@@ -120,8 +182,7 @@ impl<'a> Parser<'a> {
         loop {
             let key = self.key();
             if self.expect_token(":").is_ok() {
-                let arg = expect(self.expr(), "expr")?;
-                builder.add_value(key, arg)?;
+                self.arg(&mut builder, key)?;
             } else if key.len() > 0 {
                 return Ok(Some(builder.build_key(key, target, source)?));
             } else {
@@ -209,11 +270,15 @@ impl<'a> Parser<'a> {
             },
         }
     }
-    pub fn program(&mut self) -> Result<Vec<Stmt>, ParseError> {
+    pub fn body(&mut self) -> ParseResult<Vec<Stmt>> {
         let mut out = Vec::new();
         while let Some(stmt) = self.stmt()? {
             out.push(stmt)
         }
+        Ok(out)
+    }
+    pub fn program(&mut self) -> Result<Vec<Stmt>, ParseError> {
+        let out = self.body()?;
         if self.advance() == Token::EndOfInput {
             return Ok(out);
         }
@@ -248,6 +313,15 @@ pub mod tests {
         assert!(parse("1{key}").is_ok());
         assert!(parse("1{long key 123}").is_ok());
         assert!(parse("1{: 1}").is_ok());
+        assert!(parse("1{foo: 1 bar: 1}").is_ok());
         assert!(parse("1{foo: 1 foo: 1}").is_err());
+    }
+
+    #[test]
+    fn objects() {
+        assert!(parse("[on {x} 1]").is_ok());
+        assert!(parse("[on {x: x} 1]").is_ok());
+        assert!(parse("[on {x: x} 1]").is_ok());
+        assert!(parse("[on {x: x y: y} x y]").is_ok());
     }
 }

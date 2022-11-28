@@ -1,18 +1,9 @@
-use crate::interpreter::{Eval, Interpreter, RuntimeError};
+use std::rc::Rc;
 
-// pub struct Class {
-//     handlers: HashMap<String, Handler>,
-//     else_handler: Option<Handler>,
-// }
-
-// impl Class {
-//     pub fn new() -> Self {
-//         Class {
-//             handlers: HashMap::new(),
-//             else_handler: None,
-//         }
-//     }
-// }
+use crate::{
+    class::Class,
+    interpreter::{Eval, Interpreter, RuntimeError},
+};
 
 fn int_class(ctx: &mut Interpreter, selector: &str, target: i64, args: &[Value]) -> Eval {
     match selector {
@@ -41,13 +32,20 @@ pub enum Handler {}
 pub enum Value {
     Unit,
     Integer(i64),
+    Object(Rc<Class>, Vec<Value>),
 }
 
 impl Value {
-    pub fn send(&self, ctx: &mut Interpreter, selector: &str, args: &[Value]) -> Eval {
+    pub fn send(&self, ctx: &mut Interpreter, selector: &str, args: Vec<Value>) -> Eval {
         match self {
-            Value::Integer(val) => int_class(ctx, selector, *val, args),
-            _ => Eval::Error(RuntimeError::DoesNotUnderstand(selector.to_string())),
-        }
+            Self::Integer(val) => return int_class(ctx, selector, *val, &args),
+            Self::Object(cls, ivars) => {
+                if let Some(handler) = cls.get(selector) {
+                    return handler.send(ctx, args, ivars);
+                }
+            }
+            _ => (),
+        };
+        Eval::Error(RuntimeError::DoesNotUnderstand(selector.to_string()))
     }
 }

@@ -1,12 +1,13 @@
+mod class;
 mod compiler;
 mod interpreter;
 mod ir;
 mod lexer;
+mod object_builder;
 mod parse_binding;
 mod parse_expr;
 mod parse_stmt;
 mod parser;
-mod scope;
 mod source;
 mod value;
 
@@ -82,5 +83,54 @@ mod test {
     fn send() {
         assert_eq!(run("10{-}").unwrap(), Value::Integer(-10));
         assert_eq!(run("1{+: 2}{+: 3}").unwrap(), Value::Integer(6));
+    }
+
+    #[test]
+    fn object() {
+        assert_eq!(
+            run("
+            let x := [
+                on {} 1
+                on {foo} 2
+                on {bar: arg} arg
+            ]
+            let bar := 3
+            x{} + x{foo} + x{bar: bar}
+        ")
+            .unwrap(),
+            Value::Integer(6)
+        );
+        assert_eq!(
+            run("
+                let x := 1
+                let y := 2
+                let target := [
+                    on {foo: x}
+                        let y := 3
+                        x + y
+                ]
+                let res := target{foo: 10}
+                res + x + y
+            ")
+            .unwrap(),
+            Value::Integer(16)
+        )
+    }
+    #[test]
+    fn closure() {
+        assert_eq!(
+            run("
+            let foo := 2
+            let x := [
+                on {} 1
+                on {foo} foo
+                on {bar: arg} arg
+            ]
+            let bar := 3
+            x{} + x{foo} + x{bar: bar}
+        ")
+            .unwrap(),
+            Value::Integer(6)
+        );
     }
 }

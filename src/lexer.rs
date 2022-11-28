@@ -9,6 +9,7 @@ pub enum Token {
     Integer(u64, Source),
     Identifier(String, Source),
     Operator(String, Source),
+    On(Source),
     Let(Source),
     Colon(Source),
     ColonEquals(Source),
@@ -16,6 +17,8 @@ pub enum Token {
     CloseParen(Source),
     OpenBrace(Source),
     CloseBrace(Source),
+    OpenBracket(Source),
+    CloseBracket(Source),
     EndOfInput,
 }
 
@@ -59,6 +62,14 @@ impl<'a> Lexer<'a> {
             '}' => {
                 self.chars.next();
                 return Token::CloseBrace(Source::new(start, 1));
+            }
+            '[' => {
+                self.chars.next();
+                return Token::OpenBracket(Source::new(start, 1));
+            }
+            ']' => {
+                self.chars.next();
+                return Token::CloseBracket(Source::new(start, 1));
             }
             ':' => {
                 self.chars.next();
@@ -140,6 +151,7 @@ impl<'a> Lexer<'a> {
         let source = Source::new(start, str.len());
         match str.as_str() {
             "let" => Token::Let(source),
+            "on" => Token::On(source),
             _ => Token::Identifier(str, source),
         }
     }
