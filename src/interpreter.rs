@@ -1,23 +1,51 @@
 use std::rc::Rc;
 
 use crate::{
-    class::{Body, Class, Object},
+    class::{Body, Object, RcClass},
     ir::IR,
     value::Value,
 };
 
 #[derive(Debug)]
-pub struct StackFrame {
+pub struct Frame {
     object: Rc<Object>,
     offset: usize,
 }
 
-impl StackFrame {
+impl Frame {
     fn root() -> Self {
-        StackFrame {
+        Frame {
             object: Rc::new(Object::empty()),
             offset: 0,
         }
+    }
+}
+
+#[derive(Debug)]
+struct Frames(Vec<Frame>);
+
+impl Frames {
+    fn new() -> Self {
+        Self(vec![Frame::root()])
+    }
+    fn _last(&self) -> &Frame {
+        self.0.last().unwrap()
+    }
+    fn push(&mut self, object: Rc<Object>, offset: usize) {
+        self.0.push(Frame { object, offset })
+    }
+    fn pop(&mut self) -> usize {
+        let popped = self.0.pop().unwrap();
+        popped.offset
+    }
+    fn local(&self, index: usize) -> usize {
+        self._last().offset + index
+    }
+    fn ivar(&self, index: usize) -> Value {
+        self._last().object.ivar(index)
+    }
+    fn class(&self) -> RcClass {
+        self._last().object.class().clone()
     }
 }
 
@@ -41,14 +69,14 @@ pub enum Eval {
 #[derive(Debug)]
 pub struct Interpreter {
     stack: Vec<Value>,
-    frames: Vec<StackFrame>,
+    frames: Frames,
 }
 
 impl Interpreter {
     fn new() -> Self {
         Self {
             stack: Vec::new(),
-            frames: vec![StackFrame::root()],
+            frames: Frames::new(),
         }
     }
     pub fn program(program: Vec<IR>) -> Result<Value, RuntimeError> {
@@ -90,24 +118,19 @@ impl Interpreter {
         self.stack.pop().map(Ok).unwrap_or(Ok(Value::Unit))
     }
     fn push_frame(&mut self, object: Rc<Object>) {
-        let frame = StackFrame {
-            object,
-            offset: self.stack.len(),
-        };
-        self.frames.push(frame);
+        self.frames.push(object, self.stack.len());
     }
     fn pop_frame(&mut self) {
-        let frame = self.frames.pop().unwrap();
+        let offset = self.frames.pop();
         let result = self.stack.pop().unwrap();
-        self.stack.truncate(frame.offset);
-        self.stack.push(result);
+        self.stack.truncate(offset);
+        self.push(result);
     }
     pub fn push(&mut self, value: Value) {
         self.stack.push(value)
     }
-    // TODO: convert frame-relative address to absolute address
     fn local(&self, index: usize) -> usize {
-        index + self.frames.last().unwrap().offset
+        self.frames.local(index)
     }
     pub fn get_local(&mut self, index: usize) {
         let idx = self.local(index);
@@ -115,8 +138,7 @@ impl Interpreter {
         self.push(value);
     }
     pub fn get_ivar(&mut self, index: usize) {
-        let frame = self.frames.last().unwrap();
-        let value = frame.object.ivar(index);
+        let value = self.frames.ivar(index);
         self.push(value);
     }
     pub fn assign(&mut self, index: usize) {
@@ -133,14 +155,14 @@ impl Interpreter {
         let target = self.stack.pop().unwrap();
         target.send(self, selector, args)
     }
-    pub fn object(&mut self, class: &Rc<Class>, arity: usize) -> Eval {
+    pub fn object(&mut self, class: &RcClass, arity: usize) -> Eval {
         let ivars = self.stack.split_off(self.stack.len() - arity);
         let obj = Value::Object(Rc::new(Object::new(class.clone(), ivars)));
         self.push(obj);
         Eval::Ok
     }
     pub fn self_object(&mut self, arity: usize) -> Eval {
-        let class = self.frames.last().unwrap().object.class();
+        let class = self.frames.class();
         self.object(&class, arity)
     }
 }
