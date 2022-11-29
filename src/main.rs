@@ -161,6 +161,15 @@ mod test {
             ")
             .unwrap(),
             Value::Integer(3)
-        )
+        );
+        assert_eq!(
+            run("
+                let point := [x: 1 y: 2]
+                let other := point{x: 2}
+                point{x} + other{x}
+            ")
+            .unwrap(),
+            Value::Integer(3)
+        );
     }
 }
