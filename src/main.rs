@@ -33,78 +33,78 @@ mod test {
     use crate::run;
     use crate::value::Value;
 
+    fn assert_ok(code: &str, value: Value) {
+        assert_eq!(run(code), Ok(value))
+    }
+    fn assert_err(code: &str, err: RuntimeError) {
+        assert_eq!(run(code), Err(err))
+    }
+
     #[test]
     fn empty_program() {
-        assert_eq!(run(""), Ok(Value::Unit));
+        assert_ok("", Value::Unit)
     }
 
     #[test]
     fn literals() {
-        assert_eq!(run("123").unwrap(), Value::Integer(123));
-        assert_eq!(run("1_000").unwrap(), Value::Integer(1000));
+        assert_ok("123", Value::Integer(123));
+        assert_ok("1_000", Value::Integer(1000));
     }
     #[test]
     fn assignment() {
-        assert_eq!(
-            run("
+        assert_ok(
+            "
             let x := 2
             let y := 1
             x
-        ")
-            .unwrap(),
-            Value::Integer(2)
+        ",
+            Value::Integer(2),
         );
     }
     #[test]
     fn unary_operators() {
-        assert_eq!(run("-10").unwrap(), Value::Integer(-10));
-        assert_eq!(run("- -10").unwrap(), Value::Integer(10));
-        assert_eq!(
-            run("~~10"),
-            Err(RuntimeError::DoesNotUnderstand("~~".to_string()))
-        )
+        assert_ok("-10", Value::Integer(-10));
+        assert_ok("- -10", Value::Integer(10));
+        assert_err("~~10", RuntimeError::DoesNotUnderstand("~~".to_string()))
     }
 
     #[test]
     fn binary_operators() {
-        assert_eq!(run("1 + 2 + 3").unwrap(), Value::Integer(6));
-        assert_eq!(run("1 + 2 + -3").unwrap(), Value::Integer(0));
+        assert_ok("1 + 2 + 3", Value::Integer(6));
+        assert_ok("1 + 2 + -3", Value::Integer(0));
     }
 
     #[test]
     fn floats() {
-        assert_eq!(run("1 + 2.0 + 3").unwrap(), Value::Float(6.0));
+        assert_ok("1 + 2.0 + 3", Value::Float(6.0));
     }
 
     #[test]
     fn strings() {
-        assert_eq!(
-            run("\"hello\" ++ \" world\"").unwrap(),
-            Value::string("hello world")
-        );
+        assert_ok("\"hello\" ++ \" world\"", Value::string("hello world"));
     }
 
     #[test]
     fn parens() {
-        assert_eq!(run("1 + (2 + 3)").unwrap(), Value::Integer(6));
-        assert_eq!(
-            run("1 + ()"),
-            Err(RuntimeError::PrimitiveTypeError {
+        assert_ok("1 + (2 + 3)", Value::Integer(6));
+        assert_err(
+            "1 + ()",
+            RuntimeError::PrimitiveTypeError {
                 expected: "number".to_string(),
-                received: Value::Unit
-            })
+                received: Value::Unit,
+            },
         )
     }
     #[test]
     fn send() {
-        assert_eq!(run("10{-}").unwrap(), Value::Integer(-10));
-        assert_eq!(run("1{+: 2}{+: 3}").unwrap(), Value::Integer(6));
+        assert_ok("10{-}", Value::Integer(-10));
+        assert_ok("1{+: 2}{+: 3}", Value::Integer(6));
     }
 
     #[test]
     fn object() {
-        assert_eq!(
-            run("
+        assert_ok(
+            "
             let x := [
                 on {} 1
                 on {foo} 2
@@ -112,30 +112,28 @@ mod test {
             ]
             let bar := 3
             x{} + x{foo} + x{bar: bar}
-        ")
-            .unwrap(),
-            Value::Integer(6)
+        ",
+            Value::Integer(6),
         );
-        assert_eq!(
-            run("
-                let x := 1
-                let y := 2
-                let target := [
-                    on {foo: x}
-                        let y := 3
-                        x + y
-                ]
-                let res := target{foo: 10}
-                res + x + y
-            ")
-            .unwrap(),
-            Value::Integer(16)
+        assert_ok(
+            "
+            let x := 1
+            let y := 2
+            let target := [
+                on {foo: x}
+                    let y := 3
+                    x + y
+            ]
+            let res := target{foo: 10}
+            res + x + y
+        ",
+            Value::Integer(16),
         )
     }
     #[test]
     fn closure() {
-        assert_eq!(
-            run("
+        assert_ok(
+            "
             let foo := 2
             let x := [
                 on {} 1
@@ -144,68 +142,63 @@ mod test {
             ]
             let bar := 3
             x{} + x{foo} + x{bar: bar}
-        ")
-            .unwrap(),
-            Value::Integer(6)
+        ",
+            Value::Integer(6),
         );
     }
 
     #[test]
     fn frame() {
-        assert_eq!(
-            run("
-                let point := [x: 1 y: 2]
-                point{x} + point{y}
-            ")
-            .unwrap(),
-            Value::Integer(3)
+        assert_ok(
+            "
+            let point := [x: 1 y: 2]
+            point{x} + point{y}
+        ",
+            Value::Integer(3),
         );
-        assert_eq!(
-            run("
-                let point := [x: 1 y: 2]
-                let other := point{x: 2}
-                point{x} + other{x}
-            ")
-            .unwrap(),
-            Value::Integer(3)
+        assert_ok(
+            "
+            let point := [x: 1 y: 2]
+            let other := point{x: 2}
+            point{x} + other{x}
+        ",
+            Value::Integer(3),
         );
     }
 
     #[test]
     fn self_ref() {
-        assert_eq!(
-            run("
-                let target := [
-                    on {x}
-                        self{y}
-                    on {y}
-                        2 
-                ]
-                target{x}
-            ")
-            .unwrap(),
-            Value::Integer(2)
+        assert_ok(
+            "
+            let target := [
+                on {x}
+                    self{y}
+                on {y}
+                    2 
+            ]
+            target{x}
+        ",
+            Value::Integer(2),
         );
     }
 
     #[test]
     fn indirect_self_ref() {
-        assert_eq!(
-            run("
-                let Point := [
-                    on {x: x y: y} [
-                        on {x} 
-                            x
-                        on {x: x'}
-                            Point{x: x' y: y}
-                    ]
+        assert_ok(
+            "
+            let Point := [
+                on {x: x y: y} [
+                    on {x} 
+                        x
+                    on {x: x'}
+                        Point{x: x' y: y}
                 ]
-                let p := Point{x: 1 y: 2}
-                let q := p{x: 3}
-                q{x}
-            ")
-            .unwrap(),
-            Value::Integer(3)
+            ]
+            let p := Point{x: 1 y: 2}
+            let q := p{x: 3}
+            q{x}
+        ",
+            Value::Integer(3),
         )
     }
 }
