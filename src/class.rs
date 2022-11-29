@@ -3,7 +3,7 @@ use std::{collections::HashMap, rc::Rc};
 use crate::{
     interpreter::{Eval, Interpreter},
     ir::IR,
-    value::Value,
+    value::{IVars, Value},
 };
 
 #[derive(Debug, Clone, PartialEq)]
@@ -29,11 +29,13 @@ impl Class {
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum Handler {
-    OnHandler(Vec<Param>, Rc<Vec<IR>>),
+    OnHandler(Vec<Param>, Body),
 }
 
+pub type Body = Rc<Vec<IR>>;
+
 impl Handler {
-    pub fn send(&self, _: &mut Interpreter, args: Vec<Value>, ivars: &[Value]) -> Eval {
+    pub fn send(&self, _: &mut Interpreter, args: Vec<Value>, ivars: &IVars) -> Eval {
         match self {
             Self::OnHandler(params, body) => {
                 if params.len() != args.len() {
@@ -41,7 +43,7 @@ impl Handler {
                 }
                 Eval::Call {
                     args,
-                    ivars: ivars.to_vec(),
+                    ivars: ivars.clone(),
                     body: body.clone(),
                 }
             }

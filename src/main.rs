@@ -8,6 +8,7 @@ mod parse_binding;
 mod parse_expr;
 mod parse_stmt;
 mod parser;
+mod primitive;
 mod source;
 mod value;
 

@@ -1,6 +1,10 @@
 use std::rc::Rc;
 
-use crate::{class::Class, ir::IR, value::Value};
+use crate::{
+    class::{Body, Class},
+    ir::IR,
+    value::{IVars, Value},
+};
 
 #[derive(Debug)]
 pub struct Interpreter {
@@ -10,7 +14,7 @@ pub struct Interpreter {
 
 #[derive(Debug)]
 pub struct StackFrame {
-    ivars: Vec<Value>,
+    ivars: IVars,
     offset: usize,
 }
 
@@ -26,8 +30,8 @@ pub enum Eval {
     Error(RuntimeError),
     Call {
         args: Vec<Value>,
-        ivars: Vec<Value>,
-        body: Rc<Vec<IR>>,
+        ivars: IVars,
+        body: Body,
     },
 }
 
@@ -36,7 +40,7 @@ impl Interpreter {
         Self {
             stack: Vec::new(),
             frames: vec![StackFrame {
-                ivars: Vec::new(),
+                ivars: Rc::new(Vec::new()),
                 offset: 0,
             }],
         }
@@ -79,7 +83,7 @@ impl Interpreter {
     fn result(&mut self) -> Result<Value, RuntimeError> {
         self.stack.pop().map(Ok).unwrap_or(Ok(Value::Unit))
     }
-    fn push_frame(&mut self, ivars: Vec<Value>) {
+    fn push_frame(&mut self, ivars: IVars) {
         let frame = StackFrame {
             offset: self.stack.len(),
             ivars,
@@ -125,7 +129,7 @@ impl Interpreter {
     }
     pub fn object(&mut self, class: &Rc<Class>, arity: usize) -> Eval {
         let ivars = self.stack.split_off(self.stack.len() - arity);
-        let obj = Value::Object(class.clone(), ivars);
+        let obj = Value::Object(class.clone(), Rc::new(ivars));
         self.push(obj);
         Eval::Ok
     }
