@@ -187,4 +187,25 @@ mod test {
             Value::Integer(2)
         );
     }
+
+    #[test]
+    fn indirect_self_ref() {
+        assert_eq!(
+            run("
+                let Point := [
+                    on {x: x y: y} [
+                        on {x} 
+                            x
+                        on {x: x'}
+                            Point{x: x' y: y}
+                    ]
+                ]
+                let p := Point{x: 1 y: 2}
+                let q := p{x: 3}
+                q{x}
+            ")
+            .unwrap(),
+            Value::Integer(3)
+        )
+    }
 }

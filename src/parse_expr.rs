@@ -4,6 +4,7 @@ use crate::compiler::{CompileError, CompileResult, Compiler};
 use crate::frame::Frame;
 use crate::ir::IR;
 use crate::object_builder::ObjectBuilder;
+use crate::parse_binding::Binding;
 use crate::parse_stmt::Stmt;
 use crate::parser::{ParseError, ParseResult};
 use crate::source::Source;
@@ -35,6 +36,13 @@ pub enum Expr {
 }
 
 impl Expr {
+    pub fn compile_self_ref(&self, compiler: &mut Compiler, binding: &Binding) -> CompileResult {
+        match self {
+            Expr::Object(builder, _) => builder.compile(compiler, Some(binding)),
+            _ => self.compile(compiler),
+        }
+    }
+
     pub fn compile(&self, compiler: &mut Compiler) -> CompileResult {
         match self {
             Expr::Integer(value, _) => {
@@ -96,7 +104,7 @@ impl Expr {
                 value.push(IR::Send(selector.to_string(), arity));
                 Ok(value)
             }
-            Expr::Object(builder, _) => builder.compile(compiler),
+            Expr::Object(builder, _) => builder.compile(compiler, None),
             Expr::Frame(frame, _) => frame.compile(compiler),
             Expr::SelfRef(source) => compiler.push_self(*source),
         }

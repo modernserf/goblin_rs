@@ -16,7 +16,7 @@ impl Stmt {
         match self {
             Stmt::Expr(expr) => expr.compile(compiler),
             Stmt::Let(binding, expr) => {
-                let mut value = expr.compile(compiler)?;
+                let mut value = expr.compile_self_ref(compiler, binding)?;
                 match binding {
                     Binding::Identifier(name, _) => {
                         let record = compiler.add_let(name.to_string());

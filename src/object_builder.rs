@@ -2,8 +2,10 @@ use crate::class::{Class, Handler as IRHandler, Param as IRParam};
 use crate::compiler::{CompileResult, Compiler};
 use crate::ir::IR;
 use crate::parse_binding::Binding;
+use crate::parse_expr::Expr;
 use crate::parse_stmt::Stmt;
 use crate::parser::{ParseError, ParseResult};
+use crate::source::Source;
 use std::collections::HashMap;
 
 #[derive(Debug, Clone)]
@@ -19,18 +21,18 @@ impl ObjectBuilder {
             // else_handler: None,
         }
     }
-    pub fn compile(&self, compiler: &mut Compiler) -> CompileResult {
+    pub fn compile(&self, compiler: &mut Compiler, binding: Option<&Binding>) -> CompileResult {
         let mut class = Class::new();
         let mut out = compiler.with_instance(|instance| {
             for (selector, handler) in self.handlers.iter() {
-                instance.with_handler(|mut handler_compiler| {
+                instance.with_handler(|compiler| {
                     let mut ir_params = Vec::new();
                     for param in handler.params.iter() {
                         ir_params.push(IRParam::Value);
                         match param {
                             Param::Value(binding) => match binding {
                                 Binding::Identifier(key, _) => {
-                                    handler_compiler.add_let(key.to_string());
+                                    compiler.add_let(key.to_string());
                                 }
                                 Binding::Placeholder(_) => {}
                             },
@@ -38,8 +40,15 @@ impl ObjectBuilder {
                     }
 
                     let mut body = Vec::new();
+                    if let Some(binding) = binding {
+                        let binding = binding.clone();
+                        let expr = Expr::SelfRef(Source::new(0, 0));
+                        let mut ir = Stmt::Let(binding, expr).compile(compiler)?;
+                        body.append(&mut ir);
+                    }
+
                     for stmt in handler.body.iter() {
-                        let mut ir = stmt.compile(&mut handler_compiler)?;
+                        let mut ir = stmt.compile(compiler)?;
                         body.append(&mut ir);
                     }
 
