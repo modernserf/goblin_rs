@@ -13,6 +13,8 @@ pub struct Class {
     // else_handler: Option<Handler>,
 }
 
+pub type RcClass = Rc<Class>;
+
 impl Class {
     pub fn new() -> Self {
         Class {
@@ -26,11 +28,20 @@ impl Class {
     pub fn get(&self, selector: &str) -> Option<&Handler> {
         self.handlers.get(selector)
     }
+    pub fn rc(self) -> RcClass {
+        Rc::new(self)
+    }
 }
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum Handler {
     OnHandler(Vec<Param>, Body),
+}
+
+impl Handler {
+    pub fn on(params: Vec<Param>, body: Vec<IR>) -> Self {
+        Handler::OnHandler(params, Rc::new(body))
+    }
 }
 
 pub type Body = Rc<Vec<IR>>;
@@ -50,7 +61,7 @@ pub struct Object {
 impl Object {
     pub fn empty() -> Self {
         Self {
-            class: Rc::new(Class::new()),
+            class: Class::new().rc(),
             ivars: Vec::new(),
         }
     }

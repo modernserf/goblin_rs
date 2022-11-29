@@ -1,7 +1,7 @@
-use std::{cell::RefCell, collections::HashMap, rc::Rc};
+use std::{cell::RefCell, collections::HashMap};
 
 use crate::{
-    class::{Class, Handler, Param},
+    class::{Class, Handler, Param, RcClass},
     compiler::{CompileResult, Compiler},
     ir::IR,
     parse_expr::Expr,
@@ -10,17 +10,17 @@ use crate::{
 };
 
 thread_local! {
-    static CACHE : RefCell<HashMap<String, Rc<Class>>> = RefCell::new(HashMap::new());
+    static CACHE : RefCell<HashMap<String, RcClass>> = RefCell::new(HashMap::new());
 }
 
-fn get_cached_class(selector: &str) -> Option<Rc<Class>> {
+fn get_cached_class(selector: &str) -> Option<RcClass> {
     CACHE.with(|cell| {
         let map = cell.borrow();
         map.get(selector).cloned()
     })
 }
 
-fn set_cached_class(selector: &str, class: &Rc<Class>) {
+fn set_cached_class(selector: &str, class: &RcClass) {
     CACHE.with(|cell| {
         let mut map = cell.borrow_mut();
         map.insert(selector.to_string(), class.clone());
@@ -44,7 +44,7 @@ impl Frame {
                 let class = Class::new();
                 // TODO: `:`
 
-                let cls = Rc::new(class);
+                let cls = class.rc();
                 set_cached_class(key, &cls);
                 return Ok(vec![IR::Object(cls, 0)]);
             }
@@ -69,10 +69,7 @@ impl Frame {
                     out.append(&mut ivar);
 
                     // getter
-                    class.add(
-                        key.to_string(),
-                        Handler::OnHandler(vec![], Rc::new(vec![IR::IVar(index)])),
-                    );
+                    class.add(key.to_string(), Handler::on(vec![], vec![IR::IVar(index)]));
 
                     // setter
                     let params = vec![Param::Value];
@@ -86,12 +83,9 @@ impl Frame {
                         }
                     }
                     body.push(IR::SelfObject(arity));
-                    class.add(
-                        format!("{}:", key),
-                        Handler::OnHandler(params, Rc::new(body)),
-                    )
+                    class.add(format!("{}:", key), Handler::on(params, body))
                 }
-                let cls = Rc::new(class);
+                let cls = class.rc();
                 set_cached_class(selector, &cls);
                 out.push(IR::Object(cls, arity));
                 Ok(out)

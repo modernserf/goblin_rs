@@ -23,6 +23,10 @@ impl Default for Value {
 }
 
 impl Value {
+    pub fn string(str: &str) -> Self {
+        Self::String(Rc::new(str.to_string()))
+    }
+
     pub fn send(&self, ctx: &mut Interpreter, selector: &str, args: Vec<Value>) -> Eval {
         match self {
             Self::Integer(target) => int_class(ctx, selector, *target, &args),

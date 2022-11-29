@@ -5,7 +5,6 @@ use crate::parse_binding::Binding;
 use crate::parse_stmt::Stmt;
 use crate::parser::ParseResult;
 use std::collections::HashMap;
-use std::rc::Rc;
 
 #[derive(Debug, Clone)]
 pub struct ObjectBuilder {
@@ -43,15 +42,14 @@ impl ObjectBuilder {
                         body.append(&mut ir);
                     }
 
-                    let handler = IRHandler::OnHandler(ir_params, Rc::new(body));
-                    class.add(selector.clone(), handler);
+                    class.add(selector.clone(), IRHandler::on(ir_params, body));
                     Ok(())
                 })?;
             }
             Ok(())
         })?;
         let arity = out.len();
-        out.push(IR::Object(Rc::new(class), arity));
+        out.push(IR::Object(class.rc(), arity));
         Ok(out)
     }
     pub fn add_on(&mut self, params_builder: ParamsBuilder, body: Vec<Stmt>) -> ParseResult<()> {

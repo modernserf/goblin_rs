@@ -1,5 +1,4 @@
 use std::collections::HashMap;
-use std::rc::Rc;
 
 use crate::compiler::{CompileError, CompileResult, Compiler};
 use crate::frame::Frame;
@@ -46,7 +45,7 @@ impl Expr {
                 Ok(vec![IR::Constant(val)])
             }
             Expr::String(value, _) => {
-                let val = Value::String(Rc::new(value.to_owned()));
+                let val = Value::string(value);
                 Ok(vec![IR::Constant(val)])
             }
             Expr::Identifier(key, src) => match compiler.get(key) {

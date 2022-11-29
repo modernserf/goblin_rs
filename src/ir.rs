@@ -1,7 +1,5 @@
-use std::rc::Rc;
-
 use crate::{
-    class::Class,
+    class::RcClass,
     interpreter::{Eval, Interpreter},
     value::Value,
 };
@@ -12,7 +10,7 @@ pub enum IR {
     Local(usize),
     Assign(usize),
     Send(String, usize),
-    Object(Rc<Class>, usize),
+    Object(RcClass, usize),
     SelfObject(usize),
     IVar(usize),
 }
