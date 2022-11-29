@@ -35,7 +35,13 @@ pub enum Handler {
 pub type Body = Rc<Vec<IR>>;
 
 impl Handler {
-    pub fn send(&self, _: &mut Interpreter, args: Vec<Value>, ivars: &IVars) -> Eval {
+    pub fn send(
+        &self,
+        _: &mut Interpreter,
+        args: Vec<Value>,
+        cls: &Rc<Class>,
+        ivars: &IVars,
+    ) -> Eval {
         match self {
             Self::OnHandler(params, body) => {
                 if params.len() != args.len() {
@@ -43,6 +49,7 @@ impl Handler {
                 }
                 Eval::Call {
                     args,
+                    class: cls.clone(),
                     ivars: ivars.clone(),
                     body: body.clone(),
                 }

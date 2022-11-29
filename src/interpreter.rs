@@ -14,6 +14,7 @@ pub struct Interpreter {
 
 #[derive(Debug)]
 pub struct StackFrame {
+    class: Rc<Class>,
     ivars: IVars,
     offset: usize,
 }
@@ -29,6 +30,7 @@ pub enum Eval {
     Ok,
     Error(RuntimeError),
     Call {
+        class: Rc<Class>,
         args: Vec<Value>,
         ivars: IVars,
         body: Body,
@@ -40,6 +42,7 @@ impl Interpreter {
         Self {
             stack: Vec::new(),
             frames: vec![StackFrame {
+                class: Rc::new(Class::new()),
                 ivars: Rc::new(Vec::new()),
                 offset: 0,
             }],
@@ -59,13 +62,14 @@ impl Interpreter {
                         }
                         Eval::Error(err) => return Err(err),
                         Eval::Call {
+                            class,
                             mut args,
                             ivars,
                             body,
                         } => {
                             *i += 1;
                             let body = body.clone();
-                            ctx.push_frame(ivars);
+                            ctx.push_frame(class, ivars);
                             ctx.stack.append(&mut args);
                             call_stack.push((0, body));
                             continue;
@@ -83,8 +87,9 @@ impl Interpreter {
     fn result(&mut self) -> Result<Value, RuntimeError> {
         self.stack.pop().map(Ok).unwrap_or(Ok(Value::Unit))
     }
-    fn push_frame(&mut self, ivars: IVars) {
+    fn push_frame(&mut self, class: Rc<Class>, ivars: IVars) {
         let frame = StackFrame {
+            class,
             offset: self.stack.len(),
             ivars,
         };
@@ -132,5 +137,9 @@ impl Interpreter {
         let obj = Value::Object(class.clone(), Rc::new(ivars));
         self.push(obj);
         Eval::Ok
+    }
+    pub fn self_object(&mut self, arity: usize) -> Eval {
+        let class = &self.frames.last().unwrap().class.clone();
+        self.object(&class, arity)
     }
 }

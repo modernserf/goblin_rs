@@ -1,5 +1,6 @@
 mod class;
 mod compiler;
+mod frame;
 mod interpreter;
 mod ir;
 mod lexer;
@@ -149,5 +150,17 @@ mod test {
             .unwrap(),
             Value::Integer(6)
         );
+    }
+
+    #[test]
+    fn frame() {
+        assert_eq!(
+            run("
+                let point := [x: 1 y: 2]
+                point{x} + point{y}
+            ")
+            .unwrap(),
+            Value::Integer(3)
+        )
     }
 }

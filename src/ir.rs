@@ -13,6 +13,7 @@ pub enum IR {
     Assign(usize),
     Send(String, usize),
     Object(Rc<Class>, usize),
+    SelfObject(usize),
     IVar(usize),
 }
 
@@ -26,6 +27,7 @@ impl IR {
                 return ctx.send(selector, *arity);
             }
             IR::Object(class, arity) => return ctx.object(class, *arity),
+            IR::SelfObject(arity) => return ctx.self_object(*arity),
             IR::IVar(index) => ctx.get_ivar(*index),
         };
         Eval::Ok

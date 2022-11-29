@@ -1,3 +1,4 @@
+use crate::frame::FrameBuilder;
 use crate::object_builder::{ObjectBuilder, PairParamsBuilder, ParamsBuilder};
 use crate::{
     lexer::{Lexer, Token},
@@ -132,8 +133,20 @@ impl<'a> Parser<'a> {
         Ok(Expr::Object(builder, src))
     }
 
-    fn frame(&mut self, _: Source) -> ParseResult<Expr> {
-        unimplemented!()
+    fn frame(&mut self, source: Source) -> ParseResult<Expr> {
+        let mut builder = FrameBuilder::new();
+        loop {
+            let key = self.key();
+            if self.expect_token(":").is_ok() {
+                let value = expect(self.expr(), "expr")?;
+                builder.add_pair(key, value)?;
+            } else if key.len() > 0 {
+                return builder.build_key(key, source);
+            } else {
+                break;
+            }
+        }
+        builder.build(source)
     }
 
     fn base_expr(&mut self) -> ParseOpt<Expr> {

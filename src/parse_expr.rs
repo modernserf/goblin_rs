@@ -2,6 +2,7 @@ use std::collections::HashMap;
 use std::rc::Rc;
 
 use crate::compiler::{CompileError, CompileResult, Compiler};
+use crate::frame::Frame;
 use crate::ir::IR;
 use crate::object_builder::ObjectBuilder;
 use crate::parse_stmt::Stmt;
@@ -30,6 +31,7 @@ pub enum Expr {
         source: Source,
     },
     Object(ObjectBuilder, Source),
+    Frame(Frame, Source),
 }
 
 impl Expr {
@@ -95,6 +97,7 @@ impl Expr {
                 Ok(value)
             }
             Expr::Object(builder, _) => builder.compile(compiler),
+            Expr::Frame(frame, _) => frame.compile(compiler),
         }
     }
 }

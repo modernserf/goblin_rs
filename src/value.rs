@@ -6,9 +6,6 @@ use crate::{
     primitive::{does_not_understand, float_class, int_class, string_class},
 };
 
-#[derive(Debug)]
-pub enum Handler {}
-
 #[derive(Debug, Clone, PartialEq)]
 pub enum Value {
     Unit,
@@ -28,7 +25,7 @@ impl Value {
             Self::String(target) => string_class(ctx, selector, target, &args),
             Self::Object(cls, ivars) => {
                 if let Some(handler) = cls.get(selector) {
-                    return handler.send(ctx, args, ivars);
+                    return handler.send(ctx, args, cls, ivars);
                 }
                 does_not_understand(selector)
             }
