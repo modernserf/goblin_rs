@@ -1,4 +1,4 @@
-use std::{collections::HashMap, rc::Rc};
+use std::{cell::RefCell, collections::HashMap, rc::Rc};
 
 use crate::{
     class::{Class, Handler, Param},
@@ -9,7 +9,23 @@ use crate::{
     source::Source,
 };
 
-// TODO: use lazy_static for cache
+thread_local! {
+    static CACHE : RefCell<HashMap<String, Rc<Class>>> = RefCell::new(HashMap::new());
+}
+
+fn get_cached_class(selector: &str) -> Option<Rc<Class>> {
+    CACHE.with(|cell| {
+        let map = cell.borrow();
+        map.get(selector).cloned()
+    })
+}
+
+fn set_cached_class(selector: &str, class: &Rc<Class>) {
+    CACHE.with(|cell| {
+        let mut map = cell.borrow_mut();
+        map.insert(selector.to_string(), class.clone());
+    });
+}
 
 #[derive(Debug, Clone)]
 pub enum Frame {
@@ -20,15 +36,32 @@ pub enum Frame {
 impl Frame {
     pub fn compile(&self, compiler: &mut Compiler) -> CompileResult {
         match self {
-            Frame::Key(_) => {
+            Frame::Key(key) => {
+                if let Some(class) = get_cached_class(key) {
+                    return Ok(vec![IR::Object(class, 0)]);
+                }
+
                 let class = Class::new();
                 // TODO: `:`
-                return Ok(vec![IR::Object(Rc::new(class), 0)]);
+
+                let cls = Rc::new(class);
+                set_cached_class(key, &cls);
+                return Ok(vec![IR::Object(cls, 0)]);
             }
-            Frame::Pairs(_, args) => {
-                let mut class = Class::new();
-                let mut out = Vec::new();
+            Frame::Pairs(selector, args) => {
                 let arity = args.len();
+                let mut out = Vec::new();
+                if let Some(class) = get_cached_class(selector) {
+                    // write ivars
+                    for (_, val) in args {
+                        let mut ivar = val.compile(compiler)?;
+                        out.append(&mut ivar);
+                    }
+                    out.push(IR::Object(class, arity));
+                    return Ok(out);
+                }
+
+                let mut class = Class::new();
 
                 for (index, (key, val)) in args.iter().enumerate() {
                     // write ivar
@@ -58,7 +91,9 @@ impl Frame {
                         Handler::OnHandler(params, Rc::new(body)),
                     )
                 }
-                out.push(IR::Object(Rc::new(class), arity));
+                let cls = Rc::new(class);
+                set_cached_class(selector, &cls);
+                out.push(IR::Object(cls, arity));
                 Ok(out)
             }
         }
