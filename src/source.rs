@@ -10,10 +10,12 @@ impl Source {
     }
     // Show the relevant span of source code
     //          ^^^^^^^^^^^^^ like this
+    #[allow(unused)]
     pub fn in_context(code: &str) {
         unimplemented!()
     }
     // get the start & end sources & make one big source
+    #[allow(unused)]
     pub fn span(&self, other: Source) -> Source {
         if other.start < self.start {
             panic!("sources out of order")

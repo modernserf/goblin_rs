@@ -132,7 +132,7 @@ impl<'a> Parser<'a> {
         Ok(Expr::Object(builder, src))
     }
 
-    fn frame(&mut self, src: Source) -> ParseResult<Expr> {
+    fn frame(&mut self, _: Source) -> ParseResult<Expr> {
         unimplemented!()
     }
 
@@ -143,6 +143,12 @@ impl<'a> Parser<'a> {
                 let src = *source;
                 self.advance();
                 Ok(Some(Expr::Integer(val, src)))
+            }
+            Token::Float(value, source) => {
+                let val = *value;
+                let src = *source;
+                self.advance();
+                Ok(Some(Expr::Float(val, src)))
             }
             Token::Identifier(value, source) => {
                 let key = mem::take(value);

@@ -7,6 +7,7 @@ pub enum Token {
     Comment(String, Source),
     Whitespace(Source),
     Integer(u64, Source),
+    Float(f64, Source),
     Identifier(String, Source),
     Operator(String, Source),
     On(Source),
@@ -81,7 +82,7 @@ impl<'a> Lexer<'a> {
                 }
             }
             '0'..='9' => {
-                return self.integer(start);
+                return self.number(start);
             }
             'a'..='z' | 'A'..='Z' => {
                 return self.ident_or_keyword(start);
@@ -121,7 +122,7 @@ impl<'a> Lexer<'a> {
         }
         Token::Whitespace(Source::new(start, length))
     }
-    fn integer(&mut self, start: usize) -> Token {
+    fn number(&mut self, start: usize) -> Token {
         let mut value: u64 = 0;
         let mut length = 0;
         while let Some((_, ch)) = self.chars.peek() {
@@ -132,12 +133,34 @@ impl<'a> Lexer<'a> {
             } else if *ch == '_' {
                 length += 1;
                 self.chars.next();
+            } else if *ch == '.' {
+                length += 1;
+                self.chars.next();
+                return self.float(start, length, value as f64);
             } else {
                 break;
             }
         }
         Token::Integer(value, Source::new(start, length))
     }
+    fn float(&mut self, start: usize, mut length: usize, mut value: f64) -> Token {
+        let mut mult = 0.1;
+        while let Some((_, ch)) = self.chars.peek() {
+            if let Some(digit) = ch.to_digit(10) {
+                value += digit as f64 * mult;
+                mult *= 0.1;
+                length += 1;
+                self.chars.next();
+            } else if *ch == '_' {
+                length += 1;
+                self.chars.next();
+            } else {
+                break;
+            }
+        }
+        Token::Float(value, Source::new(start, length))
+    }
+
     fn ident_or_keyword(&mut self, start: usize) -> Token {
         let mut str = String::new();
         while let Some((_, ch)) = self.chars.peek() {
@@ -195,6 +218,12 @@ pub mod tests {
         Lexer::from_string(&string)
             .into_iter()
             .collect::<Vec<Token>>()
+    }
+
+    #[test]
+    fn test_file() {
+        let file = include_str!("test.gob");
+        lex(file);
     }
 
     #[test]

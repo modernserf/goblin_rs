@@ -33,7 +33,7 @@ pub enum Handler {
 }
 
 impl Handler {
-    pub fn send(&self, ctx: &mut Interpreter, args: Vec<Value>, ivars: &[Value]) -> Eval {
+    pub fn send(&self, _: &mut Interpreter, args: Vec<Value>, ivars: &[Value]) -> Eval {
         match self {
             Self::OnHandler(params, body) => {
                 if params.len() != args.len() {

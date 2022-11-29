@@ -68,13 +68,19 @@ mod test {
         assert_eq!(run("1 + 2 + 3").unwrap(), Value::Integer(6));
         assert_eq!(run("1 + 2 + -3").unwrap(), Value::Integer(0));
     }
+
+    #[test]
+    fn floats() {
+        assert_eq!(run("1 + 2.0 + 3").unwrap(), Value::Float(6.0));
+    }
+
     #[test]
     fn parens() {
         assert_eq!(run("1 + (2 + 3)").unwrap(), Value::Integer(6));
         assert_eq!(
             run("1 + ()"),
             Err(RuntimeError::PrimitiveTypeError {
-                expected: "integer".to_string(),
+                expected: "number".to_string(),
                 received: Value::Unit
             })
         )

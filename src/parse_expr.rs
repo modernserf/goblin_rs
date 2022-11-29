@@ -11,6 +11,7 @@ use crate::value::Value;
 #[derive(Debug, Clone)]
 pub enum Expr {
     Integer(u64, Source),
+    Float(f64, Source),
     Identifier(String, Source),
     Paren(Vec<Stmt>, Source),
     UnaryOp(String, Box<Expr>, Source),
@@ -36,6 +37,10 @@ impl Expr {
                 let val = Value::Integer(*value as i64);
                 Ok(vec![IR::Constant(val)])
             }
+            Expr::Float(value, _) => {
+                let val = Value::Float(*value);
+                Ok(vec![IR::Constant(val)])
+            }
             Expr::Identifier(key, src) => match compiler.get(key) {
                 Some(ir) => Ok(vec![ir]),
                 None => Err(CompileError::UnknownIdentifier(key.to_string(), *src)),
@@ -49,7 +54,7 @@ impl Expr {
                 selector,
                 target,
                 operand,
-                source,
+                ..
             } => {
                 let mut value = target.compile(compiler)?;
                 let mut right = operand.compile(compiler)?;
@@ -72,7 +77,7 @@ impl Expr {
                 selector,
                 target,
                 args,
-                source,
+                ..
             } => {
                 let mut value = target.compile(compiler)?;
                 let arity = args.len();
@@ -83,7 +88,7 @@ impl Expr {
                 value.push(IR::Send(selector.to_string(), arity));
                 Ok(value)
             }
-            Expr::Object(builder, source) => builder.compile(compiler),
+            Expr::Object(builder, _) => builder.compile(compiler),
         }
     }
 }
@@ -116,11 +121,11 @@ impl SendBuilder {
     }
     pub fn add_value(&mut self, key: String, value: Expr) -> ParseResult<()> {
         match self.args.insert(key.to_string(), SendArg::Value(value)) {
-            Some(x) => Err(ParseError::DuplicateKey(key.to_string())),
+            Some(_) => Err(ParseError::DuplicateKey(key.to_string())),
             None => Ok(()),
         }
     }
-    pub fn build(mut self, target: Expr, source: Source) -> ParseResult<Expr> {
+    pub fn build(self, target: Expr, source: Source) -> ParseResult<Expr> {
         let mut selector = String::new();
         let mut args = Vec::new();
 
