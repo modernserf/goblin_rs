@@ -49,6 +49,77 @@ impl Frames {
     }
 }
 
+#[derive(Debug)]
+struct Values(Vec<Value>);
+
+impl Values {
+    fn new() -> Self {
+        Self(Vec::new())
+    }
+    fn pop_args(&mut self, arity: usize) -> Vec<Value> {
+        self.0.split_off(self.0.len() - arity)
+    }
+    fn push_frame(&mut self, frames: &mut Frames, object: Rc<Object>, mut args: Vec<Value>) {
+        let offset = self.0.len();
+        frames.push(object, offset);
+        self.0.append(&mut args);
+    }
+    fn pop_frame(&mut self, frames: &mut Frames) {
+        let offset = frames.pop();
+        let result = self.0.pop().unwrap();
+        self.0.truncate(offset);
+        self.0.push(result);
+    }
+    fn push(&mut self, value: Value) {
+        self.0.push(value);
+    }
+    fn pop(&mut self) -> Value {
+        self.0.pop().unwrap()
+    }
+    fn local(&mut self, frames: &Frames, index: usize) {
+        let index = frames.local(index);
+        let val = self.0[index].clone();
+        self.0.push(val);
+    }
+    fn assign(&mut self, frames: &Frames, index: usize) {
+        let index = frames.local(index);
+        let top = self.0.pop().unwrap();
+        if index == self.0.len() {
+            self.0.push(top);
+        } else {
+            self.0[index] = top;
+        }
+    }
+    fn result(&self) -> Value {
+        self.0.last().cloned().unwrap_or(Value::Unit)
+    }
+}
+
+#[derive(Debug)]
+struct Code(Vec<(usize, Rc<Vec<IR>>)>);
+impl Code {
+    fn root(program: Vec<IR>) -> Self {
+        Self(vec![(0 as usize, Rc::new(program))])
+    }
+    fn peek(&self) -> Option<&IR> {
+        if let Some((i, body)) = self.0.last() {
+            return Some(&body[*i]);
+        }
+        None
+    }
+    fn next(&mut self, ctx: &mut Interpreter) {
+        let (i, body) = self.0.last_mut().unwrap();
+        *i += 1;
+        if *i >= body.len() {
+            ctx.values.pop_frame(&mut ctx.frames);
+            self.0.pop();
+        }
+    }
+    fn push(&mut self, body: Body) {
+        self.0.push((0, body))
+    }
+}
+
 #[derive(Debug, PartialEq, Clone)]
 pub enum RuntimeError {
     DoesNotUnderstand(String),
@@ -68,97 +139,59 @@ pub enum Eval {
 
 #[derive(Debug)]
 pub struct Interpreter {
-    stack: Vec<Value>,
+    values: Values,
     frames: Frames,
 }
 
 impl Interpreter {
     fn new() -> Self {
         Self {
-            stack: Vec::new(),
+            values: Values::new(),
             frames: Frames::new(),
         }
     }
     pub fn program(program: Vec<IR>) -> Result<Value, RuntimeError> {
         let mut ctx = Self::new();
-        let mut call_stack = vec![(0 as usize, Rc::new(program))];
-        loop {
-            if let Some((i, body)) = call_stack.last_mut() {
-                if *i < body.len() {
-                    let stmt = &body[*i];
-                    match stmt.eval(&mut ctx) {
-                        Eval::Ok => {
-                            *i += 1;
-                            continue;
-                        }
-                        Eval::Error(err) => return Err(err),
-                        Eval::Call {
-                            object,
-                            mut args,
-                            body,
-                        } => {
-                            *i += 1;
-                            let body = body.clone();
-                            ctx.push_frame(object);
-                            ctx.stack.append(&mut args);
-                            call_stack.push((0, body));
-                            continue;
-                        }
-                    }
+        let mut code = Code::root(program);
+        while let Some(stmt) = code.peek() {
+            match stmt.eval(&mut ctx) {
+                Eval::Ok => {
+                    code.next(&mut ctx);
+                    continue;
                 }
-                ctx.pop_frame();
-                call_stack.pop();
-            } else {
-                break;
+                Eval::Error(err) => return Err(err),
+                Eval::Call { object, args, body } => {
+                    code.next(&mut ctx);
+                    ctx.values.push_frame(&mut ctx.frames, object, args);
+                    code.push(body.clone());
+                    continue;
+                }
             }
         }
-        ctx.result()
-    }
-    fn result(&mut self) -> Result<Value, RuntimeError> {
-        self.stack.pop().map(Ok).unwrap_or(Ok(Value::Unit))
-    }
-    fn push_frame(&mut self, object: Rc<Object>) {
-        self.frames.push(object, self.stack.len());
-    }
-    fn pop_frame(&mut self) {
-        let offset = self.frames.pop();
-        let result = self.stack.pop().unwrap();
-        self.stack.truncate(offset);
-        self.push(result);
+        Ok(ctx.values.result())
     }
     pub fn push(&mut self, value: Value) {
-        self.stack.push(value)
-    }
-    fn local(&self, index: usize) -> usize {
-        self.frames.local(index)
+        self.values.push(value)
     }
     pub fn get_local(&mut self, index: usize) {
-        let idx = self.local(index);
-        let value = self.stack[idx].clone();
-        self.push(value);
+        self.values.local(&self.frames, index);
     }
     pub fn get_ivar(&mut self, index: usize) {
         let value = self.frames.ivar(index);
-        self.push(value);
+        self.values.push(value);
     }
     pub fn assign(&mut self, index: usize) {
-        let idx = self.local(index);
-        let top = self.stack.pop().unwrap();
-        if idx == self.stack.len() {
-            self.push(top);
-        } else {
-            self.stack[idx] = top;
-        }
+        self.values.assign(&self.frames, index);
     }
     pub fn send(&mut self, selector: &str, arity: usize) -> Eval {
-        let args = self.stack.split_off(self.stack.len() - arity);
-        let target = self.stack.pop().unwrap();
+        let args = self.values.pop_args(arity);
+        let target = self.values.pop();
         target.send(self, selector, args)
     }
     pub fn object(&mut self, class: &RcClass, arity: usize) -> Eval {
-        let ivars = self.stack.split_off(self.stack.len() - arity);
+        let ivars = self.values.pop_args(arity);
         let obj = Value::Object(Rc::new(Object::new(class.clone(), ivars)));
-        self.push(obj);
+        self.values.push(obj);
         Eval::Ok
     }
     pub fn self_object(&mut self, arity: usize) -> Eval {
