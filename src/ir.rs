@@ -13,6 +13,7 @@ pub enum IR {
     Object(RcClass, usize),
     SelfObject(usize),
     IVar(usize),
+    SelfRef,
 }
 
 impl IR {
@@ -24,9 +25,10 @@ impl IR {
             IR::Send(selector, arity) => {
                 return ctx.send(selector, *arity);
             }
-            IR::Object(class, arity) => return ctx.object(class, *arity),
-            IR::SelfObject(arity) => return ctx.self_object(*arity),
+            IR::Object(class, arity) => ctx.object(class, *arity),
+            IR::SelfObject(arity) => ctx.self_object(*arity),
             IR::IVar(index) => ctx.get_ivar(*index),
+            IR::SelfRef => ctx.push_self(),
         };
         Eval::Ok
     }

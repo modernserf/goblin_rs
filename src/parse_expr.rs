@@ -31,6 +31,7 @@ pub enum Expr {
     },
     Object(ObjectBuilder, Source),
     Frame(Frame, Source),
+    SelfRef(Source),
 }
 
 impl Expr {
@@ -97,6 +98,7 @@ impl Expr {
             }
             Expr::Object(builder, _) => builder.compile(compiler),
             Expr::Frame(frame, _) => frame.compile(compiler),
+            Expr::SelfRef(source) => compiler.push_self(*source),
         }
     }
 }

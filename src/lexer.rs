@@ -14,6 +14,7 @@ pub enum Token {
     Operator(String, Source),
     On(Source),
     Let(Source),
+    SelfRef(Source),
     Colon(Source),
     ColonEquals(Source),
     OpenParen(Source),
@@ -209,6 +210,7 @@ impl<'a> Lexer<'a> {
         match str.as_str() {
             "let" => Token::Let(source),
             "on" => Token::On(source),
+            "self" => Token::SelfRef(source),
             _ => Token::Identifier(str, source),
         }
     }

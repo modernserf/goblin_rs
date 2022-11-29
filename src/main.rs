@@ -170,4 +170,21 @@ mod test {
             Value::Integer(3)
         );
     }
+
+    #[test]
+    fn self_ref() {
+        assert_eq!(
+            run("
+                let target := [
+                    on {x}
+                        self{y}
+                    on {y}
+                        2 
+                ]
+                target{x}
+            ")
+            .unwrap(),
+            Value::Integer(2)
+        );
+    }
 }

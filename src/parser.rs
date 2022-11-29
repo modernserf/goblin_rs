@@ -160,6 +160,11 @@ impl<'a> Parser<'a> {
 
     fn base_expr(&mut self) -> ParseOpt<Expr> {
         match self.peek() {
+            Token::SelfRef(source) => {
+                let src = *source;
+                self.advance();
+                Ok(Some(Expr::SelfRef(src)))
+            }
             Token::Integer(value, source) => {
                 let val = *value;
                 let src = *source;

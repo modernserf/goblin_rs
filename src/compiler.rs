@@ -72,11 +72,18 @@ impl Compiler {
         *self = instance.parent;
         Ok(instance.ivars)
     }
+    pub fn push_self(&self, source: Source) -> CompileResult {
+        match self {
+            Self::Root(_) => Err(CompileError::InvalidSelf(source)),
+            Self::Handler(_, _) => Ok(vec![IR::SelfRef]),
+        }
+    }
 }
 
 #[derive(Debug, PartialEq, Clone)]
 pub enum CompileError {
     UnknownIdentifier(String, Source),
+    InvalidSelf(Source),
 }
 
 pub type CompileResult = Result<Vec<IR>, CompileError>;

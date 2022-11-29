@@ -7,16 +7,38 @@ use crate::{
 };
 
 #[derive(Debug)]
-pub struct Frame {
-    object: Rc<Object>,
-    offset: usize,
+
+enum Frame {
+    Root,
+    Instance(usize, Rc<Object>),
 }
 
 impl Frame {
     fn root() -> Self {
-        Frame {
-            object: Rc::new(Object::empty()),
-            offset: 0,
+        Frame::Root
+    }
+    fn offset(&self) -> usize {
+        match self {
+            Self::Root => 0,
+            Self::Instance(offset, _) => *offset,
+        }
+    }
+    fn ivar(&self, index: usize) -> Value {
+        match self {
+            Self::Root => panic!("no ivars"),
+            Self::Instance(_, obj) => obj.ivar(index),
+        }
+    }
+    fn class(&self) -> RcClass {
+        match self {
+            Self::Root => panic!("no class"),
+            Self::Instance(_, obj) => obj.class(),
+        }
+    }
+    fn get_self(&self) -> Value {
+        match self {
+            Self::Root => panic!("no self"),
+            Self::Instance(_, obj) => Value::Object(obj.clone()),
         }
     }
 }
@@ -32,20 +54,23 @@ impl Frames {
         self.0.last().unwrap()
     }
     fn push(&mut self, object: Rc<Object>, offset: usize) {
-        self.0.push(Frame { object, offset })
+        self.0.push(Frame::Instance(offset, object))
     }
     fn pop(&mut self) -> usize {
         let popped = self.0.pop().unwrap();
-        popped.offset
+        popped.offset()
     }
     fn local(&self, index: usize) -> usize {
-        self._last().offset + index
+        self._last().offset() + index
     }
     fn ivar(&self, index: usize) -> Value {
-        self._last().object.ivar(index)
+        self._last().ivar(index)
     }
     fn class(&self) -> RcClass {
-        self._last().object.class().clone()
+        self._last().class()
+    }
+    fn get_self(&self) -> Value {
+        self._last().get_self()
     }
 }
 
@@ -69,6 +94,10 @@ impl Values {
         let result = self.0.pop().unwrap();
         self.0.truncate(offset);
         self.0.push(result);
+    }
+    fn push_self(&mut self, frames: &Frames) {
+        let value = frames.get_self();
+        self.0.push(value);
     }
     fn push(&mut self, value: Value) {
         self.0.push(value);
@@ -189,14 +218,16 @@ impl Interpreter {
         let target = self.values.pop();
         target.send(self, selector, args)
     }
-    pub fn object(&mut self, class: &RcClass, arity: usize) -> Eval {
+    pub fn object(&mut self, class: &RcClass, arity: usize) {
         let ivars = self.values.pop_args(arity);
         let obj = Value::Object(Rc::new(Object::new(class.clone(), ivars)));
         self.values.push(obj);
-        Eval::Ok
     }
-    pub fn self_object(&mut self, arity: usize) -> Eval {
+    pub fn self_object(&mut self, arity: usize) {
         let class = self.frames.class();
-        self.object(&class, arity)
+        self.object(&class, arity);
+    }
+    pub fn push_self(&mut self) {
+        self.values.push_self(&self.frames);
     }
 }
