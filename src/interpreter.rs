@@ -159,6 +159,7 @@ impl Interpreter {
                     code.next(&mut ctx);
                     continue;
                 }
+                // TODO: add a stack trace here
                 Eval::Error(err) => return Err(err),
                 Eval::Call { object, args, body } => {
                     code.next(&mut ctx);

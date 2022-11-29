@@ -13,3 +13,6 @@
 This is a multiline string.
 It spans across multiple lines.
 "
+
+# identifiers
+foo Foo foo123 foo' foo_bar __ _foo bar_ _foo bar \_ \\ baz_

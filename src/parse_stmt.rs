@@ -23,6 +23,9 @@ impl Stmt {
                         value.push(IR::Assign(record.index));
                         return Ok(value);
                     }
+                    Binding::Placeholder(_) => {
+                        return Ok(value);
+                    }
                 }
             }
         }

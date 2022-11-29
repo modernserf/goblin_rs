@@ -3,7 +3,7 @@ use crate::compiler::{CompileResult, Compiler};
 use crate::ir::IR;
 use crate::parse_binding::Binding;
 use crate::parse_stmt::Stmt;
-use crate::parser::ParseResult;
+use crate::parser::{ParseError, ParseResult};
 use std::collections::HashMap;
 
 #[derive(Debug, Clone)]
@@ -30,8 +30,9 @@ impl ObjectBuilder {
                         match param {
                             Param::Value(binding) => match binding {
                                 Binding::Identifier(key, _) => {
-                                    handler_compiler.add_let(key.to_string())
+                                    handler_compiler.add_let(key.to_string());
                                 }
+                                Binding::Placeholder(_) => {}
                             },
                         };
                     }
@@ -118,7 +119,7 @@ impl PairParamsBuilder {
     }
     pub fn add_value(&mut self, key: String, binding: Binding) -> ParseResult<()> {
         if self.params.contains_key(&key) {
-            todo!("parse error: duplicate handler key")
+            return Err(ParseError::DuplicateKey(key));
         }
         self.params.insert(
             key,

@@ -103,6 +103,15 @@ impl<'a> Parser<'a> {
     fn params(&mut self) -> ParseResult<ParamsBuilder> {
         let mut builder = PairParamsBuilder::new();
         loop {
+            if let Token::QuotedIdent(key, src) = self.peek() {
+                let src = *src;
+                let key = mem::take(key);
+                self.advance();
+                let binding = Binding::Identifier(key.clone(), src);
+                builder.add_value(key, binding)?;
+                continue;
+            }
+
             let key = self.key();
             if self.expect_token(":").is_ok() {
                 self.param(key, &mut builder)?;
@@ -175,7 +184,12 @@ impl<'a> Parser<'a> {
                 self.advance();
                 Ok(Some(Expr::Identifier(key, src)))
             }
-            // TODO: parens create block, not just wrapping expr
+            Token::QuotedIdent(value, source) => {
+                let key = mem::take(value);
+                let src = *source;
+                self.advance();
+                Ok(Some(Expr::Identifier(key, src)))
+            }
             Token::OpenParen(source) => {
                 let src = *source;
                 self.advance();
@@ -276,6 +290,16 @@ impl<'a> Parser<'a> {
                 self.advance();
                 Ok(Some(Binding::Identifier(key, src)))
             }
+            Token::QuotedIdent(value, source) => {
+                let key = mem::take(value);
+                let src = *source;
+                self.advance();
+                if key == "" {
+                    Ok(Some(Binding::Placeholder(src)))
+                } else {
+                    Ok(Some(Binding::Identifier(key, src)))
+                }
+            }
             _ => Ok(None),
         }
     }
@@ -320,6 +344,13 @@ pub mod tests {
         Parser::new(lexer).program()
     }
 
+    fn assert_ok(str: &str) {
+        match parse(str) {
+            Ok(_) => {}
+            Err(err) => panic!("{:?}", err),
+        }
+    }
+
     #[test]
     fn numbers() {
         assert!(parse("0").is_ok());
@@ -348,5 +379,10 @@ pub mod tests {
         assert!(parse("[on {x: x} 1]").is_ok());
         assert!(parse("[on {x: x} 1]").is_ok());
         assert!(parse("[on {x: x y: y} x y]").is_ok());
+    }
+
+    #[test]
+    fn pun_params() {
+        assert_ok("[on {_x_ _y_} x + y]");
     }
 }

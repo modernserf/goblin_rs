@@ -10,6 +10,7 @@ pub enum Token {
     Float(f64, Source),
     String(String, Source),
     Identifier(String, Source),
+    QuotedIdent(String, Source),
     Operator(String, Source),
     On(Source),
     Let(Source),
@@ -85,6 +86,10 @@ impl<'a> Lexer<'a> {
             '"' => {
                 self.chars.next();
                 return self.string(start);
+            }
+            '_' => {
+                self.chars.next();
+                return self.quoted_ident(start);
             }
             '0'..='9' => {
                 return self.number(start);
@@ -170,9 +175,11 @@ impl<'a> Lexer<'a> {
         let mut str = String::new();
         while let Some((_, ch)) = self.chars.peek() {
             if *ch == '"' {
+                len += 1;
                 self.chars.next();
-                return Token::String(str, Source::new(start, len + 1));
+                return Token::String(str, Source::new(start, len));
             } else if *ch == '\\' {
+                len += 1;
                 self.chars.next();
                 if let Some((_, ch)) = self.chars.next() {
                     len += 1;
@@ -191,7 +198,7 @@ impl<'a> Lexer<'a> {
     fn ident_or_keyword(&mut self, start: usize) -> Token {
         let mut str = String::new();
         while let Some((_, ch)) = self.chars.peek() {
-            if ch.is_alphabetic() || ch.is_numeric() || *ch == '_' {
+            if ch.is_alphabetic() || ch.is_numeric() || *ch == '_' || *ch == '\'' {
                 str.push(*ch);
                 self.chars.next();
             } else {
@@ -204,6 +211,31 @@ impl<'a> Lexer<'a> {
             "on" => Token::On(source),
             _ => Token::Identifier(str, source),
         }
+    }
+    fn quoted_ident(&mut self, start: usize) -> Token {
+        let mut len = 1;
+        let mut str = String::new();
+        while let Some((_, ch)) = self.chars.peek() {
+            if *ch == '_' {
+                len += 1;
+                self.chars.next();
+                return Token::QuotedIdent(str, Source::new(start, len));
+            } else if *ch == '\\' {
+                len += 1;
+                self.chars.next();
+                if let Some((_, ch)) = self.chars.next() {
+                    len += 1;
+                    str.push(ch);
+                } else {
+                    unimplemented!()
+                }
+            } else {
+                str.push(*ch);
+                len += 1;
+                self.chars.next();
+            }
+        }
+        unimplemented!()
     }
     fn operator(&mut self, start: usize) -> Token {
         let mut str = String::new();
