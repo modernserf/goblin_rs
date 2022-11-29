@@ -1,4 +1,4 @@
-use std::rc::Rc;
+use std::{cell::RefCell, rc::Rc};
 
 use crate::{
     class::Class,
@@ -13,6 +13,13 @@ pub enum Value {
     Float(f64),
     String(Rc<String>),
     Object(Rc<Class>, IVars),
+    Cell(Rc<RefCell<Value>>),
+}
+
+impl Default for Value {
+    fn default() -> Self {
+        Self::Unit
+    }
 }
 
 pub type IVars = Rc<Vec<Value>>;

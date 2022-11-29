@@ -1,4 +1,4 @@
-use std::rc::Rc;
+use std::{cell::RefCell, ops::Deref, rc::Rc};
 
 use crate::{
     interpreter::{Eval, Interpreter, RuntimeError},
@@ -73,6 +73,41 @@ pub fn string_class(
             }
             _ => primitive_type_error("string", &args[0]),
         },
+        _ => does_not_understand(selector),
+    }
+}
+
+pub fn cell_class(
+    ctx: &mut Interpreter,
+    selector: &str,
+    target: Rc<RefCell<Value>>,
+    mut args: Vec<Value>,
+) -> Eval {
+    match selector {
+        "" => {
+            let value = target.deref().borrow().clone();
+            ctx.push(value);
+            Eval::Ok
+        }
+        ":" => {
+            let arg = std::mem::take(&mut args[0]);
+            let mut tgt = target.borrow_mut();
+            *tgt = arg;
+            ctx.push(Value::Unit);
+            Eval::Ok
+        }
+        _ => does_not_understand(selector),
+    }
+}
+
+pub fn cell_module(ctx: &mut Interpreter, selector: &str, mut args: Vec<Value>) -> Eval {
+    match selector {
+        ":" => {
+            let arg = std::mem::take(&mut args[0]);
+            let value = Value::Cell(Rc::new(RefCell::new(arg)));
+            ctx.push(value);
+            Eval::Ok
+        }
         _ => does_not_understand(selector),
     }
 }
