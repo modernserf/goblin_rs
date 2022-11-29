@@ -5,3 +5,11 @@
 
 # floats
 1.0 1.2345
+
+# strings
+"hello" "hello, \"world\"" "\\"
+
+"
+This is a multiline string.
+It spans across multiple lines.
+"

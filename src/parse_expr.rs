@@ -1,4 +1,5 @@
 use std::collections::HashMap;
+use std::rc::Rc;
 
 use crate::compiler::{CompileError, CompileResult, Compiler};
 use crate::ir::IR;
@@ -12,6 +13,7 @@ use crate::value::Value;
 pub enum Expr {
     Integer(u64, Source),
     Float(f64, Source),
+    String(String, Source),
     Identifier(String, Source),
     Paren(Vec<Stmt>, Source),
     UnaryOp(String, Box<Expr>, Source),
@@ -39,6 +41,10 @@ impl Expr {
             }
             Expr::Float(value, _) => {
                 let val = Value::Float(*value);
+                Ok(vec![IR::Constant(val)])
+            }
+            Expr::String(value, _) => {
+                let val = Value::String(Rc::new(value.to_owned()));
                 Ok(vec![IR::Constant(val)])
             }
             Expr::Identifier(key, src) => match compiler.get(key) {

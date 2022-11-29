@@ -27,6 +27,8 @@ fn main() {
 
 #[cfg(test)]
 mod test {
+    use std::rc::Rc;
+
     use crate::interpreter::RuntimeError;
     use crate::run;
     use crate::value::Value;
@@ -72,6 +74,14 @@ mod test {
     #[test]
     fn floats() {
         assert_eq!(run("1 + 2.0 + 3").unwrap(), Value::Float(6.0));
+    }
+
+    #[test]
+    fn strings() {
+        assert_eq!(
+            run("\"hello\" ++ \" world\"").unwrap(),
+            Value::String(Rc::new("hello world".to_string()))
+        );
     }
 
     #[test]

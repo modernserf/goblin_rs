@@ -8,6 +8,7 @@ pub enum Token {
     Whitespace(Source),
     Integer(u64, Source),
     Float(f64, Source),
+    String(String, Source),
     Identifier(String, Source),
     Operator(String, Source),
     On(Source),
@@ -80,6 +81,10 @@ impl<'a> Lexer<'a> {
                 } else {
                     return Token::Colon(Source::new(start, 1));
                 }
+            }
+            '"' => {
+                self.chars.next();
+                return self.string(start);
             }
             '0'..='9' => {
                 return self.number(start);
@@ -160,7 +165,29 @@ impl<'a> Lexer<'a> {
         }
         Token::Float(value, Source::new(start, length))
     }
-
+    fn string(&mut self, start: usize) -> Token {
+        let mut len = 1;
+        let mut str = String::new();
+        while let Some((_, ch)) = self.chars.peek() {
+            if *ch == '"' {
+                self.chars.next();
+                return Token::String(str, Source::new(start, len + 1));
+            } else if *ch == '\\' {
+                self.chars.next();
+                if let Some((_, ch)) = self.chars.next() {
+                    len += 1;
+                    str.push(ch);
+                } else {
+                    unimplemented!()
+                }
+            } else {
+                str.push(*ch);
+                len += 1;
+                self.chars.next();
+            }
+        }
+        unimplemented!()
+    }
     fn ident_or_keyword(&mut self, start: usize) -> Token {
         let mut str = String::new();
         while let Some((_, ch)) = self.chars.peek() {

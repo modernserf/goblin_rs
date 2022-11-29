@@ -150,6 +150,12 @@ impl<'a> Parser<'a> {
                 self.advance();
                 Ok(Some(Expr::Float(val, src)))
             }
+            Token::String(value, source) => {
+                let val = mem::take(value);
+                let src = *source;
+                self.advance();
+                Ok(Some(Expr::String(val, src)))
+            }
             Token::Identifier(value, source) => {
                 let key = mem::take(value);
                 let src = *source;
