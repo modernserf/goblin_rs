@@ -4,7 +4,6 @@ use crate::ir::IR;
 use crate::parse_binding::Binding;
 use crate::parse_stmt::Stmt;
 use crate::parser::{ParseError, ParseResult};
-use crate::value::Value;
 use std::collections::HashMap;
 
 #[derive(Debug, Clone)]

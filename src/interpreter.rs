@@ -98,6 +98,19 @@ impl Values {
             self.0[i + parent_offset] = arg;
         }
     }
+    fn swap_do_frame(
+        &mut self,
+        frames: &mut Frames,
+        parent_object: Rc<Object>,
+        parent_offset: usize,
+        args: Vec<Value>,
+    ) {
+        frames.pop();
+        frames.push(parent_object, parent_offset);
+        for (i, arg) in args.into_iter().enumerate() {
+            self.0[i + parent_offset] = arg;
+        }
+    }
     fn pop_frame(&mut self, frames: &mut Frames) {
         let offset = frames.pop();
         let result = self.0.pop().unwrap();
@@ -162,16 +175,34 @@ impl Code {
     fn push(&mut self, ctx: &mut Interpreter, object: Rc<Object>, args: Vec<Value>, body: Body) {
         let (i, current_block) = self.0.last_mut().unwrap();
         *i += 1;
+        // Tail call
         if *i >= current_block.len() {
-            // TODO: tail call elimination
-            // ctx.values.pop_frame(&mut ctx.frames);
             ctx.values.swap_frame(&mut ctx.frames, object, args);
             self.0.pop();
-            self.0.push((0, body));
         } else {
             ctx.values.push_frame(&mut ctx.frames, object, args);
-            self.0.push((0, body));
         }
+        self.0.push((0, body));
+    }
+    fn push_do_frame(
+        &mut self,
+        ctx: &mut Interpreter,
+        parent_object: Rc<Object>,
+        parent_offset: usize,
+        args: Vec<Value>,
+        body: Body,
+    ) {
+        let (i, current_block) = self.0.last_mut().unwrap();
+        *i += 1;
+        if *i >= current_block.len() {
+            ctx.values
+                .swap_do_frame(&mut ctx.frames, parent_object, parent_offset, args);
+            self.0.pop();
+        } else {
+            ctx.values
+                .push_do_frame(&mut ctx.frames, parent_object, parent_offset, args);
+        }
+        self.0.push((0, body));
     }
 }
 
@@ -238,11 +269,7 @@ impl Interpreter {
                     args,
                     body,
                 } => {
-                    unimplemented!();
-                    // code.next(&mut ctx);
-                    // ctx.values
-                    //     .push_do_frame(&mut ctx.frames, parent_object, parent_offset, args);
-                    // code.push(body.clone());
+                    code.push_do_frame(&mut ctx, parent_object, parent_offset, args, body);
                 }
             }
         }
