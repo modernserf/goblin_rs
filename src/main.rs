@@ -75,6 +75,11 @@ mod test {
     }
 
     #[test]
+    fn bools() {
+        assert_ok("1 = 1", Value::Bool(true));
+    }
+
+    #[test]
     fn floats() {
         assert_ok("1 + 2.0 + 3", Value::Float(6.0));
     }

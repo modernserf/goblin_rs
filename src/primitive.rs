@@ -16,6 +16,23 @@ fn primitive_type_error(expected: &str, arg: &Value) -> Eval {
     })
 }
 
+pub fn bool_class(ctx: &mut Interpreter, selector: &str, target: bool, args: &[Value]) -> Eval {
+    match selector {
+        "assert:" => match &args[0] {
+            Value::String(str) => {
+                if target {
+                    ctx.push(Value::Unit);
+                    Eval::Ok
+                } else {
+                    Eval::Error(RuntimeError::AssertionError(str.to_string()))
+                }
+            }
+            _ => primitive_type_error("string", &args[0]),
+        },
+        _ => does_not_understand(selector),
+    }
+}
+
 pub fn int_class(ctx: &mut Interpreter, selector: &str, target: i64, args: &[Value]) -> Eval {
     match selector {
         "-" => {
@@ -32,6 +49,13 @@ pub fn int_class(ctx: &mut Interpreter, selector: &str, target: i64, args: &[Val
                 Eval::Ok
             }
             _ => primitive_type_error("number", &args[0]),
+        },
+        "=:" => match args[0] {
+            Value::Integer(r) => {
+                ctx.push(Value::Bool(target == r));
+                Eval::Ok
+            }
+            _ => primitive_type_error("integer", &args[0]),
         },
         _ => does_not_understand(selector),
     }
@@ -54,6 +78,13 @@ pub fn float_class(ctx: &mut Interpreter, selector: &str, target: f64, args: &[V
             }
             _ => primitive_type_error("number", &args[0]),
         },
+        "=:" => match args[0] {
+            Value::Float(r) => {
+                ctx.push(Value::Bool(target == r));
+                Eval::Ok
+            }
+            _ => primitive_type_error("float", &args[0]),
+        },
         _ => Eval::Error(RuntimeError::DoesNotUnderstand(selector.to_string())),
     }
 }
@@ -72,6 +103,13 @@ pub fn string_class(
                 Eval::Ok
             }
             _ => primitive_type_error("string", &args[0]),
+        },
+        "=:" => match &args[0] {
+            Value::String(r) => {
+                ctx.push(Value::Bool(target == r));
+                Eval::Ok
+            }
+            _ => primitive_type_error("integer", &args[0]),
         },
         _ => does_not_understand(selector),
     }

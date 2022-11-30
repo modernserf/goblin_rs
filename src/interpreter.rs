@@ -163,6 +163,7 @@ pub enum RuntimeError {
     DoesNotUnderstand(String),
     PrimitiveTypeError { expected: String, received: Value },
     InvalidArg { expected: String, received: Value },
+    AssertionError(String),
 }
 
 #[derive(Debug, Clone)]
