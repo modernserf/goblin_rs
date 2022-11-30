@@ -8,38 +8,29 @@ use crate::{
 
 #[derive(Debug)]
 
-enum Frame {
-    Root,
-    Instance(usize, Rc<Object>),
+struct Frame {
+    offset: usize,
+    object: Rc<Object>,
 }
 
 impl Frame {
     fn root() -> Self {
-        Frame::Root
+        Self {
+            offset: 0,
+            object: Object::empty(),
+        }
     }
     fn offset(&self) -> usize {
-        match self {
-            Self::Root => 0,
-            Self::Instance(offset, _) => *offset,
-        }
+        self.offset
     }
     fn ivar(&self, index: usize) -> Value {
-        match self {
-            Self::Root => panic!("no ivars"),
-            Self::Instance(_, obj) => obj.ivar(index),
-        }
+        self.object.ivar(index)
     }
     fn class(&self) -> RcClass {
-        match self {
-            Self::Root => panic!("no class"),
-            Self::Instance(_, obj) => obj.class(),
-        }
+        self.object.class()
     }
-    fn get_self(&self) -> Value {
-        match self {
-            Self::Root => panic!("no self"),
-            Self::Instance(_, obj) => Value::Object(obj.clone()),
-        }
+    fn get_self(&self) -> Rc<Object> {
+        self.object.clone()
     }
 }
 
@@ -54,7 +45,7 @@ impl Frames {
         self.0.last().unwrap()
     }
     fn push(&mut self, object: Rc<Object>, offset: usize) {
-        self.0.push(Frame::Instance(offset, object))
+        self.0.push(Frame { offset, object })
     }
     fn pop(&mut self) -> usize {
         let popped = self.0.pop().unwrap();
@@ -69,7 +60,7 @@ impl Frames {
     fn class(&self) -> RcClass {
         self._last().class()
     }
-    fn get_self(&self) -> Value {
+    fn get_self(&self) -> Rc<Object> {
         self._last().get_self()
     }
 }
@@ -89,6 +80,18 @@ impl Values {
         frames.push(object, offset);
         self.0.append(&mut args);
     }
+    fn push_do_frame(
+        &mut self,
+        frames: &mut Frames,
+        parent_object: Rc<Object>,
+        parent_offset: usize,
+        args: Vec<Value>,
+    ) {
+        frames.push(parent_object, parent_offset);
+        for (i, arg) in args.into_iter().enumerate() {
+            self.0[i + parent_offset] = arg;
+        }
+    }
     fn pop_frame(&mut self, frames: &mut Frames) {
         let offset = frames.pop();
         let result = self.0.pop().unwrap();
@@ -96,8 +99,8 @@ impl Values {
         self.0.push(result);
     }
     fn push_self(&mut self, frames: &Frames) {
-        let value = frames.get_self();
-        self.0.push(value);
+        let object = frames.get_self();
+        self.0.push(Value::Object(object));
     }
     fn push(&mut self, value: Value) {
         self.0.push(value);
@@ -116,11 +119,17 @@ impl Values {
         if index == self.0.len() {
             self.0.push(top);
         } else {
+            unreachable!();
             self.0[index] = top;
         }
     }
     fn result(&self) -> Value {
         self.0.last().cloned().unwrap_or(Value::Unit)
+    }
+    fn allocate(&mut self, size: usize) {
+        for _ in 0..size {
+            self.0.push(Value::Unit);
+        }
     }
 }
 
@@ -153,6 +162,7 @@ impl Code {
 pub enum RuntimeError {
     DoesNotUnderstand(String),
     PrimitiveTypeError { expected: String, received: Value },
+    InvalidArg { expected: String, received: Value },
 }
 
 #[derive(Debug, Clone)]
@@ -161,6 +171,12 @@ pub enum Eval {
     Error(RuntimeError),
     Call {
         object: Rc<Object>,
+        args: Vec<Value>,
+        body: Body,
+    },
+    CallDoBlock {
+        parent_object: Rc<Object>,
+        parent_offset: usize,
         args: Vec<Value>,
         body: Body,
     },
@@ -186,7 +202,6 @@ impl Interpreter {
             match stmt.eval(&mut ctx) {
                 Eval::Ok => {
                     code.next(&mut ctx);
-                    continue;
                 }
                 // TODO: add a stack trace here
                 Eval::Error(err) => return Err(err),
@@ -194,7 +209,17 @@ impl Interpreter {
                     code.next(&mut ctx);
                     ctx.values.push_frame(&mut ctx.frames, object, args);
                     code.push(body.clone());
-                    continue;
+                }
+                Eval::CallDoBlock {
+                    parent_object,
+                    parent_offset,
+                    args,
+                    body,
+                } => {
+                    code.next(&mut ctx);
+                    ctx.values
+                        .push_do_frame(&mut ctx.frames, parent_object, parent_offset, args);
+                    code.push(body.clone());
                 }
             }
         }
@@ -222,6 +247,12 @@ impl Interpreter {
         let ivars = self.values.pop_args(arity);
         let obj = Value::Object(Rc::new(Object::new(class.clone(), ivars)));
         self.values.push(obj);
+    }
+    pub fn do_block(&mut self, class: &RcClass, size: usize) {
+        self.values.allocate(size);
+        let parent_object = self.frames.get_self();
+        let value = Value::Do(class.clone(), parent_object, size);
+        self.values.push(value);
     }
     pub fn self_object(&mut self, arity: usize) {
         let class = self.frames.class();

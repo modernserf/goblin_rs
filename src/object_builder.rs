@@ -21,23 +21,36 @@ impl ObjectBuilder {
             // else_handler: None,
         }
     }
+    pub fn compile_do(&self, compiler: &mut Compiler) -> CompileResult {
+        let mut class = Class::new();
+        let mut allocated_results = Vec::new();
+        for (selector, handler) in self.handlers.iter() {
+            let allocated = compiler.with_do_block(|compiler| {
+                let ir_params = Self::compile_params(compiler, handler);
+
+                let mut body = Vec::new();
+                for stmt in handler.body.iter() {
+                    let mut ir = stmt.compile(compiler)?;
+                    body.append(&mut ir);
+                }
+                class.add(selector.clone(), IRHandler::on(ir_params, body));
+
+                Ok(())
+            })?;
+            allocated_results.push(allocated);
+        }
+
+        let max_allocated = allocated_results.into_iter().max().unwrap_or(0);
+        let out = vec![IR::DoBlock(class.rc(), max_allocated)];
+        Ok(out)
+    }
+
     pub fn compile(&self, compiler: &mut Compiler, binding: Option<&Binding>) -> CompileResult {
         let mut class = Class::new();
         let mut out = compiler.with_instance(|instance| {
             for (selector, handler) in self.handlers.iter() {
                 instance.with_handler(|compiler| {
-                    let mut ir_params = Vec::new();
-                    for param in handler.params.iter() {
-                        ir_params.push(IRParam::Value);
-                        match param {
-                            Param::Value(binding) => match binding {
-                                Binding::Identifier(key, _) => {
-                                    compiler.add_let(key.to_string());
-                                }
-                                Binding::Placeholder(_) => {}
-                            },
-                        };
-                    }
+                    let ir_params = Self::compile_params(compiler, handler);
 
                     let mut body = Vec::new();
                     if let Some(binding) = binding {
@@ -62,6 +75,29 @@ impl ObjectBuilder {
         out.push(IR::Object(class.rc(), arity));
         Ok(out)
     }
+
+    fn compile_params(compiler: &mut Compiler, handler: &Handler) -> Vec<IRParam> {
+        let mut ir_params = Vec::new();
+        for param in handler.params.iter() {
+            match param {
+                Param::Value(binding) => {
+                    ir_params.push(IRParam::Value);
+                    match binding {
+                        Binding::Identifier(key, _) => {
+                            compiler.add_let(key.to_string());
+                        }
+                        Binding::Placeholder(_) => {}
+                    }
+                }
+                Param::Do(key) => {
+                    ir_params.push(IRParam::Do);
+                    compiler.add_let(key.to_string());
+                }
+            };
+        }
+        ir_params
+    }
+
     pub fn add_on(&mut self, params_builder: ParamsBuilder, body: Vec<Stmt>) -> ParseResult<()> {
         params_builder.build(self, body)
     }
@@ -88,7 +124,7 @@ struct Handler {
 enum Param {
     Value(Binding),
     // Var(VarBinding),
-    // Do(DoBinding),
+    Do(String),
 }
 
 #[derive(Debug, Clone)]
@@ -133,6 +169,16 @@ impl PairParamsBuilder {
         self.params.insert(
             key,
             ParseParam::Param(ParamWithMatch::Param(Param::Value(binding))),
+        );
+        Ok(())
+    }
+    pub fn add_do(&mut self, key: String, ident: String) -> ParseResult<()> {
+        if self.params.contains_key(&key) {
+            return Err(ParseError::DuplicateKey(key));
+        }
+        self.params.insert(
+            key,
+            ParseParam::Param(ParamWithMatch::Param(Param::Do(ident))),
         );
         Ok(())
     }

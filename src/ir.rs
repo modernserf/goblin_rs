@@ -14,6 +14,7 @@ pub enum IR {
     SelfObject(usize),
     IVar(usize),
     SelfRef,
+    DoBlock(RcClass, usize),
 }
 
 impl IR {
@@ -29,6 +30,7 @@ impl IR {
             IR::SelfObject(arity) => ctx.self_object(*arity),
             IR::IVar(index) => ctx.get_ivar(*index),
             IR::SelfRef => ctx.push_self(),
+            IR::DoBlock(class, size) => ctx.do_block(class, *size),
         };
         Eval::Ok
     }

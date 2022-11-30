@@ -1,7 +1,7 @@
 use std::{collections::HashMap, rc::Rc};
 
 use crate::{
-    interpreter::{Eval, Interpreter},
+    interpreter::{Eval, RuntimeError},
     ir::IR,
     primitive::does_not_understand,
     value::Value,
@@ -50,6 +50,7 @@ pub type Body = Rc<Vec<IR>>;
 #[derive(Debug, Clone, PartialEq)]
 pub enum Param {
     Value,
+    Do,
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -58,18 +59,35 @@ pub struct Object {
     ivars: Vec<Value>,
 }
 
-impl Object {
-    pub fn empty() -> Self {
-        Self {
-            class: Class::new().rc(),
-            ivars: Vec::new(),
+fn check_args(params: &[Param], args: &[Value]) -> Result<(), RuntimeError> {
+    if params.len() != args.len() {
+        panic!("param length mismatch")
+    }
+    for (param, arg) in params.iter().zip(args.iter()) {
+        match (param, arg) {
+            (Param::Do, Value::Do(..)) => {}
+            (_, Value::Do(..)) => {
+                return Err(RuntimeError::InvalidArg {
+                    expected: "value".to_string(),
+                    received: arg.clone(),
+                })
+            }
+            (_, _) => {}
         }
     }
+
+    Ok(())
+}
+
+impl Object {
+    pub fn empty() -> Rc<Self> {
+        Rc::new(Self {
+            class: Class::new().rc(),
+            ivars: Vec::new(),
+        })
+    }
     pub fn new(class: Rc<Class>, ivars: Vec<Value>) -> Self {
-        Self {
-            class,
-            ivars: ivars,
-        }
+        Self { class, ivars }
     }
 
     pub fn ivar(&self, index: usize) -> Value {
@@ -80,21 +98,41 @@ impl Object {
         self.class.clone()
     }
 
-    pub fn send(
-        object: &Rc<Object>,
-        _: &mut Interpreter,
-        selector: &str,
-        args: Vec<Value>,
-    ) -> Eval {
+    pub fn send(object: &Rc<Object>, selector: &str, args: Vec<Value>) -> Eval {
         if let Some(handler) = object.class.get(selector) {
             match handler {
                 Handler::OnHandler(params, body) => {
-                    if params.len() != args.len() {
-                        unreachable!("param mismatch")
+                    if let Err(err) = check_args(params, &args) {
+                        return Eval::Error(err);
                     }
                     Eval::Call {
                         args,
                         object: object.clone(),
+                        body: body.clone(),
+                    }
+                }
+            }
+        } else {
+            return does_not_understand(selector);
+        }
+    }
+    pub fn send_do_block(
+        class: &RcClass,
+        parent_object: &Rc<Object>,
+        parent_offset: usize,
+        selector: &str,
+        args: Vec<Value>,
+    ) -> Eval {
+        if let Some(handler) = class.get(selector) {
+            match handler {
+                Handler::OnHandler(params, body) => {
+                    if let Err(err) = check_args(params, &args) {
+                        return Eval::Error(err);
+                    }
+                    Eval::CallDoBlock {
+                        args,
+                        parent_object: parent_object.clone(),
+                        parent_offset,
                         body: body.clone(),
                     }
                 }

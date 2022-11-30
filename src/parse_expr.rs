@@ -33,6 +33,7 @@ pub enum Expr {
     Object(ObjectBuilder, Source),
     Frame(Frame, Source),
     SelfRef(Source),
+    DoArg(ObjectBuilder, Source),
 }
 
 impl Expr {
@@ -107,6 +108,7 @@ impl Expr {
             Expr::Object(builder, _) => builder.compile(compiler, None),
             Expr::Frame(frame, _) => frame.compile(compiler),
             Expr::SelfRef(source) => compiler.push_self(*source),
+            Expr::DoArg(builder, _) => builder.compile_do(compiler),
         }
     }
 }
@@ -118,6 +120,7 @@ pub struct SendBuilder {
 #[derive(Debug, Clone)]
 pub enum SendArg {
     Value(Expr),
+    Do(ObjectBuilder),
 }
 
 impl SendBuilder {
@@ -143,6 +146,12 @@ impl SendBuilder {
             None => Ok(()),
         }
     }
+    pub fn add_do(&mut self, key: String, value: ObjectBuilder) -> ParseResult<()> {
+        match self.args.insert(key.to_string(), SendArg::Do(value)) {
+            Some(_) => Err(ParseError::DuplicateKey(key.to_string())),
+            None => Ok(()),
+        }
+    }
     pub fn build(self, target: Expr, source: Source) -> ParseResult<Expr> {
         let mut selector = String::new();
         let mut args = Vec::new();
@@ -155,6 +164,7 @@ impl SendBuilder {
             selector.push(':');
             match arg {
                 SendArg::Value(val) => args.push(val),
+                SendArg::Do(val) => args.push(Expr::DoArg(val, source)),
             }
         }
 

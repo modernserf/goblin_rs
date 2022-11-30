@@ -94,9 +94,34 @@ impl<'a> Parser<'a> {
         parts.join(" ")
     }
 
+    fn ident(&mut self) -> ParseResult<String> {
+        match self.peek() {
+            Token::Identifier(value, _) => {
+                let key = mem::take(value);
+                self.advance();
+                Ok(key)
+            }
+            Token::QuotedIdent(value, _) => {
+                let key = mem::take(value);
+                self.advance();
+                Ok(key)
+            }
+            _ => Err(ParseError::Expected("identifier".to_string())),
+        }
+    }
+
     fn param(&mut self, key: String, builder: &mut PairParamsBuilder) -> ParseResult<()> {
-        let binding = expect(self.binding(), "binding")?;
-        builder.add_value(key, binding)?;
+        match self.peek() {
+            Token::Do(_) => {
+                self.advance();
+                let ident = self.ident()?;
+                builder.add_do(key, ident)?;
+            }
+            _ => {
+                let binding = expect(self.binding(), "binding")?;
+                builder.add_value(key, binding)?;
+            }
+        }
         Ok(())
     }
 
@@ -124,7 +149,7 @@ impl<'a> Parser<'a> {
         Ok(ParamsBuilder::PairBuilder(builder))
     }
 
-    fn object(&mut self, src: Source) -> ParseResult<Expr> {
+    fn object(&mut self) -> ParseResult<ObjectBuilder> {
         let mut builder = ObjectBuilder::new();
         loop {
             match self.peek() {
@@ -139,7 +164,7 @@ impl<'a> Parser<'a> {
                 _ => break,
             }
         }
-        Ok(Expr::Object(builder, src))
+        Ok(builder)
     }
 
     fn frame(&mut self, source: Source) -> ParseResult<Expr> {
@@ -206,7 +231,10 @@ impl<'a> Parser<'a> {
                 let src = *source;
                 self.advance();
                 let expr = match self.peek() {
-                    Token::On(_) => self.object(src)?,
+                    Token::On(_) => {
+                        let builder = self.object()?;
+                        Expr::Object(builder, src)
+                    }
                     _ => self.frame(src)?,
                 };
                 self.expect_token("]")?;
@@ -217,8 +245,17 @@ impl<'a> Parser<'a> {
     }
 
     fn arg(&mut self, builder: &mut SendBuilder, key: String) -> ParseResult<()> {
-        let arg = expect(self.expr(), "expr")?;
-        builder.add_value(key, arg)
+        match self.peek() {
+            Token::On(_) => {
+                let obj = self.object()?;
+                builder.add_do(key, obj)?;
+            }
+            _ => {
+                let arg = expect(self.expr(), "expr")?;
+                builder.add_value(key, arg)?;
+            }
+        }
+        Ok(())
     }
 
     fn call_expr_body(&mut self, target: Expr, source: Source) -> ParseOpt<Expr> {

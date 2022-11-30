@@ -1,9 +1,9 @@
 use std::{cell::RefCell, rc::Rc};
 
 use crate::{
-    class::Object,
+    class::{Object, RcClass},
     interpreter::{Eval, Interpreter},
-    primitive::{does_not_understand, float_class, int_class, string_class},
+    primitive::{cell_class, does_not_understand, float_class, int_class, string_class},
 };
 
 #[derive(Debug, Clone, PartialEq)]
@@ -12,8 +12,9 @@ pub enum Value {
     Integer(i64),
     Float(f64),
     String(Rc<String>),
-    Object(Rc<Object>),
     Cell(Rc<RefCell<Value>>),
+    Object(Rc<Object>),
+    Do(RcClass, Rc<Object>, usize),
 }
 
 impl Default for Value {
@@ -32,7 +33,11 @@ impl Value {
             Self::Integer(target) => int_class(ctx, selector, *target, &args),
             Self::Float(target) => float_class(ctx, selector, *target, &args),
             Self::String(target) => string_class(ctx, selector, target, &args),
-            Self::Object(obj) => Object::send(obj, ctx, selector, args),
+            Self::Cell(target) => cell_class(ctx, selector, target.clone(), args),
+            Self::Object(obj) => Object::send(obj, selector, args),
+            Self::Do(class, parent_object, parent_offset) => {
+                Object::send_do_block(class, parent_object, *parent_offset, selector, args)
+            }
             _ => does_not_understand(selector),
         }
     }

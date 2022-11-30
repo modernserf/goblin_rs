@@ -201,4 +201,21 @@ mod test {
             Value::Integer(3),
         )
     }
+
+    // #[test]
+    // fn do_blocks() {
+    //     assert_ok(
+    //         "
+    //         let target := [
+    //             on {foo: do f}
+    //                 f{bar}
+    //         ]
+    //         let res := target{foo:
+    //             on {bar} 1
+    //         }
+    //         res
+    //     ",
+    //         Value::Integer(1),
+    //     )
+    // }
 }

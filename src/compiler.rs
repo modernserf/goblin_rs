@@ -5,6 +5,7 @@ use std::collections::HashMap;
 pub enum Compiler {
     Root(Locals),
     Handler(Locals, Box<Instance>),
+    DoHandler(Locals, Box<Compiler>),
 }
 
 impl Default for Compiler {
@@ -32,10 +33,18 @@ impl Compiler {
     fn handler(instance: Instance) -> Self {
         Self::Handler(Locals::root(), Box::new(instance))
     }
-    pub fn take_instance(self) -> Instance {
+    fn do_handler(self) -> Self {
+        let index = match &self {
+            Self::Root(ls) => ls.index,
+            Self::Handler(ls, _) => ls.index,
+            Self::DoHandler(ls, _) => ls.index,
+        };
+        Self::DoHandler(Locals::block(index), Box::new(self))
+    }
+    fn take_instance(self) -> Instance {
         match self {
-            Self::Root(_) => unreachable!(),
             Self::Handler(_, instance) => *instance,
+            _ => unreachable!(),
         }
     }
     pub fn get(&mut self, key: &str) -> Option<IR> {
@@ -46,6 +55,12 @@ impl Compiler {
                     return Some(IR::Local(record.index));
                 }
                 instance.get(key)
+            }
+            Self::DoHandler(locals, parent) => {
+                if let Some(record) = locals.get(key) {
+                    return Some(IR::Local(record.index));
+                }
+                parent.get(key)
             }
         }
     }
@@ -60,6 +75,7 @@ impl Compiler {
         match self {
             Self::Root(locals) => locals.add(key, typ),
             Self::Handler(locals, _) => locals.add(key, typ),
+            Self::DoHandler(locals, _) => locals.add(key, typ),
         }
     }
     pub fn with_instance(
@@ -72,10 +88,37 @@ impl Compiler {
         *self = instance.parent;
         Ok(instance.ivars)
     }
+
+    pub fn with_do_block(
+        &mut self,
+        mut f: impl FnMut(&mut Compiler) -> CompileOk,
+    ) -> Result<usize, CompileError> {
+        let parent = std::mem::take(self);
+        let mut compiler = parent.do_handler();
+        f(&mut compiler)?;
+        let end_index;
+        *self = match compiler {
+            Self::DoHandler(locals, parent) => {
+                end_index = locals.index;
+                *parent
+            }
+            _ => unreachable!(),
+        };
+        let allocated = end_index
+            - match self {
+                Self::DoHandler(ls, _) => ls.index,
+                Self::Handler(ls, _) => ls.index,
+                Self::Root(ls) => ls.index,
+            };
+
+        Ok(allocated)
+    }
+
     pub fn push_self(&self, source: Source) -> CompileResult {
         match self {
             Self::Root(_) => Err(CompileError::InvalidSelf(source)),
             Self::Handler(_, _) => Ok(vec![IR::SelfRef]),
+            Self::DoHandler(_, _) => Ok(vec![IR::SelfRef]),
         }
     }
 }
@@ -149,8 +192,14 @@ pub struct Locals {
 
 impl Locals {
     fn root() -> Self {
-        Locals {
+        Self {
             index: 0,
+            map: HashMap::new(),
+        }
+    }
+    fn block(index: usize) -> Self {
+        Self {
+            index,
             map: HashMap::new(),
         }
     }
@@ -199,5 +248,28 @@ pub mod tests {
                 "
         )
         .is_ok())
+    }
+
+    #[test]
+    fn indirect_self_ref() {
+        println!(
+            "{:#?}",
+            compile(
+                "
+        let Point := [
+            on {x: x y: y} [
+                on {x} 
+                    x
+                on {x: x'}
+                    Point{x: x' y: y}
+            ]
+        ]
+        let p := Point{x: 1 y: 2}
+        let q := p{x: 3}
+        q{x}
+        "
+            )
+            .unwrap()
+        )
     }
 }
