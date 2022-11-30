@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::collections::{HashMap, VecDeque};
 
 use crate::compiler::{CompileError, CompileResult, Compiler};
 use crate::frame::Frame;
@@ -96,19 +96,42 @@ impl Expr {
                 args,
                 ..
             } => {
-                let mut value = target.compile(compiler)?;
+                let mut out = Vec::new();
+                // Do args must be processed in two separate phases -- the allocation & the class
+                let mut queue = VecDeque::new();
+                for arg in args.iter() {
+                    match arg {
+                        Expr::DoArg(builder, _) => {
+                            let (mut allocation, arg) = builder.compile_do(compiler)?;
+                            out.append(&mut allocation);
+                            queue.push_back(arg);
+                        }
+                        _ => {}
+                    }
+                }
+
+                let mut tgt = target.compile(compiler)?;
+                out.append(&mut tgt);
                 let arity = args.len();
                 for arg in args.iter() {
-                    let mut result = arg.compile(compiler)?;
-                    value.append(&mut result);
+                    match arg {
+                        Expr::DoArg(_, _) => {
+                            let mut ir = queue.pop_front().unwrap();
+                            out.append(&mut ir);
+                        }
+                        arg => {
+                            let mut result = arg.compile(compiler)?;
+                            out.append(&mut result);
+                        }
+                    }
                 }
-                value.push(IR::Send(selector.to_string(), arity));
-                Ok(value)
+                out.push(IR::Send(selector.to_string(), arity));
+                Ok(out)
             }
             Expr::Object(builder, _) => builder.compile(compiler, None),
             Expr::Frame(frame, _) => frame.compile(compiler),
             Expr::SelfRef(source) => compiler.push_self(*source),
-            Expr::DoArg(builder, _) => builder.compile_do(compiler),
+            Expr::DoArg(builder, _) => unreachable!(),
         }
     }
 }

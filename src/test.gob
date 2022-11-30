@@ -63,12 +63,20 @@ let target := [
 ]
 (target{foo} = 3){assert: "indirect self"}
 
+# "----------"{debug}
+
 # let target := [
 #   on {foo: do f}
-#     let res := f{: 1}
-#     res
+#     # f{block}
+#     2
 # ]
 # let res := target{foo: 
-#   on {: value} value + 1
+#   on {block}
+#     let x := 1
+#     let y := 2
+#     let z := 3
 # }
+
+# (1 = 0){assert: "---"}
+
 # (res = 2){assert: "do block"}

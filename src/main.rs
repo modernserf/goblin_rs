@@ -19,7 +19,7 @@ fn run(code: &str) -> Result<value::Value, interpreter::RuntimeError> {
     let mut parser = parser::Parser::new(lexer);
     let program = parser.program().unwrap();
     let ir = compiler::Compiler::program(program).unwrap();
-    let result = interpreter::Interpreter::program(ir);
+    let result = interpreter::program(ir);
     result
 }
 
@@ -117,93 +117,93 @@ mod test {
         assert_ok("1{+: 2}{+: 3}", Value::Integer(6));
     }
 
-    #[test]
-    fn object() {
-        assert_ok(
-            "
-            let x := [on {foo}]
-            x{foo}    
-        ",
-            Value::Unit,
-        );
-        assert_ok(
-            "
-            let x := [
-                on {} 1
-                on {foo} 2
-                on {bar: arg} arg
-            ]
-            let bar := 3
-            x{} + x{foo} + x{bar: bar}
-        ",
-            Value::Integer(6),
-        );
-        assert_ok(
-            "
-            let x := 1
-            let y := 2
-            let target := [
-                on {foo: x}
-                    let y := 3
-                    x + y
-            ]
-            let res := target{foo: 10}
-            res + x + y
-        ",
-            Value::Integer(16),
-        )
-    }
-    #[test]
-    fn closure() {
-        assert_ok(
-            "
-            let foo := 2
-            let x := [
-                on {} 1
-                on {foo} foo
-                on {bar: arg} arg
-            ]
-            let bar := 3
-            x{} + x{foo} + x{bar: bar}
-        ",
-            Value::Integer(6),
-        );
-    }
+    // #[test]
+    // fn object() {
+    //     assert_ok(
+    //         "
+    //         let x := [on {foo}]
+    //         x{foo}
+    //     ",
+    //         Value::Unit,
+    //     );
+    //     assert_ok(
+    //         "
+    //         let x := [
+    //             on {} 1
+    //             on {foo} 2
+    //             on {bar: arg} arg
+    //         ]
+    //         let bar := 3
+    //         x{} + x{foo} + x{bar: bar}
+    //     ",
+    //         Value::Integer(6),
+    //     );
+    //     assert_ok(
+    //         "
+    //         let x := 1
+    //         let y := 2
+    //         let target := [
+    //             on {foo: x}
+    //                 let y := 3
+    //                 x + y
+    //         ]
+    //         let res := target{foo: 10}
+    //         res + x + y
+    //     ",
+    //         Value::Integer(16),
+    //     )
+    // }
+    // #[test]
+    // fn closure() {
+    //     assert_ok(
+    //         "
+    //         let foo := 2
+    //         let x := [
+    //             on {} 1
+    //             on {foo} foo
+    //             on {bar: arg} arg
+    //         ]
+    //         let bar := 3
+    //         x{} + x{foo} + x{bar: bar}
+    //     ",
+    //         Value::Integer(6),
+    //     );
+    // }
 
-    #[test]
-    fn frame() {
-        assert_ok(
-            "
-            let point := [x: 1 y: 2]
-            point{x} + point{y}
-        ",
-            Value::Integer(3),
-        );
-        assert_ok(
-            "
-            let point := [x: 1 y: 2]
-            let other := point{x: 2}
-            point{x} + other{x}
-        ",
-            Value::Integer(3),
-        );
-    }
+    // #[test]
+    // fn frame() {
+    //     assert_ok(
+    //         "
+    //         let point := [x: 1 y: 2]
+    //         point{x} + point{y}
+    //     ",
+    //         Value::Integer(3),
+    //     );
+    //     assert_ok(
+    //         "
+    //         let point := [x: 1 y: 2]
+    //         let other := point{x: 2}
+    //         point{x} + other{x}
+    //     ",
+    //         Value::Integer(3),
+    //     );
+    // }
 
-    #[test]
-    fn self_ref() {
-        assert_ok(
-            "
-            let target := [
-                on {x}
-                    self{y}
-                on {y}
-                    2 
-            ]
-            target{x}
-        ",
-            Value::Integer(2),
-        );
-    }
+    // #[test]
+    // fn self_ref() {
+    //     assert_ok(
+    //         "
+    //         let target := [
+    //             on {x}
+    //                 self{y}
+    //             on {y}
+    //                 2
+    //         ]
+    //         target{x}
+    //     ",
+    //         Value::Integer(2),
+    //     );
+    // }
 
     // #[test]
     // fn indirect_self_ref() {

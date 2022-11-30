@@ -1,210 +1,10 @@
 use std::rc::Rc;
 
 use crate::{
-    class::{Body, Object, RcClass},
+    class::{Body, Object},
     ir::IR,
     value::Value,
 };
-
-#[derive(Debug)]
-
-struct Frame {
-    offset: usize,
-    object: Rc<Object>,
-}
-
-impl Frame {
-    fn root() -> Self {
-        Self {
-            offset: 0,
-            object: Object::empty(),
-        }
-    }
-    fn offset(&self) -> usize {
-        self.offset
-    }
-    fn ivar(&self, index: usize) -> Value {
-        self.object.ivar(index)
-    }
-    fn class(&self) -> RcClass {
-        self.object.class()
-    }
-    fn get_self(&self) -> Rc<Object> {
-        self.object.clone()
-    }
-}
-
-#[derive(Debug)]
-struct Frames(Vec<Frame>);
-
-impl Frames {
-    fn new() -> Self {
-        Self(vec![Frame::root()])
-    }
-    fn _last(&self) -> &Frame {
-        self.0.last().unwrap()
-    }
-    fn push(&mut self, object: Rc<Object>, offset: usize) {
-        self.0.push(Frame { offset, object })
-    }
-    fn pop(&mut self) -> usize {
-        let popped = self.0.pop().unwrap();
-        popped.offset()
-    }
-    fn local(&self, index: usize) -> usize {
-        self._last().offset() + index
-    }
-    fn ivar(&self, index: usize) -> Value {
-        self._last().ivar(index)
-    }
-    fn class(&self) -> RcClass {
-        self._last().class()
-    }
-    fn get_self(&self) -> Rc<Object> {
-        self._last().get_self()
-    }
-}
-
-#[derive(Debug)]
-struct Values(Vec<Value>);
-
-impl Values {
-    fn new() -> Self {
-        Self(Vec::new())
-    }
-    fn pop_args(&mut self, arity: usize) -> Vec<Value> {
-        self.0.split_off(self.0.len() - arity)
-    }
-    fn push_frame(&mut self, frames: &mut Frames, object: Rc<Object>, mut args: Vec<Value>) {
-        let offset = self.0.len();
-        frames.push(object, offset);
-        self.0.append(&mut args);
-    }
-    fn swap_frame(&mut self, frames: &mut Frames, object: Rc<Object>, mut args: Vec<Value>) {
-        let offset = frames.pop();
-        self.0.truncate(offset);
-        frames.push(object, offset);
-        self.0.append(&mut args);
-    }
-    fn push_do_frame(
-        &mut self,
-        frames: &mut Frames,
-        parent_object: Rc<Object>,
-        parent_offset: usize,
-        args: Vec<Value>,
-    ) {
-        frames.push(parent_object, parent_offset);
-        for (i, arg) in args.into_iter().enumerate() {
-            self.0[i + parent_offset] = arg;
-        }
-    }
-    fn swap_do_frame(
-        &mut self,
-        frames: &mut Frames,
-        parent_object: Rc<Object>,
-        parent_offset: usize,
-        args: Vec<Value>,
-    ) {
-        frames.pop();
-        frames.push(parent_object, parent_offset);
-        for (i, arg) in args.into_iter().enumerate() {
-            self.0[i + parent_offset] = arg;
-        }
-    }
-    fn pop_frame(&mut self, frames: &mut Frames) {
-        let offset = frames.pop();
-        let result = self.0.pop().unwrap();
-        self.0.truncate(offset);
-        self.0.push(result);
-    }
-    fn push_self(&mut self, frames: &Frames) {
-        let object = frames.get_self();
-        self.0.push(Value::Object(object));
-    }
-    fn push(&mut self, value: Value) {
-        self.0.push(value);
-    }
-    fn pop(&mut self) -> Value {
-        self.0.pop().unwrap()
-    }
-    fn local(&mut self, frames: &Frames, index: usize) {
-        let index = frames.local(index);
-        let val = self.0[index].clone();
-        self.0.push(val);
-    }
-    fn assign(&mut self, frames: &Frames, index: usize) {
-        let index = frames.local(index);
-        let top = self.0.pop().unwrap();
-        if index == self.0.len() {
-            self.0.push(top);
-        } else {
-            self.0[index] = top;
-            unreachable!();
-        }
-    }
-    fn result(&self) -> Value {
-        self.0.last().cloned().unwrap_or(Value::Unit)
-    }
-    fn allocate(&mut self, size: usize) {
-        for _ in 0..size {
-            self.0.push(Value::Unit);
-        }
-    }
-}
-
-#[derive(Debug)]
-struct Code(Vec<(usize, Rc<Vec<IR>>)>);
-impl Code {
-    fn root(program: Vec<IR>) -> Self {
-        Self(vec![(0 as usize, Rc::new(program))])
-    }
-    fn peek(&self) -> Option<&IR> {
-        if let Some((i, body)) = self.0.last() {
-            return Some(&body[*i]);
-        }
-        None
-    }
-    fn next(&mut self, ctx: &mut Interpreter) {
-        let (i, body) = self.0.last_mut().unwrap();
-        *i += 1;
-        if *i >= body.len() {
-            ctx.values.pop_frame(&mut ctx.frames);
-            self.0.pop();
-        }
-    }
-    fn push(&mut self, ctx: &mut Interpreter, object: Rc<Object>, args: Vec<Value>, body: Body) {
-        let (i, current_block) = self.0.last_mut().unwrap();
-        *i += 1;
-        // Tail call
-        if *i >= current_block.len() {
-            ctx.values.swap_frame(&mut ctx.frames, object, args);
-            self.0.pop();
-        } else {
-            ctx.values.push_frame(&mut ctx.frames, object, args);
-        }
-        self.0.push((0, body));
-    }
-    fn push_do_frame(
-        &mut self,
-        ctx: &mut Interpreter,
-        parent_object: Rc<Object>,
-        parent_offset: usize,
-        args: Vec<Value>,
-        body: Body,
-    ) {
-        let (i, current_block) = self.0.last_mut().unwrap();
-        *i += 1;
-        if *i >= current_block.len() {
-            ctx.values
-                .swap_do_frame(&mut ctx.frames, parent_object, parent_offset, args);
-            self.0.pop();
-        } else {
-            ctx.values
-                .push_do_frame(&mut ctx.frames, parent_object, parent_offset, args);
-        }
-        self.0.push((0, body));
-    }
-}
 
 #[derive(Debug, PartialEq, Clone)]
 pub enum RuntimeError {
@@ -217,6 +17,7 @@ pub enum RuntimeError {
 #[derive(Debug, Clone)]
 pub enum Eval {
     Ok,
+    Value(Value),
     Error(RuntimeError),
     Call {
         selector: String,
@@ -233,85 +34,284 @@ pub enum Eval {
 }
 
 #[derive(Debug)]
-pub struct Interpreter {
+struct Values {
+    values: Vec<Value>,
+}
+
+impl Values {
+    fn new() -> Self {
+        Self { values: Vec::new() }
+    }
+    fn drop(&mut self) {
+        self.values.pop().unwrap();
+    }
+    fn allocate(&mut self, size: usize) {
+        for _ in 0..size {
+            self.values.push(Value::Unit);
+        }
+    }
+    fn push(&mut self, value: Value) {
+        self.values.push(value);
+    }
+    fn push_local(&mut self, index: usize) {
+        let value = self.values[index].clone();
+        self.values.push(value);
+    }
+    fn assign(&mut self, index: usize) {
+        // if assigning to top of stack, just leave in place
+        if index == self.values.len() - 1 {
+            return;
+        }
+        // pop value from stack & put in new place
+        let value = self.values.pop().unwrap();
+        self.values[index] = value;
+    }
+    fn result(&self) -> Value {
+        self.values.last().cloned().unwrap_or(Value::Unit)
+    }
+    fn push_args(&mut self, mut args: Vec<Value>) -> usize {
+        let offset = self.values.len();
+        self.values.append(&mut args);
+        offset
+    }
+    fn pop(&mut self) -> Value {
+        self.values.pop().unwrap()
+    }
+    fn pop_args(&mut self, arity: usize) -> Vec<Value> {
+        self.values.split_off(self.values.len() - arity)
+    }
+    // fn insert_do_args(&mut self, args: Vec<Value>, offset: usize) {
+    //     for (i, arg) in args.into_iter().enumerate() {
+    //         self.values[i + offset] = arg;
+    //     }
+    // }
+    fn return_value(&mut self, offset: usize) {
+        let value = self.pop();
+        self.values.truncate(offset);
+        self.values.push(value);
+    }
+}
+
+#[derive(Debug)]
+struct Code {
+    index: usize,
+    body: Body,
+}
+
+impl Code {
+    fn new(body: Body) -> Self {
+        Self { index: 0, body }
+    }
+    fn peek(&self) -> Option<&IR> {
+        self.body.get(self.index)
+    }
+    fn next(&mut self) {
+        self.index += 1;
+    }
+}
+
+#[derive(Debug)]
+enum StackFrame {
+    Root,
+    Handler { offset: usize, instance: Rc<Object> },
+    // DoHandler {
+    //     own_offset: usize,
+    //     parent_offset: usize,
+    //     parent_instance: Rc<Object>,
+    // },
+}
+
+#[allow(unused)]
+impl StackFrame {
+    fn offset(&self) -> usize {
+        match self {
+            Self::Root { .. } => 0,
+            Self::Handler { offset, .. } => *offset,
+            // Self::DoHandler { parent_offset, .. } => *parent_offset,
+        }
+    }
+    fn instance(&self) -> Rc<Object> {
+        match self {
+            Self::Root { .. } => unreachable!(),
+            Self::Handler { instance, .. } => instance.clone(),
+            // Self::DoHandler {
+            //     parent_instance, ..
+            // } => parent_instance.clone(),
+        }
+    }
+}
+
+#[derive(Debug)]
+struct Frames {
+    frames: Vec<StackFrame>,
+}
+
+impl Frames {
+    fn root() -> Self {
+        Self {
+            frames: vec![StackFrame::Root],
+        }
+    }
+    fn offset(&self) -> usize {
+        self.frames.last().unwrap().offset()
+    }
+    fn instance(&self) -> Rc<Object> {
+        self.frames.last().unwrap().instance()
+    }
+    fn push(&mut self, stack: &mut Values, instance: Rc<Object>, args: Vec<Value>) {
+        let offset = stack.push_args(args);
+        self.frames.push(StackFrame::Handler { offset, instance })
+    }
+    // fn push_do(
+    //     &mut self,
+    //     stack: &mut Values,
+    //     own_offset: usize,
+    //     parent_offset: usize,
+    //     parent_instance: Rc<Object>,
+    //     args: Vec<Value>,
+    // ) {
+    //     stack.insert_do_args(args, own_offset);
+    //     self.frames.push(StackFrame::DoHandler {
+    //         own_offset,
+    //         parent_offset,
+    //         parent_instance,
+    //     });
+    // }
+    fn pop(&mut self, stack: &mut Values) -> Option<Value> {
+        let last = self.frames.pop().unwrap();
+        match last {
+            StackFrame::Root { .. } => {
+                let result = stack.result();
+                return Some(result);
+            }
+            StackFrame::Handler { offset, .. } => {
+                stack.return_value(offset);
+                return None;
+            } // StackFrame::DoHandler {
+              //     own_offset,
+              //     parent_offset,
+              //     parent_instance,
+              // } => {
+              //     unimplemented!()
+              // }
+        };
+    }
+}
+
+#[derive(Debug)]
+struct Interpreter {
     values: Values,
     frames: Frames,
 }
 
+pub fn program(program: Vec<IR>) -> Result<Value, RuntimeError> {
+    let mut interpreter = Interpreter::new();
+    interpreter.run(Rc::new(program))
+}
+
+#[allow(unused)]
 impl Interpreter {
     fn new() -> Self {
         Self {
             values: Values::new(),
-            frames: Frames::new(),
+            frames: Frames::root(),
         }
     }
-    pub fn program(program: Vec<IR>) -> Result<Value, RuntimeError> {
-        let mut ctx = Self::new();
-        let mut code = Code::root(program);
-        while let Some(stmt) = code.peek() {
-            match stmt.eval(&mut ctx) {
-                Eval::Ok => {
-                    code.next(&mut ctx);
-                }
-                Eval::Error(err) => {
-                    // let trace = ctx.frames.trace().join("\n");
-                    // println!("{}", trace);
-                    return Err(err);
-                }
-                Eval::Call {
-                    object, args, body, ..
-                } => {
-                    code.push(&mut ctx, object, args, body);
-                }
-                Eval::CallDoBlock {
-                    parent_object,
-                    parent_offset,
-                    args,
-                    body,
-                } => {
-                    code.push_do_frame(&mut ctx, parent_object, parent_offset, args, body);
+    fn run(&mut self, program: Body) -> Result<Value, RuntimeError> {
+        let mut code_stack = vec![Code::new(program)];
+        while let Some(mut code) = code_stack.last_mut() {
+            while let Some(ir) = code.peek() {
+                let eval = self.eval(ir);
+                match eval {
+                    Eval::Ok => {
+                        code.next();
+                    }
+                    Eval::Value(value) => {
+                        self.values.push(value);
+                        code.next();
+                    }
+                    Eval::Error(err) => {
+                        return Err(err);
+                    }
+                    Eval::Call {
+                        selector,
+                        object,
+                        args,
+                        body,
+                        ..
+                    } => {
+                        code.next();
+                        self.frames.push(&mut self.values, object, args);
+                        *code = Code::new(body);
+                    }
+                    Eval::CallDoBlock {
+                        parent_object,
+                        parent_offset,
+                        args,
+                        body,
+                        ..
+                    } => {
+                        code.next();
+                        unimplemented!();
+                        // self.frames.push_do();
+                        // *code = Code::new(body);
+                    }
                 }
             }
+            if let Some(result) = self.frames.pop(&mut self.values) {
+                return Ok(result);
+            }
+            code_stack.pop().unwrap();
         }
-        Ok(ctx.values.result())
+        return Ok(Value::Unit);
     }
-    pub fn push(&mut self, value: Value) {
-        self.values.push(value)
-    }
-    pub fn get_local(&mut self, index: usize) {
-        self.values.local(&self.frames, index);
-    }
-    pub fn get_ivar(&mut self, index: usize) {
-        let value = self.frames.ivar(index);
-        self.values.push(value);
-    }
-    pub fn assign(&mut self, index: usize) {
-        self.values.assign(&self.frames, index);
-    }
-    pub fn send(&mut self, selector: &str, arity: usize) -> Eval {
-        let args = self.values.pop_args(arity);
-        let target = self.values.pop();
-        target.send(self, selector, args)
-    }
-    pub fn object(&mut self, class: &RcClass, arity: usize) {
-        let ivars = self.values.pop_args(arity);
-        let obj = Value::Object(Rc::new(Object::new(class.clone(), ivars)));
-        self.values.push(obj);
-    }
-    pub fn do_block(&mut self, class: &RcClass, size: usize) {
-        self.values.allocate(size);
-        let parent_object = self.frames.get_self();
-        let value = Value::Do(class.clone(), parent_object, size);
-        self.values.push(value);
-    }
-    pub fn self_object(&mut self, arity: usize) {
-        let class = self.frames.class();
-        self.object(&class, arity);
-    }
-    pub fn push_self(&mut self) {
-        self.values.push_self(&self.frames);
-    }
-    pub fn drop(&mut self) {
-        self.values.pop();
+    fn eval(&mut self, ir: &IR) -> Eval {
+        match ir {
+            IR::Drop => {
+                self.values.drop();
+            }
+            IR::Allocate(size) => {
+                self.values.allocate(*size);
+            }
+            IR::Constant(value) => {
+                self.values.push(value.clone());
+            }
+            IR::Assign(index) => {
+                self.values.assign(*index);
+            }
+            IR::Local(index) => {
+                let offset = self.frames.offset();
+                self.values.push_local(index + offset);
+            }
+            IR::SelfRef => {
+                let instance = self.frames.instance();
+                self.values.push(Value::Object(instance));
+            }
+            IR::IVar(index) => {
+                let instance = self.frames.instance();
+                let ivar = instance.ivar(*index);
+                self.values.push(ivar);
+            }
+            IR::Send(selector, arity) => {
+                let args = self.values.pop_args(*arity);
+                let target = self.values.pop();
+                return target.send(selector, args);
+            }
+            IR::Object(class, arity) => {
+                let ivars = self.values.pop_args(*arity);
+                let obj = Value::Object(Rc::new(Object::new(class.clone(), ivars)));
+                self.values.push(obj);
+            }
+            IR::SelfObject(arity) => {
+                let class = self.frames.instance().class();
+                let ivars = self.values.pop_args(*arity);
+                let obj = Value::Object(Rc::new(Object::new(class.clone(), ivars)));
+                self.values.push(obj);
+            }
+            IR::DoBlock(class) => {
+                unimplemented!();
+            }
+        };
+        Eval::Ok
     }
 }

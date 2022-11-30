@@ -90,11 +90,7 @@ impl Compiler {
         self.add(key, ScopeType::Let)
     }
     fn add(&mut self, key: String, typ: ScopeType) -> ScopeRecord {
-        match self {
-            Self::Root(locals) => locals.add(key, typ),
-            Self::Handler(locals, _) => locals.add(key, typ),
-            Self::DoHandler(locals, _) => locals.add(key, typ),
-        }
+        self.locals().add(key, typ)
     }
     pub fn with_instance(
         &mut self,
@@ -122,14 +118,23 @@ impl Compiler {
             }
             _ => unreachable!(),
         };
-        let allocated = end_index
-            - match self {
-                Self::DoHandler(ls, _) => ls.index,
-                Self::Handler(ls, _) => ls.index,
-                Self::Root(ls) => ls.index,
-            };
-
+        let locals = self.locals();
+        let start_index = locals.index;
+        let allocated = end_index - start_index;
         Ok(allocated)
+    }
+
+    fn locals(&mut self) -> &mut Locals {
+        match self {
+            Self::DoHandler(ls, _) => ls,
+            Self::Handler(ls, _) => ls,
+            Self::Root(ls) => ls,
+        }
+    }
+
+    pub fn allocate(&mut self, size: usize) -> CompileResult {
+        self.locals().allocate(size);
+        Ok(vec![IR::Allocate(size)])
     }
 
     pub fn push_self(&self, source: Source) -> CompileResult {
@@ -232,6 +237,9 @@ impl Locals {
         self.index += 1;
         self.map.insert(key, record);
         record
+    }
+    fn allocate(&mut self, size: usize) {
+        self.index += size;
     }
 }
 

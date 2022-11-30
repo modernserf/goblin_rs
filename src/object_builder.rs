@@ -1,5 +1,5 @@
 use crate::class::{Class, Handler as IRHandler, Param as IRParam};
-use crate::compiler::{CompileResult, Compiler};
+use crate::compiler::{CompileError, CompileResult, Compiler};
 use crate::ir::IR;
 use crate::parse_binding::Binding;
 use crate::parse_stmt::Stmt;
@@ -19,7 +19,7 @@ impl ObjectBuilder {
             // else_handler: None,
         }
     }
-    pub fn compile_do(&self, compiler: &mut Compiler) -> CompileResult {
+    pub fn compile_do(&self, compiler: &mut Compiler) -> Result<(Vec<IR>, Vec<IR>), CompileError> {
         let mut class = Class::new();
         let mut allocated_results = Vec::new();
         for (selector, handler) in self.handlers.iter() {
@@ -34,8 +34,9 @@ impl ObjectBuilder {
         }
 
         let max_allocated = allocated_results.into_iter().max().unwrap_or(0);
-        let out = vec![IR::DoBlock(class.rc(), max_allocated)];
-        Ok(out)
+        let alloc = compiler.allocate(max_allocated)?;
+        let arg = vec![IR::DoBlock(class.rc())];
+        Ok((alloc, arg))
     }
 
     pub fn compile(&self, compiler: &mut Compiler, binding: Option<&Binding>) -> CompileResult {
