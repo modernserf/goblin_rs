@@ -14,7 +14,11 @@ pub enum Stmt {
 impl Stmt {
     pub fn compile(&self, compiler: &mut Compiler) -> CompileResult {
         match self {
-            Stmt::Expr(expr) => expr.compile(compiler),
+            Stmt::Expr(expr) => {
+                let mut res = expr.compile(compiler)?;
+                res.push(IR::Drop);
+                Ok(res)
+            }
             Stmt::Let(binding, expr) => {
                 let mut value = expr.compile_self_ref(compiler, binding)?;
                 match binding {
@@ -24,6 +28,7 @@ impl Stmt {
                         return Ok(value);
                     }
                     Binding::Placeholder(_) => {
+                        value.push(IR::Drop);
                         return Ok(value);
                     }
                 }

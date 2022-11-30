@@ -8,6 +8,7 @@ use crate::{
     },
 };
 
+#[allow(unused)]
 #[derive(Debug, Clone, PartialEq)]
 pub enum Value {
     Unit,

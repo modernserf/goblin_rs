@@ -50,6 +50,17 @@ pub fn int_class(ctx: &mut Interpreter, selector: &str, target: i64, args: &[Val
             }
             _ => primitive_type_error("number", &args[0]),
         },
+        "-:" => match args[0] {
+            Value::Integer(r) => {
+                ctx.push(Value::Integer(target - r));
+                Eval::Ok
+            }
+            Value::Float(f) => {
+                ctx.push(Value::Float(target as f64 - f));
+                Eval::Ok
+            }
+            _ => primitive_type_error("number", &args[0]),
+        },
         "=:" => match args[0] {
             Value::Integer(r) => {
                 ctx.push(Value::Bool(target == r));
@@ -74,6 +85,17 @@ pub fn float_class(ctx: &mut Interpreter, selector: &str, target: f64, args: &[V
             }
             Value::Float(r) => {
                 ctx.push(Value::Float(target + r));
+                Eval::Ok
+            }
+            _ => primitive_type_error("number", &args[0]),
+        },
+        "-:" => match args[0] {
+            Value::Integer(r) => {
+                ctx.push(Value::Float(target - r as f64));
+                Eval::Ok
+            }
+            Value::Float(r) => {
+                ctx.push(Value::Float(target - r));
                 Eval::Ok
             }
             _ => primitive_type_error("number", &args[0]),
@@ -138,6 +160,7 @@ pub fn cell_class(
     }
 }
 
+#[allow(unused)]
 pub fn cell_module(ctx: &mut Interpreter, selector: &str, mut args: Vec<Value>) -> Eval {
     match selector {
         ":" => {

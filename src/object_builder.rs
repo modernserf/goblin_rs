@@ -2,10 +2,9 @@ use crate::class::{Class, Handler as IRHandler, Param as IRParam};
 use crate::compiler::{CompileResult, Compiler};
 use crate::ir::IR;
 use crate::parse_binding::Binding;
-use crate::parse_expr::Expr;
 use crate::parse_stmt::Stmt;
 use crate::parser::{ParseError, ParseResult};
-use crate::source::Source;
+use crate::value::Value;
 use std::collections::HashMap;
 
 #[derive(Debug, Clone)]
@@ -27,12 +26,7 @@ impl ObjectBuilder {
         for (selector, handler) in self.handlers.iter() {
             let allocated = compiler.with_do_block(|compiler| {
                 let ir_params = Self::compile_params(compiler, handler);
-
-                let mut body = Vec::new();
-                for stmt in handler.body.iter() {
-                    let mut ir = stmt.compile(compiler)?;
-                    body.append(&mut ir);
-                }
+                let body = Compiler::body(&handler.body, compiler)?;
                 class.add(selector.clone(), IRHandler::on(ir_params, body));
 
                 Ok(())
@@ -52,20 +46,22 @@ impl ObjectBuilder {
                 instance.with_handler(|compiler| {
                     let ir_params = Self::compile_params(compiler, handler);
 
-                    let mut body = Vec::new();
+                    let mut out = Vec::new();
                     if let Some(binding) = binding {
-                        let binding = binding.clone();
-                        let expr = Expr::SelfRef(Source::new(0, 0));
-                        let mut ir = Stmt::Let(binding, expr).compile(compiler)?;
-                        body.append(&mut ir);
+                        match binding {
+                            Binding::Identifier(key, _) => {
+                                out.push(IR::SelfRef);
+                                let record = compiler.add_let(key.to_string());
+                                out.push(IR::Assign(record.index));
+                            }
+                            _ => {}
+                        }
                     }
 
-                    for stmt in handler.body.iter() {
-                        let mut ir = stmt.compile(compiler)?;
-                        body.append(&mut ir);
-                    }
+                    let mut body = Compiler::body(&handler.body, compiler)?;
+                    out.append(&mut body);
 
-                    class.add(selector.clone(), IRHandler::on(ir_params, body));
+                    class.add(selector.clone(), IRHandler::on(ir_params, out));
                     Ok(())
                 })?;
             }

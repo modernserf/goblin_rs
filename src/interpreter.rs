@@ -80,6 +80,12 @@ impl Values {
         frames.push(object, offset);
         self.0.append(&mut args);
     }
+    fn swap_frame(&mut self, frames: &mut Frames, object: Rc<Object>, mut args: Vec<Value>) {
+        let offset = frames.pop();
+        self.0.truncate(offset);
+        frames.push(object, offset);
+        self.0.append(&mut args);
+    }
     fn push_do_frame(
         &mut self,
         frames: &mut Frames,
@@ -119,8 +125,8 @@ impl Values {
         if index == self.0.len() {
             self.0.push(top);
         } else {
-            unreachable!();
             self.0[index] = top;
+            unreachable!();
         }
     }
     fn result(&self) -> Value {
@@ -153,8 +159,19 @@ impl Code {
             self.0.pop();
         }
     }
-    fn push(&mut self, body: Body) {
-        self.0.push((0, body))
+    fn push(&mut self, ctx: &mut Interpreter, object: Rc<Object>, args: Vec<Value>, body: Body) {
+        let (i, current_block) = self.0.last_mut().unwrap();
+        *i += 1;
+        if *i >= current_block.len() {
+            // TODO: tail call elimination
+            // ctx.values.pop_frame(&mut ctx.frames);
+            ctx.values.swap_frame(&mut ctx.frames, object, args);
+            self.0.pop();
+            self.0.push((0, body));
+        } else {
+            ctx.values.push_frame(&mut ctx.frames, object, args);
+            self.0.push((0, body));
+        }
     }
 }
 
@@ -171,6 +188,7 @@ pub enum Eval {
     Ok,
     Error(RuntimeError),
     Call {
+        selector: String,
         object: Rc<Object>,
         args: Vec<Value>,
         body: Body,
@@ -204,12 +222,15 @@ impl Interpreter {
                 Eval::Ok => {
                     code.next(&mut ctx);
                 }
-                // TODO: add a stack trace here
-                Eval::Error(err) => return Err(err),
-                Eval::Call { object, args, body } => {
-                    code.next(&mut ctx);
-                    ctx.values.push_frame(&mut ctx.frames, object, args);
-                    code.push(body.clone());
+                Eval::Error(err) => {
+                    // let trace = ctx.frames.trace().join("\n");
+                    // println!("{}", trace);
+                    return Err(err);
+                }
+                Eval::Call {
+                    object, args, body, ..
+                } => {
+                    code.push(&mut ctx, object, args, body);
                 }
                 Eval::CallDoBlock {
                     parent_object,
@@ -217,10 +238,11 @@ impl Interpreter {
                     args,
                     body,
                 } => {
-                    code.next(&mut ctx);
-                    ctx.values
-                        .push_do_frame(&mut ctx.frames, parent_object, parent_offset, args);
-                    code.push(body.clone());
+                    unimplemented!();
+                    // code.next(&mut ctx);
+                    // ctx.values
+                    //     .push_do_frame(&mut ctx.frames, parent_object, parent_offset, args);
+                    // code.push(body.clone());
                 }
             }
         }
@@ -261,5 +283,8 @@ impl Interpreter {
     }
     pub fn push_self(&mut self) {
         self.values.push_self(&self.frames);
+    }
+    pub fn drop(&mut self) {
+        self.values.pop();
     }
 }

@@ -17,16 +17,34 @@ impl Default for Compiler {
 impl Compiler {
     pub fn program(program: Vec<Stmt>) -> CompileResult {
         let mut compiler = Self::root();
-        let mut out = Vec::new();
-        for stmt in program.iter() {
-            let mut res = stmt.compile(&mut compiler)?;
-            out.append(&mut res)
-        }
-        if program.is_empty() {
-            out.push(IR::Constant(Value::Unit));
-        }
-        Ok(out)
+        Compiler::body(&program, &mut compiler)
     }
+
+    pub fn body(body: &[Stmt], compiler: &mut Compiler) -> CompileResult {
+        if body.is_empty() {
+            return Ok(vec![IR::Constant(Value::Unit)]);
+        }
+
+        let mut out = Vec::new();
+        for i in 0..body.len() - 1 {
+            let stmt = &body[i];
+            let mut res = stmt.compile(compiler)?;
+            out.append(&mut res);
+        }
+        match &body[body.len() - 1] {
+            Stmt::Expr(expr) => {
+                let mut res = expr.compile(compiler)?;
+                out.append(&mut res);
+            }
+            stmt => {
+                let mut res = stmt.compile(compiler)?;
+                out.append(&mut res);
+                out.push(IR::Constant(Value::Unit));
+            }
+        }
+        return Ok(out);
+    }
+
     fn root() -> Self {
         Self::Root(Locals::root())
     }
@@ -248,28 +266,5 @@ pub mod tests {
                 "
         )
         .is_ok())
-    }
-
-    #[test]
-    fn indirect_self_ref() {
-        println!(
-            "{:#?}",
-            compile(
-                "
-        let Point := [
-            on {x: x y: y} [
-                on {x} 
-                    x
-                on {x: x'}
-                    Point{x: x' y: y}
-            ]
-        ]
-        let p := Point{x: 1 y: 2}
-        let q := p{x: 3}
-        q{x}
-        "
-            )
-            .unwrap()
-        )
     }
 }

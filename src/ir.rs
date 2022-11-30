@@ -6,6 +6,7 @@ use crate::{
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum IR {
+    Drop,
     Constant(Value),
     Local(usize),
     Assign(usize),
@@ -20,6 +21,7 @@ pub enum IR {
 impl IR {
     pub fn eval(&self, ctx: &mut Interpreter) -> Eval {
         match self {
+            IR::Drop => ctx.drop(),
             IR::Constant(value) => ctx.push(value.clone()),
             IR::Assign(index) => ctx.assign(*index),
             IR::Local(index) => ctx.get_local(*index),

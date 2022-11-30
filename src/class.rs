@@ -107,6 +107,7 @@ impl Object {
                     }
                     Eval::Call {
                         args,
+                        selector: selector.to_string(),
                         object: object.clone(),
                         body: body.clone(),
                     }

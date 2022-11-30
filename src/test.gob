@@ -15,4 +15,50 @@ It spans across multiple lines.
 "
 
 # identifiers
-foo Foo foo123 foo' foo_bar __ _foo bar_ _foo bar \_ \\ baz_
+let foo := 1
+let Foo := 2
+let foo123 := 3
+let foo_bar := 4
+let __ := 5
+let _foo bar_ := 6
+let  _foo bar 123 \_ \\ baz_ := 7
+
+(foo = 1){assert: "identifiers"}
+(_foo_ = foo){assert: "quoted identifiers"}
+
+# primitives
+(1 + 1 = 2){assert: "addition"}
+(8 - 10 = -2){assert: "subtraction"}
+(1.5 + 0.5 = 2.0){assert: "floats"}
+("hello," ++ " world" = "hello, world"){assert: "strings"}
+
+# objects
+let outer := 123
+let target := [
+  on {empty}
+  on {constant} 1
+  on {arg: arg} arg
+  on {_pun_} pun
+  on {ivar} outer
+]
+target{empty}
+(target{constant} = 1){assert: "key handlers"}
+(target{arg: 2} = 2){assert: "pair handlers"}
+let pun := 3
+# (target{_pun_} = 3){assert: "pun args"}
+(target{ivar} = 123){assert: "ivars"}
+
+let target := [
+  on {foo}
+    self{foo: 1}
+  on {foo: value}
+    value + 1
+]
+(target{foo} = 2){assert: "self"}
+let target := [
+  on {foo}
+    target{foo: 1}
+  on {foo: value}
+    value + 2
+]
+(target{foo} = 3){assert: "indirect self"}

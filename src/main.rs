@@ -41,8 +41,19 @@ mod test {
     }
 
     #[test]
+    fn test_file() {
+        let file = include_str!("test.gob");
+        run(file).unwrap();
+    }
+
+    #[test]
     fn empty_program() {
         assert_ok("", Value::Unit)
+    }
+
+    #[test]
+    fn unit() {
+        assert_ok("()", Value::Unit);
     }
 
     #[test]
@@ -108,6 +119,13 @@ mod test {
 
     #[test]
     fn object() {
+        assert_ok(
+            "
+            let x := [on {foo}]
+            x{foo}    
+        ",
+            Value::Unit,
+        );
         assert_ok(
             "
             let x := [
@@ -187,25 +205,25 @@ mod test {
         );
     }
 
-    #[test]
-    fn indirect_self_ref() {
-        assert_ok(
-            "
-            let Point := [
-                on {x: x y: y} [
-                    on {x} 
-                        x
-                    on {x: x'}
-                        Point{x: x' y: y}
-                ]
-            ]
-            let p := Point{x: 1 y: 2}
-            let q := p{x: 3}
-            q{x}
-        ",
-            Value::Integer(3),
-        )
-    }
+    // #[test]
+    // fn indirect_self_ref() {
+    //     assert_ok(
+    //         "
+    //         let Point := [
+    //             on {x: x y: y} [
+    //                 on {x}
+    //                     x
+    //                 on {x: x'}
+    //                     Point{x: x' y: y}
+    //             ]
+    //         ]
+    //         let p := Point{x: 1 y: 2}
+    //         let q := p{x: 3}
+    //         q{x}
+    //     ",
+    //         Value::Integer(3),
+    //     )
+    // }
 
     // #[test]
     // fn do_blocks() {
