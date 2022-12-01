@@ -99,3 +99,7 @@ let obj := [
 ]
 let f := [x: 1 y: 2]
 (f{: obj} = 3){assert: "frame pair match"}
+let x := 1
+let y := 2
+let f := [_x_ _y_]
+(f{x} = 1){assert: "frame pun args"}

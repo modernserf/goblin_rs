@@ -170,6 +170,14 @@ impl<'a> Parser<'a> {
     fn frame(&mut self, source: Source) -> ParseResult<Expr> {
         let mut builder = FrameBuilder::new();
         loop {
+            if let Token::QuotedIdent(key, source) = self.peek() {
+                let key = mem::take(key);
+                let source = *source;
+                self.advance();
+                let value = Expr::Identifier(key.clone(), source);
+                builder.add_pair(key, value)?;
+                continue;
+            }
             let key = self.key();
             if self.expect_token(":").is_ok() {
                 let value = expect(self.expr(), "expr")?;
