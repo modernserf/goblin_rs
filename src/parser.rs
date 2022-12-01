@@ -1,9 +1,10 @@
 use crate::frame::FrameBuilder;
 use crate::object_builder::{ObjectBuilder, PairParamsBuilder, ParamsBuilder};
+use crate::send_builder::SendBuilder;
 use crate::{
     lexer::{Lexer, Token},
     parse_binding::Binding,
-    parse_expr::{Expr, SendBuilder},
+    parse_expr::Expr,
     parse_stmt::Stmt,
     source::Source,
 };
@@ -308,10 +309,11 @@ impl<'a> Parser<'a> {
         match self.peek() {
             Token::Operator(value, source) => {
                 let src = *source;
-                let selector = mem::take(value);
+                let operator = mem::take(value);
                 self.advance();
-                let expr = expect(self.unary_op_expr(), "expr")?;
-                Ok(Some(Expr::UnaryOp(selector, Box::new(expr), src)))
+                let target = expect(self.unary_op_expr(), "expr")?;
+                let res = SendBuilder::unary_op(operator, target, src)?;
+                Ok(Some(res))
             }
             _ => self.call_expr(),
         }
@@ -323,16 +325,11 @@ impl<'a> Parser<'a> {
         };
         while let Token::Operator(value, source) = self.peek() {
             let src = *source;
-            let mut selector = mem::take(value);
-            selector.push(':');
+            let mut operator = mem::take(value);
+            operator.push(':');
             self.advance();
             let operand = expect(self.unary_op_expr(), "expr")?;
-            expr = Expr::BinaryOp {
-                selector,
-                target: Box::new(expr),
-                operand: Box::new(operand),
-                source: src,
-            }
+            expr = SendBuilder::binary_op(operator, expr, operand, src)?;
         }
         Ok(Some(expr))
     }
