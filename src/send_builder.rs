@@ -36,13 +36,21 @@ impl Send {
         let arity = self.args.len();
         for arg in self.args.iter() {
             match arg {
-                SendArg::Do(_) => {
-                    let mut ir = queue.pop_front().unwrap();
-                    out.append(&mut ir);
-                }
                 SendArg::Value(value) => {
                     let mut result = value.compile(compiler)?;
                     out.append(&mut result);
+                }
+                SendArg::Var(key) => match compiler.get_var_index(key) {
+                    Some(index) => {
+                        out.push(IR::VarArg(index));
+                    }
+                    None => {
+                        panic!("invalid var binding")
+                    }
+                },
+                SendArg::Do(_) => {
+                    let mut ir = queue.pop_front().unwrap();
+                    out.append(&mut ir);
                 }
             }
         }
@@ -58,6 +66,7 @@ pub struct SendBuilder {
 #[derive(Debug, Clone)]
 enum SendArg {
     Value(Expr),
+    Var(String),
     Do(ObjectBuilder),
 }
 
@@ -109,6 +118,12 @@ impl SendBuilder {
     }
     pub fn add_value(&mut self, key: String, value: Expr) -> ParseResult<()> {
         match self.args.insert(key.to_string(), SendArg::Value(value)) {
+            Some(_) => Err(ParseError::DuplicateKey(key.to_string())),
+            None => Ok(()),
+        }
+    }
+    pub fn add_var(&mut self, key: String, value: String) -> ParseResult<()> {
+        match self.args.insert(key.to_string(), SendArg::Var(value)) {
             Some(_) => Err(ParseError::DuplicateKey(key.to_string())),
             None => Ok(()),
         }

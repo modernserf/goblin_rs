@@ -51,6 +51,7 @@ pub type Body = Rc<Vec<IR>>;
 pub enum Param {
     Value,
     Do,
+    Var,
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -66,6 +67,13 @@ fn check_args(params: &[Param], args: &[Value]) -> Result<(), RuntimeError> {
     for (param, arg) in params.iter().zip(args.iter()) {
         match (param, arg) {
             (Param::Do, Value::Do { .. }) => {}
+            (Param::Var, Value::Var(..)) => {}
+            (_, Value::Var(..)) => {
+                return Err(RuntimeError::InvalidArg {
+                    expected: "value".to_string(),
+                    received: arg.clone(),
+                })
+            }
             (_, Value::Do { .. }) => {
                 return Err(RuntimeError::InvalidArg {
                     expected: "value".to_string(),

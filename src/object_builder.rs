@@ -77,6 +77,10 @@ impl ObjectBuilder {
                         Binding::Placeholder(_) => {}
                     }
                 }
+                Param::Var(key) => {
+                    ir_params.push(IRParam::Var);
+                    compiler.add_var(key.to_string());
+                }
                 Param::Do(key) => {
                     ir_params.push(IRParam::Do);
                     compiler.add_let(key.to_string());
@@ -125,7 +129,7 @@ struct Handler {
 #[derive(Debug, Clone)]
 enum Param {
     Value(Binding),
-    // Var(VarBinding),
+    Var(String),
     Do(String),
 }
 
@@ -171,6 +175,16 @@ impl PairParamsBuilder {
         self.params.insert(
             key,
             ParseParam::Param(ParamWithMatch::Param(Param::Value(binding))),
+        );
+        Ok(())
+    }
+    pub fn add_var(&mut self, key: String, ident: String) -> ParseResult<()> {
+        if self.params.contains_key(&key) {
+            return Err(ParseError::DuplicateKey(key));
+        }
+        self.params.insert(
+            key,
+            ParseParam::Param(ParamWithMatch::Param(Param::Var(ident))),
         );
         Ok(())
     }

@@ -57,6 +57,10 @@ impl Values {
         let value = self.values[index].clone();
         self.values.push(value);
     }
+    fn push_var_arg(&mut self, index: usize) {
+        let value = self.values[index].clone();
+        self.values.push(Value::Var(index, Box::new(value)));
+    }
     fn assign(&mut self, index: usize) {
         // if assigning to top of stack, just leave in place
         if index == self.values.len() - 1 {
@@ -86,6 +90,13 @@ impl Values {
         let value = self.pop();
         self.values.truncate(offset);
         self.values.push(value);
+    }
+    fn update_vars(&mut self, offset: usize, args: Vec<Value>) {
+        for (i, arg) in args.into_iter().enumerate() {
+            if let Value::Var(absolute_index, _) = arg {
+                self.values[absolute_index] = self.values[offset + i].clone();
+            }
+        }
     }
 }
 
@@ -141,6 +152,7 @@ enum StackFrame {
     Handler {
         offset: usize,
         instance: Rc<Object>,
+        args: Vec<Value>,
     },
     DoHandler {
         parent_offset: usize,
@@ -190,8 +202,12 @@ impl Frames {
         self.frames.last().unwrap().instance()
     }
     fn push(&mut self, stack: &mut Values, instance: Rc<Object>, args: Vec<Value>) {
-        let offset = stack.push_args(args);
-        self.frames.push(StackFrame::Handler { offset, instance })
+        let offset = stack.push_args(args.clone());
+        self.frames.push(StackFrame::Handler {
+            offset,
+            instance,
+            args,
+        })
     }
     fn push_do(
         &mut self,
@@ -212,7 +228,8 @@ impl Frames {
             StackFrame::Root => {
                 stack.return_value(0);
             }
-            StackFrame::Handler { offset, .. } => {
+            StackFrame::Handler { offset, args, .. } => {
+                stack.update_vars(offset, args);
                 stack.return_value(offset);
             }
             StackFrame::DoHandler { .. } => {
@@ -315,6 +332,10 @@ impl Interpreter {
             IR::Local(index) => {
                 let offset = self.frames.offset();
                 self.values.push_local(index + offset);
+            }
+            IR::VarArg(index) => {
+                let offset = self.frames.offset();
+                self.values.push_var_arg(index + offset);
             }
             IR::SelfRef => {
                 let instance = self.frames.instance();

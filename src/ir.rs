@@ -11,6 +11,7 @@ pub enum IR {
     Object(RcClass, usize),
     SelfObject(usize),
     IVar(usize),
+    VarArg(usize),
     SelfRef,
     DoBlock { class: RcClass, own_offset: usize },
     Allocate(usize),

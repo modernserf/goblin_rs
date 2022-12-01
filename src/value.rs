@@ -24,6 +24,7 @@ pub enum Value {
         parent_object: Rc<Object>,
         parent_offset: usize,
     },
+    Var(usize, Box<Value>),
 }
 
 impl Default for Value {
@@ -49,6 +50,7 @@ impl Value {
             Self::String(target) => string_class(selector, target, &args),
             Self::Cell(target) => cell_class(selector, target.clone(), args),
             Self::Object(obj) => Object::send(obj, selector, args),
+            Self::Var(_, parent) => parent.send(selector, args),
             Self::Do {
                 class,
                 own_offset,

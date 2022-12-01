@@ -129,3 +129,11 @@ set f{y: 3}
 var a := [b: [c: [d: 4]]]
 set a{->b:[->c:[->d:[+: 1]]]}
 (a{b}{c}{d} = 5){assert: "deep set in place"}
+
+let target := [
+  on {inc: var value}
+    set value{+: 1}
+]
+var x := 4
+target{inc: var x}
+(x = 5){assert: "var args"}

@@ -118,6 +118,11 @@ impl<'a> Parser<'a> {
                 let ident = self.ident()?;
                 builder.add_do(key, ident)?;
             }
+            Token::Var(_) => {
+                self.advance();
+                let ident = self.ident()?;
+                builder.add_var(key, ident)?;
+            }
             _ => {
                 let binding = expect(self.binding(), "binding")?;
                 builder.add_value(key, binding)?;
@@ -279,6 +284,11 @@ impl<'a> Parser<'a> {
             Token::OpenBrace(_) => {
                 let obj = self.object()?;
                 builder.add_do(key, obj)?;
+            }
+            Token::Var(_) => {
+                self.advance();
+                let ident = self.ident()?;
+                builder.add_var(key, ident)?;
             }
             _ => {
                 let arg = expect(self.expr(), "expr")?;
