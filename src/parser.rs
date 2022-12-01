@@ -169,6 +169,7 @@ impl<'a> Parser<'a> {
                 let params = self.params()?;
                 self.expect_token("}")?;
                 let body = self.body()?;
+                let _ = self.expect_token("end");
                 builder.add_on(params, body)?;
                 return Ok(builder);
             }
@@ -183,6 +184,7 @@ impl<'a> Parser<'a> {
                     let params = self.params()?;
                     self.expect_token("}")?;
                     let body = self.body()?;
+                    let _ = self.expect_token("end");
                     builder.add_on(params, body)?;
                 }
 
