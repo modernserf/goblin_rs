@@ -46,7 +46,7 @@ target{empty}
 (target{constant} = 1){assert: "key handlers"}
 (target{arg: 2} = 2){assert: "pair handlers"}
 let pun := 3
-# (target{_pun_} = 3){assert: "pun args"}
+(target{_pun_} = 3){assert: "pun args"}
 (target{ivar} = 123){assert: "ivars"}
 
 let target := [

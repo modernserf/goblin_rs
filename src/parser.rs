@@ -261,6 +261,15 @@ impl<'a> Parser<'a> {
     fn call_expr_body(&mut self, target: Expr, source: Source) -> ParseOpt<Expr> {
         let mut builder = SendBuilder::new();
         loop {
+            if let Token::QuotedIdent(key, source) = self.peek() {
+                let key = mem::take(key);
+                let source = *source;
+                self.advance();
+                let value = Expr::Identifier(key.clone(), source);
+                builder.add_value(key, value)?;
+                continue;
+            }
+
             let key = self.key();
             if self.expect_token(":").is_ok() {
                 self.arg(&mut builder, key)?;
