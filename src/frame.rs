@@ -92,18 +92,41 @@ impl Frame {
                     class.add(key.to_string(), Handler::on(vec![], vec![IR::IVar(index)]));
 
                     // setter
-                    let params = vec![Param::Value];
-                    let mut body = Vec::new();
-                    // write all ivars to stack, but replace one with the handler arg
-                    for i in 0..arity {
-                        if i == index {
-                            body.push(IR::Local(0));
-                        } else {
-                            body.push(IR::IVar(i));
-                        }
-                    }
-                    body.push(IR::SelfObject(arity));
-                    class.add(format!("{}:", key), Handler::on(params, body))
+                    class.add(
+                        format!("{}:", key),
+                        Handler::on(vec![Param::Value], {
+                            let mut body = Vec::new();
+                            // write all ivars to stack, but replace one with the handler arg
+                            for i in 0..arity {
+                                if i == index {
+                                    body.push(IR::Local(0));
+                                } else {
+                                    body.push(IR::IVar(i));
+                                }
+                            }
+                            body.push(IR::SelfObject(arity));
+                            body
+                        }),
+                    );
+
+                    // updater
+                    class.add(
+                        format!("-> {}:", key),
+                        Handler::on(vec![Param::Do], {
+                            let mut body = Vec::new();
+                            for i in 0..arity {
+                                if i == index {
+                                    body.push(IR::Local(0));
+                                    body.push(IR::IVar(i));
+                                    body.push(IR::Send(":".to_string(), 1));
+                                } else {
+                                    body.push(IR::IVar(i));
+                                }
+                            }
+                            body.push(IR::SelfObject(arity));
+                            body
+                        }),
+                    );
                 }
                 let cls = class.rc();
                 set_cached_class(selector, &cls);

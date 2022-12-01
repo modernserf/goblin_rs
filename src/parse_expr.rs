@@ -4,6 +4,7 @@ use crate::ir::IR;
 use crate::object_builder::ObjectBuilder;
 use crate::parse_binding::Binding;
 use crate::parse_stmt::Stmt;
+use crate::parser::ParseError;
 use crate::send_builder::Send;
 use crate::source::Source;
 use crate::value::Value;
@@ -15,13 +16,36 @@ pub enum Expr {
     String(String, Source),
     Identifier(String, Source),
     Paren(Vec<Stmt>, Source),
-    Send(Send, Source),
+    Send(Box<Expr>, Send, Source),
     Object(ObjectBuilder, Source),
     Frame(Frame, Source),
     SelfRef(Source),
 }
 
 impl Expr {
+    pub fn as_binding(self) -> Result<Binding, ParseError> {
+        match self {
+            Expr::Identifier(key, source) => Ok(Binding::Identifier(key, source)),
+            _ => panic!("invalid set binding"),
+        }
+    }
+    pub fn as_set_in_place(self) -> Result<Stmt, ParseError> {
+        match self {
+            Expr::Send(target, sender, source) => {
+                let binding = target.root_target_binding()?;
+                Ok(Stmt::Set(binding, Expr::Send(target, sender, source)))
+            }
+            _ => panic!("invalid set in place"),
+        }
+    }
+    fn root_target_binding(&self) -> Result<Binding, ParseError> {
+        match self {
+            Expr::Send(target, _, _) => target.root_target_binding(),
+            Expr::Identifier(key, source) => Ok(Binding::Identifier(key.to_string(), *source)),
+            _ => panic!("invalid set in place"),
+        }
+    }
+
     pub fn compile_self_ref(&self, compiler: &mut Compiler, binding: &Binding) -> CompileResult {
         match self {
             Expr::Object(builder, _) => builder.compile(compiler, Some(binding)),
@@ -58,7 +82,7 @@ impl Expr {
                 }
                 unimplemented!()
             }
-            Expr::Send(send, _) => send.compile(compiler),
+            Expr::Send(target, send, _) => send.compile(compiler, target),
             Expr::Object(builder, _) => builder.compile(compiler, None),
             Expr::Frame(frame, _) => frame.compile(compiler),
             Expr::SelfRef(source) => compiler.get_self(*source),

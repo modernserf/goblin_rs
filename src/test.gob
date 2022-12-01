@@ -90,6 +90,8 @@ let f := [x: 1 y: 2]
 (f{x} = 1){assert: "frame get"}
 let g := f{y: 3}
 (g{y} = 3){assert: "frame set"}
+let h := f{->x: [+: 2]}
+(h{x} = 3){assert: "frame update"}
 
 ([x]{: f} = 1){assert: "frame key match"}
 
@@ -110,14 +112,20 @@ var x := 1
 set x := 2
 (x = 2){assert: "set"}
 
-# vars in do blocks
 let do_block := [
   on {: do f}
     f{}
 ]
-
 var x := 1
 do_block{: on {}
   set x := 3
 }
 (x = 3){assert: "set in do block"}
+
+var f := [x: 1 y: 2]
+set f{y: 3}
+(f{y} = 3){assert: "set in place"}
+
+var a := [b: [c: [d: 4]]]
+set a{->b:[->c:[->d:[+: 1]]]}
+(a{b}{c}{d} = 5){assert: "deep set in place"}

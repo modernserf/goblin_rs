@@ -12,12 +12,11 @@ use crate::{
 #[derive(Debug, Clone)]
 pub struct Send {
     selector: String,
-    target: Box<Expr>,
     args: Vec<SendArg>,
 }
 
 impl Send {
-    pub fn compile(&self, compiler: &mut Compiler) -> CompileResult {
+    pub fn compile(&self, compiler: &mut Compiler, target: &Expr) -> CompileResult {
         let mut out = Vec::new();
         // Do args must be processed in two separate phases -- the allocation & the class
         let mut queue = VecDeque::new();
@@ -32,7 +31,7 @@ impl Send {
             }
         }
 
-        let mut tgt = self.target.compile(compiler)?;
+        let mut tgt = target.compile(compiler)?;
         out.append(&mut tgt);
         let arity = self.args.len();
         for arg in self.args.iter() {
@@ -70,9 +69,9 @@ impl SendBuilder {
     }
     pub fn unary_op(operator: String, target: Expr, source: Source) -> ParseResult<Expr> {
         Ok(Expr::Send(
+            Box::new(target),
             Send {
                 selector: operator,
-                target: Box::new(target),
                 args: vec![],
             },
             source,
@@ -86,9 +85,9 @@ impl SendBuilder {
         source: Source,
     ) -> ParseResult<Expr> {
         Ok(Expr::Send(
+            Box::new(target),
             Send {
                 selector: operator,
-                target: Box::new(target),
                 args: vec![SendArg::Value(operand)],
             },
             source,
@@ -100,9 +99,9 @@ impl SendBuilder {
             return Err(ParseError::ExpectedPairGotKey(key));
         }
         Ok(Expr::Send(
+            Box::new(target),
             Send {
                 selector: key,
-                target: Box::new(target),
                 args: vec![],
             },
             source,
@@ -134,11 +133,8 @@ impl SendBuilder {
         }
 
         Ok(Expr::Send(
-            Send {
-                selector,
-                target: Box::new(target),
-                args,
-            },
+            Box::new(target),
+            Send { selector, args },
             source,
         ))
     }

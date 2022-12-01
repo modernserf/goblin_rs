@@ -279,7 +279,6 @@ impl Compiler {
         for i in (0..self.stack.len()).rev() {
             let frame = &self.stack[i];
             if let Some(value) = frame.locals.get(key) {
-                println!("value: {:?}", value);
                 match value.typ {
                     BindingType::Var => {
                         return Some(value.index);

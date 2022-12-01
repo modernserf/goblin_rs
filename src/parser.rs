@@ -378,10 +378,15 @@ impl<'a> Parser<'a> {
             }
             Token::Set(_) => {
                 self.advance();
-                let binding = expect(self.binding(), "binding")?;
-                self.expect_token(":=")?;
-                let expr = expect(self.expr(), "expr")?;
-                Ok(Some(Stmt::Set(binding, expr)))
+                let target = expect(self.expr(), "set target")?;
+                if self.expect_token(":=").is_ok() {
+                    let binding = target.as_binding()?;
+                    let expr = expect(self.expr(), "expr")?;
+                    Ok(Some(Stmt::Set(binding, expr)))
+                } else {
+                    let set_in_place = target.as_set_in_place()?;
+                    Ok(Some(set_in_place))
+                }
             }
             _ => match self.expr()? {
                 Some(expr) => Ok(Some(Stmt::Expr(expr))),
