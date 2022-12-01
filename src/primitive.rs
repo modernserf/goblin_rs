@@ -28,6 +28,10 @@ pub fn bool_class(selector: &str, target: bool, args: &[Value]) -> SendEffect {
             }
             _ => primitive_type_error("string", &args[0]),
         },
+        ":" => {
+            let selector = if target { "true" } else { "false" };
+            args[0].send(selector, vec![])
+        }
         _ => does_not_understand(selector),
     }
 }

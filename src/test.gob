@@ -144,3 +144,20 @@ let a := (
   x + y
 )
 (a = 3){assert: "paren scopes"}
+
+# conditionals
+let res := (1 = 1){:
+  on {true} "true"
+  on {false} "false"
+}
+(res = "true"){assert: "match boolean"}
+
+let x := 2
+let res := if x = 1 then
+  10
+else if x = 2 then
+  20
+else
+  30
+end
+(res = 20){assert: "if expression"}

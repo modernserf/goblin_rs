@@ -20,6 +20,7 @@ pub enum Expr {
     Object(ObjectBuilder, Source),
     Frame(Frame, Source),
     SelfRef(Source),
+    If(Box<Expr>, Vec<Stmt>, Vec<Stmt>, Source),
 }
 
 impl Expr {
@@ -92,6 +93,21 @@ impl Expr {
                 send.add_do("".to_string(), do_block).unwrap();
 
                 send.build(target, *source).unwrap().compile(compiler)
+            }
+            Expr::If(cond, if_true, if_false, source) => {
+                // if x then y else z end -> x{: on {true} y on {false} z}
+                let mut do_block = ObjectBuilder::new();
+                do_block
+                    .add_on(ParamsBuilder::key("true".to_string()), if_true.clone())
+                    .unwrap();
+                do_block
+                    .add_on(ParamsBuilder::key("false".to_string()), if_false.clone())
+                    .unwrap();
+                let mut send = SendBuilder::new();
+                send.add_do("".to_string(), do_block).unwrap();
+                send.build(*cond.clone(), *source)
+                    .unwrap()
+                    .compile(compiler)
             }
             Expr::Send(target, send, _) => send.compile(compiler, target),
             Expr::Object(builder, _) => builder.compile(compiler, None),

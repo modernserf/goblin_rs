@@ -17,6 +17,10 @@ pub enum Token {
     Var(Source),
     Set(Source),
     Do(Source),
+    If(Source),
+    Then(Source),
+    Else(Source),
+    End(Source),
     SelfRef(Source),
     Colon(Source),
     ColonEquals(Source),
@@ -217,6 +221,10 @@ impl<'a> Lexer<'a> {
             "on" => Token::On(source),
             "self" => Token::SelfRef(source),
             "do" => Token::Do(source),
+            "if" => Token::If(source),
+            "then" => Token::Then(source),
+            "else" => Token::Else(source),
+            "end" => Token::End(source),
             _ => Token::Identifier(str, source),
         }
     }

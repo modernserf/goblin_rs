@@ -68,6 +68,12 @@ impl<'a> Parser<'a> {
             (Token::CloseBracket(_), "]") => {
                 self.advance();
             }
+            (Token::Then(_), "then") => {
+                self.advance();
+            }
+            (Token::End(_), "end") => {
+                self.advance();
+            }
             (_, _) => return Err(ParseError::Expected(expected.to_string())),
         }
         Ok(())
@@ -210,6 +216,36 @@ impl<'a> Parser<'a> {
         builder.build(source)
     }
 
+    fn if_expr(&mut self, source: Source) -> ParseResult<Expr> {
+        let cond = expect(self.expr(), "expr")?;
+        self.expect_token("then")?;
+        let if_true = self.body()?;
+        match self.peek() {
+            Token::End(_) => {
+                self.advance();
+                Ok(Expr::If(Box::new(cond), if_true, vec![], source))
+            }
+            Token::Else(_) => {
+                self.advance();
+                if let Token::If(next_source) = self.peek() {
+                    let next_source = *next_source;
+                    self.advance();
+                    let res = self.if_expr(next_source)?;
+                    return Ok(Expr::If(
+                        Box::new(cond),
+                        if_true,
+                        vec![Stmt::Expr(res)],
+                        source,
+                    ));
+                }
+                let if_false = self.body()?;
+                self.expect_token("end")?;
+                Ok(Expr::If(Box::new(cond), if_true, if_false, source))
+            }
+            _ => Err(ParseError::Expected("else / end".to_string())),
+        }
+    }
+
     fn base_expr(&mut self) -> ParseOpt<Expr> {
         match self.peek() {
             Token::SelfRef(source) => {
@@ -270,6 +306,11 @@ impl<'a> Parser<'a> {
                 };
                 self.expect_token("]")?;
                 Ok(Some(expr))
+            }
+            Token::If(source) => {
+                let source = *source;
+                self.advance();
+                Ok(Some(self.if_expr(source)?))
             }
             _ => Ok(None),
         }
