@@ -1,4 +1,4 @@
-use std::{cell::RefCell, collections::HashMap};
+use std::{cell::RefCell, collections::HashMap, rc::Rc};
 
 use crate::{
     class::{Class, Handler, Param, RcClass},
@@ -41,8 +41,15 @@ impl Frame {
                     return Ok(vec![IR::Object(class, 0)]);
                 }
 
-                let class = Class::new();
-                // TODO: `:`
+                let mut class = Class::new();
+                // matcher
+                class.add(
+                    ":".to_string(),
+                    Handler::on(
+                        vec![Param::Do],
+                        vec![IR::Local(0), IR::Send(key.to_string(), 0)],
+                    ),
+                );
 
                 let cls = class.rc();
                 set_cached_class(key, &cls);
@@ -62,6 +69,19 @@ impl Frame {
                 }
 
                 let mut class = Class::new();
+
+                // matcher
+                class.add(
+                    ":".to_string(),
+                    Handler::on(vec![Param::Do], {
+                        let mut body = vec![IR::Local(0)];
+                        for i in 0..arity {
+                            body.push(IR::IVar(i));
+                        }
+                        body.push(IR::Send(selector.to_string(), arity));
+                        body
+                    }),
+                );
 
                 for (index, (key, val)) in args.iter().enumerate() {
                     // write ivar

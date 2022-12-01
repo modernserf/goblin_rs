@@ -85,3 +85,17 @@ let res := target{foo:
 
 (res = 3){assert: "do block"}
 
+# frames
+let f := [x: 1 y: 2]
+(f{x} = 1){assert: "frame get"}
+let g := f{y: 3}
+(g{y} = 3){assert: "frame set"}
+
+([x]{: f} = 1){assert: "frame key match"}
+
+let obj := [
+  on {x: x y: y}
+    x + y
+]
+let f := [x: 1 y: 2]
+(f{: obj} = 3){assert: "frame pair match"}
