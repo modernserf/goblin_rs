@@ -1,11 +1,11 @@
 use crate::compiler::{CompileError, CompileResult, Compiler};
-use crate::frame::Frame;
+use crate::frame::{Frame, FrameBuilder};
 use crate::ir::IR;
-use crate::object_builder::ObjectBuilder;
+use crate::object_builder::{ObjectBuilder, ParamsBuilder};
 use crate::parse_binding::Binding;
 use crate::parse_stmt::Stmt;
 use crate::parser::ParseError;
-use crate::send_builder::Send;
+use crate::send_builder::{Send, SendBuilder};
 use crate::source::Source;
 use crate::value::Value;
 
@@ -71,7 +71,7 @@ impl Expr {
                 Some(ir) => Ok(vec![ir]),
                 None => Err(CompileError::UnknownIdentifier(key.to_string(), *src)),
             },
-            Expr::Paren(body, _) => {
+            Expr::Paren(body, source) => {
                 if body.len() == 0 {
                     return Ok(vec![IR::Constant(Value::Unit)]);
                 }
@@ -80,7 +80,18 @@ impl Expr {
                         return expr.compile(compiler);
                     }
                 }
-                unimplemented!()
+                // (a b) => []{: {} a b}
+                let mut do_block = ObjectBuilder::new();
+                do_block
+                    .add_on(ParamsBuilder::key("".to_string()), body.clone())
+                    .unwrap();
+                let target = FrameBuilder::new()
+                    .build_key("".to_string(), *source)
+                    .unwrap();
+                let mut send = SendBuilder::new();
+                send.add_do("".to_string(), do_block).unwrap();
+
+                send.build(target, *source).unwrap().compile(compiler)
             }
             Expr::Send(target, send, _) => send.compile(compiler, target),
             Expr::Object(builder, _) => builder.compile(compiler, None),

@@ -137,3 +137,10 @@ let target := [
 var x := 4
 target{inc: var x}
 (x = 5){assert: "var args"}
+
+let a := (
+  let x := 1
+  let y := 2
+  x + y
+)
+(a = 3){assert: "paren scopes"}
