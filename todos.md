@@ -1,0 +1,5 @@
+- primitives as regular classes stored as thread locals
+- import core
+- wrap selector strings in Rc
+- store selectors in stack frames for error traces
+- send args instead of Do as expr

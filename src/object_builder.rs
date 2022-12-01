@@ -1,5 +1,5 @@
 use crate::class::{Class, Handler as IRHandler, Param as IRParam};
-use crate::compiler::{CompileError, CompileResult, Compiler};
+use crate::compiler::{CompileError, CompileResult, Compiler, Instance};
 use crate::ir::IR;
 use crate::parse_binding::Binding;
 use crate::parse_stmt::Stmt;
@@ -21,21 +21,19 @@ impl ObjectBuilder {
     }
     pub fn compile_do(&self, compiler: &mut Compiler) -> Result<(Vec<IR>, Vec<IR>), CompileError> {
         let mut class = Class::new();
-        let own_offset = compiler.own_offset();
-        let mut allocated_results = Vec::new();
-        for (selector, handler) in self.handlers.iter() {
-            let allocated = compiler.with_do_block(|compiler| {
-                let ir_params = Self::compile_params(compiler, handler);
-                let body = Compiler::body(&handler.body, compiler)?;
-                class.add(selector.clone(), IRHandler::on(ir_params, body));
+        let mut do_instance = compiler.do_instance();
 
-                Ok(())
-            })?;
-            allocated_results.push(allocated);
+        for (selector, handler) in self.handlers.iter() {
+            compiler.do_handler(do_instance);
+
+            let ir_params = Self::compile_params(compiler, handler);
+            let body = Compiler::body(&handler.body, compiler)?;
+            class.add(selector.clone(), IRHandler::on(ir_params, body));
+
+            do_instance = compiler.end_do_handler();
         }
 
-        let max_allocated = allocated_results.into_iter().max().unwrap_or(0);
-        let alloc = compiler.allocate(max_allocated)?;
+        let (own_offset, alloc) = compiler.end_do_instance(do_instance);
         let arg = vec![IR::DoBlock {
             class: class.rc(),
             own_offset,
@@ -45,37 +43,27 @@ impl ObjectBuilder {
 
     pub fn compile(&self, compiler: &mut Compiler, binding: Option<&Binding>) -> CompileResult {
         let mut class = Class::new();
-        let mut out = compiler.with_instance(|instance| {
-            for (selector, handler) in self.handlers.iter() {
-                instance.with_handler(|compiler| {
-                    let ir_params = Self::compile_params(compiler, handler);
+        let mut instance = Instance::new();
 
-                    let mut out = Vec::new();
-                    if let Some(binding) = binding {
-                        match binding {
-                            Binding::Identifier(key, _) => {
-                                out.push(IR::SelfRef);
-                                let record = compiler.add_let(key.to_string());
-                                out.push(IR::Assign(record.index));
-                            }
-                            _ => {}
-                        }
-                    }
+        for (selector, handler) in self.handlers.iter() {
+            compiler.handler(instance);
 
-                    let mut body = Compiler::body(&handler.body, compiler)?;
-                    out.append(&mut body);
+            let ir_params = Self::compile_params(compiler, handler);
 
-                    class.add(selector.clone(), IRHandler::on(ir_params, out));
-                    Ok(())
-                })?;
-            }
-            Ok(())
-        })?;
+            let mut out = Self::compile_self_binding(compiler, binding);
+            let mut body = Compiler::body(&handler.body, compiler)?;
+            out.append(&mut body);
+
+            class.add(selector.clone(), IRHandler::on(ir_params, out));
+
+            instance = compiler.end_handler();
+        }
+
+        let mut out = instance.ivars();
         let arity = out.len();
         out.push(IR::Object(class.rc(), arity));
         Ok(out)
     }
-
     fn compile_params(compiler: &mut Compiler, handler: &Handler) -> Vec<IRParam> {
         let mut ir_params = Vec::new();
         for param in handler.params.iter() {
@@ -96,6 +84,20 @@ impl ObjectBuilder {
             };
         }
         ir_params
+    }
+    fn compile_self_binding(compiler: &mut Compiler, binding: Option<&Binding>) -> Vec<IR> {
+        let mut out = Vec::new();
+        if let Some(binding) = binding {
+            match binding {
+                Binding::Identifier(key, _) => {
+                    out.push(IR::SelfRef);
+                    let record = compiler.add_let(key.to_string());
+                    out.push(IR::Assign(record.index));
+                }
+                _ => {}
+            }
+        }
+        out
     }
 
     pub fn add_on(&mut self, params_builder: ParamsBuilder, body: Vec<Stmt>) -> ParseResult<()> {

@@ -1,25 +1,173 @@
-use crate::{ir::IR, parse_stmt::Stmt, source::Source, value::Value};
 use std::collections::HashMap;
 
-#[derive(Debug, Clone)]
-pub enum Compiler {
-    Root(Locals),
-    Handler(Locals, Box<Instance>),
-    DoHandler(Locals, Box<Compiler>),
+use crate::{ir::IR, parse_stmt::Stmt, source::Source, value::Value};
+
+#[derive(Debug, PartialEq, Clone)]
+pub enum CompileError {
+    UnknownIdentifier(String, Source),
+    InvalidSelf(Source),
 }
 
-impl Default for Compiler {
-    fn default() -> Self {
-        Self::root()
+pub type CompileResult = Result<Vec<IR>, CompileError>;
+
+#[derive(Debug, PartialEq, Clone, Copy)]
+pub enum BindingType {
+    Let,
+}
+#[derive(Debug, PartialEq, Clone, Copy)]
+pub struct BindingRecord {
+    pub index: usize,
+    pub typ: BindingType,
+}
+
+#[derive(Debug)]
+struct Locals {
+    index: usize,
+    map: HashMap<String, BindingRecord>,
+}
+
+impl Locals {
+    fn root() -> Self {
+        Self {
+            index: 0,
+            map: HashMap::new(),
+        }
     }
+    fn offset_from(index: usize) -> Self {
+        Self {
+            index,
+            map: HashMap::new(),
+        }
+    }
+    fn allocated_since(&self, parent: &Locals) -> usize {
+        self.index - parent.index
+    }
+    fn get(&self, key: &str) -> Option<BindingRecord> {
+        self.map.get(key).map(|r| r.to_owned())
+    }
+    fn add(&mut self, key: String, typ: BindingType) -> BindingRecord {
+        let record = BindingRecord {
+            index: self.index,
+            typ,
+        };
+        self.index += 1;
+        self.map.insert(key, record);
+        record
+    }
+    fn allocate(&mut self, size: usize) {
+        self.index += size;
+    }
+}
+
+#[derive(Debug)]
+pub struct Instance {
+    ivars: Vec<IR>,
+    ivar_map: HashMap<String, BindingRecord>,
+}
+
+impl Instance {
+    pub fn new() -> Self {
+        Self {
+            ivars: Vec::new(),
+            ivar_map: HashMap::new(),
+        }
+    }
+    fn get(&self, key: &str) -> Option<IR> {
+        if let Some(record) = self.ivar_map.get(key) {
+            return Some(IR::IVar(record.index));
+        }
+        return None;
+    }
+    fn add(&mut self, key: &str, value: IR) -> IR {
+        let index = self.ivars.len();
+        self.ivars.push(value);
+        self.ivar_map.insert(
+            key.to_string(),
+            BindingRecord {
+                index,
+                typ: BindingType::Let,
+            },
+        );
+        return IR::IVar(index);
+    }
+    pub fn ivars(self) -> Vec<IR> {
+        self.ivars
+    }
+}
+
+#[derive(Debug)]
+pub struct DoInstance {
+    own_offset: usize,
+    allocated: Vec<usize>,
+}
+
+impl DoInstance {
+    fn new(own_offset: usize) -> Self {
+        Self {
+            own_offset,
+            allocated: Vec::new(),
+        }
+    }
+    fn push_allocated(&mut self, size: usize) {
+        self.allocated.push(size)
+    }
+    fn max_allocated(&self) -> usize {
+        self.allocated.iter().max().cloned().unwrap_or(0)
+    }
+}
+
+#[derive(Debug)]
+enum Scope {
+    Root,
+    Handler(Instance),
+    DoHandler(DoInstance),
+}
+
+#[derive(Debug)]
+struct CompilerFrame {
+    locals: Locals,
+    scope: Scope,
+}
+
+impl CompilerFrame {
+    fn root() -> Self {
+        Self {
+            locals: Locals::root(),
+            scope: Scope::Root,
+        }
+    }
+    fn handler(instance: Instance) -> Self {
+        Self {
+            locals: Locals::root(),
+            scope: Scope::Handler(instance),
+        }
+    }
+    fn do_handler(do_instance: DoInstance) -> Self {
+        Self {
+            locals: Locals::offset_from(do_instance.own_offset),
+            scope: Scope::DoHandler(do_instance),
+        }
+    }
+    fn add(&mut self, key: String, typ: BindingType) -> BindingRecord {
+        self.locals.add(key, typ)
+    }
+}
+
+#[derive(Debug)]
+pub struct Compiler {
+    stack: Vec<CompilerFrame>,
 }
 
 impl Compiler {
+    pub fn new() -> Self {
+        Self {
+            stack: vec![CompilerFrame::root()],
+        }
+    }
     pub fn program(program: Vec<Stmt>) -> CompileResult {
-        let mut compiler = Self::root();
+        let mut compiler = Self::new();
         Compiler::body(&program, &mut compiler)
     }
-
     pub fn body(body: &[Stmt], compiler: &mut Compiler) -> CompileResult {
         if body.is_empty() {
             return Ok(vec![IR::Constant(Value::Unit)]);
@@ -45,238 +193,189 @@ impl Compiler {
         return Ok(out);
     }
 
-    fn root() -> Self {
-        Self::Root(Locals::root())
+    pub fn handler(&mut self, instance: Instance) {
+        self.stack.push(CompilerFrame::handler(instance));
     }
-    fn handler(instance: Instance) -> Self {
-        Self::Handler(Locals::root(), Box::new(instance))
+    pub fn end_handler(&mut self) -> Instance {
+        let frame = self.stack.pop().expect("compiler frame underflow");
+        match frame.scope {
+            Scope::Handler(instance) => instance,
+            _ => panic!("expected handler frame"),
+        }
     }
-    fn do_handler(self) -> Self {
-        let index = match &self {
-            Self::Root(ls) => ls.index,
-            Self::Handler(ls, _) => ls.index,
-            Self::DoHandler(ls, _) => ls.index,
+
+    pub fn do_instance(&self) -> DoInstance {
+        DoInstance::new(self.top().locals.index)
+    }
+    pub fn do_handler(&mut self, do_instance: DoInstance) {
+        let frame = CompilerFrame::do_handler(do_instance);
+        self.stack.push(frame);
+    }
+    pub fn end_do_handler(&mut self) -> DoInstance {
+        let frame = self.stack.pop().expect("compiler frame underflow");
+        let mut do_instance = match frame.scope {
+            Scope::DoHandler(x) => x,
+            _ => panic!("expected do handler frame"),
         };
-        Self::DoHandler(Locals::scope(index), Box::new(self))
+        let current = &self.top().locals;
+        let allocated = frame.locals.allocated_since(current);
+        do_instance.push_allocated(allocated);
+        do_instance
     }
-    fn take_instance(self) -> Instance {
-        match self {
-            Self::Handler(_, instance) => *instance,
-            _ => unreachable!(),
+    pub fn end_do_instance(&mut self, do_instance: DoInstance) -> (usize, Vec<IR>) {
+        let own_offset = do_instance.own_offset;
+        let size = do_instance.max_allocated();
+        self.top_mut().locals.allocate(size);
+        (own_offset, vec![IR::Allocate(size)])
+    }
+
+    pub fn add_let(&mut self, key: String) -> BindingRecord {
+        self.top_mut().add(key, BindingType::Let)
+    }
+    fn top(&self) -> &CompilerFrame {
+        self.stack.last().unwrap()
+    }
+    fn top_mut(&mut self) -> &mut CompilerFrame {
+        self.stack.last_mut().unwrap()
+    }
+    pub fn get_self(&self, source: Source) -> CompileResult {
+        match self.top().scope {
+            Scope::Root => Err(CompileError::InvalidSelf(source)),
+            _ => Ok(vec![IR::SelfRef]),
         }
     }
     pub fn get(&mut self, key: &str) -> Option<IR> {
-        match self {
-            Self::Root(locals) => locals.get(key).map(|record| IR::Local(record.index)),
-            Self::Handler(locals, instance) => {
-                if let Some(record) = locals.get(key) {
-                    return Some(IR::Local(record.index));
+        for i in (0..self.stack.len()).rev() {
+            let frame = &mut self.stack[i];
+            if let Scope::Handler(instance) = &frame.scope {
+                if let Some(ir) = instance.get(key) {
+                    return Some(self.get_found(ir, key, i));
                 }
-                instance.get(key)
             }
-            Self::DoHandler(locals, parent) => {
-                if let Some(record) = locals.get(key) {
-                    return Some(IR::Local(record.index));
-                }
-                parent.get(key)
+            if let Some(value) = frame.locals.get(key) {
+                let ir = IR::Local(value.index);
+                return Some(self.get_found(ir, key, i));
             }
-        }
-    }
-    fn get_outer(&mut self, key: &str) -> Option<IR> {
-        // TODO: prevent referencing var / do
-        self.get(key)
-    }
-    pub fn add_let(&mut self, key: String) -> ScopeRecord {
-        self.add(key, ScopeType::Let)
-    }
-    fn add(&mut self, key: String, typ: ScopeType) -> ScopeRecord {
-        self.locals().add(key, typ)
-    }
-    pub fn with_instance(
-        &mut self,
-        mut f: impl FnMut(&mut Instance) -> CompileOk,
-    ) -> CompileResult {
-        let parent = std::mem::take(self);
-        let mut instance = Instance::new(parent);
-        f(&mut instance)?;
-        *self = instance.parent;
-        Ok(instance.ivars)
-    }
-
-    pub fn with_do_block(
-        &mut self,
-        mut f: impl FnMut(&mut Compiler) -> CompileOk,
-    ) -> Result<usize, CompileError> {
-        let parent = std::mem::take(self);
-        let mut compiler = parent.do_handler();
-        f(&mut compiler)?;
-        let end_index;
-        *self = match compiler {
-            Self::DoHandler(locals, parent) => {
-                end_index = locals.index;
-                *parent
-            }
-            _ => unreachable!(),
-        };
-        let locals = self.locals();
-        let start_index = locals.index;
-        let allocated = end_index - start_index;
-        Ok(allocated)
-    }
-
-    fn locals(&mut self) -> &mut Locals {
-        match self {
-            Self::DoHandler(ls, _) => ls,
-            Self::Handler(ls, _) => ls,
-            Self::Root(ls) => ls,
-        }
-    }
-
-    pub fn own_offset(&mut self) -> usize {
-        self.locals().index
-    }
-
-    pub fn allocate(&mut self, size: usize) -> CompileResult {
-        self.locals().allocate(size);
-        Ok(vec![IR::Allocate(size)])
-    }
-
-    pub fn push_self(&self, source: Source) -> CompileResult {
-        match self {
-            Self::Root(_) => Err(CompileError::InvalidSelf(source)),
-            Self::Handler(_, _) => Ok(vec![IR::SelfRef]),
-            Self::DoHandler(_, _) => Ok(vec![IR::SelfRef]),
-        }
-    }
-}
-
-#[derive(Debug, PartialEq, Clone)]
-pub enum CompileError {
-    UnknownIdentifier(String, Source),
-    InvalidSelf(Source),
-}
-
-pub type CompileResult = Result<Vec<IR>, CompileError>;
-pub type CompileOk = Result<(), CompileError>;
-
-#[derive(Debug, PartialEq, Clone, Copy)]
-pub enum ScopeType {
-    Let,
-}
-#[derive(Debug, PartialEq, Clone, Copy)]
-pub struct ScopeRecord {
-    pub index: usize,
-    pub typ: ScopeType,
-}
-
-#[derive(Debug, Clone, Default)]
-pub struct Instance {
-    parent: Compiler,
-    ivars: Vec<IR>,
-    ivar_map: HashMap<String, ScopeRecord>,
-}
-
-impl Instance {
-    fn new(parent: Compiler) -> Self {
-        Self {
-            parent,
-            ivars: Vec::new(),
-            ivar_map: HashMap::new(),
-        }
-    }
-    pub fn with_handler(&mut self, mut f: impl FnMut(&mut Compiler) -> CompileOk) -> CompileOk {
-        let instance = std::mem::take(self);
-        let mut handler = Compiler::handler(instance);
-        f(&mut handler)?;
-        *self = handler.take_instance();
-        Ok(())
-    }
-    fn get(&mut self, key: &str) -> Option<IR> {
-        if let Some(record) = self.ivar_map.get(key) {
-            return Some(IR::IVar(record.index));
-        }
-        let index = self.ivars.len();
-        if let Some(value) = self.parent.get_outer(key) {
-            self.ivars.push(value);
-            self.ivar_map.insert(
-                key.to_string(),
-                ScopeRecord {
-                    index,
-                    typ: ScopeType::Let,
-                },
-            );
-            return Some(IR::IVar(index));
         }
         None
     }
-}
-
-#[derive(Debug, PartialEq, Clone)]
-pub struct Locals {
-    index: usize,
-    map: HashMap<String, ScopeRecord>,
-}
-
-impl Locals {
-    fn root() -> Self {
-        Self {
-            index: 0,
-            map: HashMap::new(),
+    fn get_found(&mut self, ir: IR, key: &str, index: usize) -> IR {
+        let mut out = ir;
+        for i in (index + 1)..self.stack.len() {
+            if let Scope::Handler(instance) = &mut self.stack[i].scope {
+                out = instance.add(key, out);
+            }
         }
-    }
-    fn scope(index: usize) -> Self {
-        Self {
-            index,
-            map: HashMap::new(),
-        }
-    }
-    fn get(&self, key: &str) -> Option<ScopeRecord> {
-        self.map.get(key).map(|r| r.to_owned())
-    }
-    fn add(&mut self, key: String, typ: ScopeType) -> ScopeRecord {
-        let record = ScopeRecord {
-            index: self.index,
-            typ,
-        };
-        self.index += 1;
-        self.map.insert(key, record);
-        record
-    }
-    fn allocate(&mut self, size: usize) {
-        self.index += size;
+        out
     }
 }
 
 #[cfg(test)]
-pub mod tests {
-    use crate::{lexer::Lexer, parser::Parser};
+mod test {
+    use crate::{
+        class::{Class, Handler, Param},
+        value::Value,
+    };
 
     use super::*;
 
     fn compile(code: &str) -> CompileResult {
-        let lexer = Lexer::from_string(code);
-        let mut parser = Parser::new(lexer);
+        let lexer = crate::lexer::Lexer::from_string(code);
+        let mut parser = crate::parser::Parser::new(lexer);
         let program = parser.program().unwrap();
         Compiler::program(program)
     }
 
-    #[test]
-    fn numbers() {
-        assert!(compile("0").is_ok());
-        assert!(compile("123_45").is_ok());
+    fn assert_ok(code: &str, expected: Vec<IR>) {
+        assert_eq!(compile(code), Ok(expected));
     }
 
     #[test]
-    fn objects() {
-        assert!(compile(
-            "let x := [
-                    on {} 1
-                    on {foo} 2
-                    on {bar: arg} arg
-                ]
-                x{foo}
-                "
-        )
-        .is_ok())
+    fn basics() {
+        assert_ok("", vec![IR::Constant(Value::Unit)]);
+        assert_ok("1", vec![IR::Constant(Value::Integer(1))]);
+        assert_ok(
+            "1 2",
+            vec![
+                IR::Constant(Value::Integer(1)),
+                IR::Drop,
+                IR::Constant(Value::Integer(2)),
+            ],
+        );
+        assert_ok(
+            "-1",
+            vec![
+                IR::Constant(Value::Integer(1)),
+                IR::Send("-".to_string(), 0),
+            ],
+        );
+        assert_ok(
+            "1 + 2",
+            vec![
+                IR::Constant(Value::Integer(1)),
+                IR::Constant(Value::Integer(2)),
+                IR::Send("+:".to_string(), 1),
+            ],
+        );
+        assert_ok(
+            "let x := 1",
+            vec![
+                IR::Constant(Value::Integer(1)),
+                IR::Assign(0),
+                IR::Constant(Value::Unit),
+            ],
+        );
+        assert_ok(
+            "
+            let x := 1
+            x",
+            vec![IR::Constant(Value::Integer(1)), IR::Assign(0), IR::Local(0)],
+        );
+        assert_ok(
+            "[on {}]",
+            vec![IR::Object(
+                {
+                    let mut class = Class::new();
+                    class.add(
+                        "".to_string(),
+                        Handler::on(vec![], vec![IR::Constant(Value::Unit)]),
+                    );
+                    class.rc()
+                },
+                0,
+            )],
+        );
+        assert_ok(
+            "[on {} 1]",
+            vec![IR::Object(
+                {
+                    let mut class = Class::new();
+                    class.add(
+                        "".to_string(),
+                        Handler::on(vec![], vec![IR::Constant(Value::Integer(1))]),
+                    );
+                    class.rc()
+                },
+                0,
+            )],
+        );
+    }
+
+    #[test]
+    fn params() {
+        assert_ok(
+            "[on {: x} x]",
+            vec![IR::Object(
+                {
+                    let mut class = Class::new();
+                    class.add(
+                        ":".to_string(),
+                        Handler::on(vec![Param::Value], vec![IR::Local(0)]),
+                    );
+                    class.rc()
+                },
+                0,
+            )],
+        );
     }
 }

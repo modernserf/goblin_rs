@@ -130,7 +130,7 @@ impl Expr {
             }
             Expr::Object(builder, _) => builder.compile(compiler, None),
             Expr::Frame(frame, _) => frame.compile(compiler),
-            Expr::SelfRef(source) => compiler.push_self(*source),
+            Expr::SelfRef(source) => compiler.get_self(*source),
             Expr::DoArg(_, _) => unreachable!(),
         }
     }
