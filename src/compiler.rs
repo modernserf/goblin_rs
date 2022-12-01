@@ -168,31 +168,30 @@ impl Compiler {
     }
     pub fn program(program: Vec<Stmt>) -> CompileResult {
         let mut compiler = Self::new();
-        Compiler::body(&program, &mut compiler)
+        Compiler::body(program, &mut compiler)
     }
-    pub fn body(body: &[Stmt], compiler: &mut Compiler) -> CompileResult {
-        if body.is_empty() {
-            return Ok(vec![IR::Constant(Value::Unit)]);
-        }
-
-        let mut out = Vec::new();
-        for i in 0..body.len() - 1 {
-            let stmt = &body[i];
-            let mut res = stmt.compile(compiler)?;
-            out.append(&mut res);
-        }
-        match &body[body.len() - 1] {
-            Stmt::Expr(expr) => {
-                let mut res = expr.compile(compiler)?;
-                out.append(&mut res);
-            }
-            stmt => {
+    pub fn body(mut body: Vec<Stmt>, compiler: &mut Compiler) -> CompileResult {
+        if let Some(last) = body.pop() {
+            let mut out = Vec::new();
+            for stmt in body {
                 let mut res = stmt.compile(compiler)?;
                 out.append(&mut res);
-                out.push(IR::Constant(Value::Unit));
             }
+            match last {
+                Stmt::Expr(expr) => {
+                    let mut res = expr.compile(compiler)?;
+                    out.append(&mut res);
+                }
+                stmt => {
+                    let mut res = stmt.compile(compiler)?;
+                    out.append(&mut res);
+                    out.push(IR::Constant(Value::Unit));
+                }
+            }
+            Ok(out)
+        } else {
+            Ok(vec![IR::Constant(Value::Unit)])
         }
-        return Ok(out);
     }
 
     pub fn handler(&mut self, instance: Instance) {

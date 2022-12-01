@@ -1,3 +1,5 @@
+use std::rc::Rc;
+
 use crate::compiler::{CompileError, CompileResult, Compiler};
 use crate::frame::{Frame, FrameBuilder};
 use crate::ir::IR;
@@ -47,72 +49,73 @@ impl Expr {
         }
     }
 
-    pub fn compile_self_ref(&self, compiler: &mut Compiler, binding: &Binding) -> CompileResult {
+    pub fn compile_self_ref(self, compiler: &mut Compiler, binding: &Binding) -> CompileResult {
         match self {
             Expr::Object(builder, _) => builder.compile(compiler, Some(binding)),
             _ => self.compile(compiler),
         }
     }
 
-    pub fn compile(&self, compiler: &mut Compiler) -> CompileResult {
+    pub fn compile(self, compiler: &mut Compiler) -> CompileResult {
         match self {
             Expr::Integer(value, _) => {
-                let val = Value::Integer(*value as i64);
+                let val = Value::Integer(value as i64);
                 Ok(vec![IR::Constant(val)])
             }
             Expr::Float(value, _) => {
-                let val = Value::Float(*value);
+                let val = Value::Float(value);
                 Ok(vec![IR::Constant(val)])
             }
             Expr::String(value, _) => {
-                let val = Value::string(value);
+                let val = Value::String(Rc::new(value));
                 Ok(vec![IR::Constant(val)])
             }
-            Expr::Identifier(key, src) => match compiler.get(key) {
+            Expr::Identifier(key, src) => match compiler.get(&key) {
                 Some(ir) => Ok(vec![ir]),
-                None => Err(CompileError::UnknownIdentifier(key.to_string(), *src)),
+                None => Err(CompileError::UnknownIdentifier(key, src)),
             },
-            Expr::Paren(body, source) => {
+            Expr::Paren(mut body, source) => {
                 if body.len() == 0 {
                     return Ok(vec![IR::Constant(Value::Unit)]);
                 }
                 if body.len() == 1 {
-                    if let Stmt::Expr(expr) = &body[0] {
+                    let stmt = body.pop().unwrap();
+                    if let Stmt::Expr(expr) = stmt {
                         return expr.compile(compiler);
+                    } else {
+                        body.push(stmt)
                     }
                 }
                 // (a b) => []{: {} a b}
                 let mut do_block = ObjectBuilder::new();
                 do_block
-                    .add_on(ParamsBuilder::key("".to_string()), body.clone())
+                    .add_on(ParamsBuilder::key("".to_string()), body)
                     .unwrap();
                 let target = FrameBuilder::new()
-                    .build_key("".to_string(), *source)
+                    .build_key("".to_string(), source)
                     .unwrap();
                 let mut send = SendBuilder::new();
                 send.add_do("".to_string(), do_block).unwrap();
 
-                send.build(target, *source).unwrap().compile(compiler)
+                send.build(target, source).unwrap().compile(compiler)
             }
             Expr::If(cond, if_true, if_false, source) => {
                 // if x then y else z end -> x{: on {true} y on {false} z}
                 let mut do_block = ObjectBuilder::new();
                 do_block
-                    .add_on(ParamsBuilder::key("true".to_string()), if_true.clone())
+                    .add_on(ParamsBuilder::key("true".to_string()), if_true)
                     .unwrap();
                 do_block
-                    .add_on(ParamsBuilder::key("false".to_string()), if_false.clone())
+                    .add_on(ParamsBuilder::key("false".to_string()), if_false)
                     .unwrap();
                 let mut send = SendBuilder::new();
                 send.add_do("".to_string(), do_block).unwrap();
-                send.build(*cond.clone(), *source)
-                    .unwrap()
-                    .compile(compiler)
+                send.build(*cond.clone(), source).unwrap().compile(compiler)
             }
-            Expr::Send(target, send, _) => send.compile(compiler, target),
+            Expr::Send(target, send, _) => send.compile(compiler, *target),
             Expr::Object(builder, _) => builder.compile(compiler, None),
             Expr::Frame(frame, _) => frame.compile(compiler),
-            Expr::SelfRef(source) => compiler.get_self(*source),
+            Expr::SelfRef(source) => compiler.get_self(source),
         }
     }
 }

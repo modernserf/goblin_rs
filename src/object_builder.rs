@@ -19,15 +19,15 @@ impl ObjectBuilder {
             // else_handler: None,
         }
     }
-    pub fn compile_do(&self, compiler: &mut Compiler) -> Result<(Vec<IR>, Vec<IR>), CompileError> {
+    pub fn compile_do(self, compiler: &mut Compiler) -> Result<(Vec<IR>, Vec<IR>), CompileError> {
         let mut class = Class::new();
         let mut do_instance = compiler.do_instance();
 
-        for (selector, handler) in self.handlers.iter() {
+        for (selector, handler) in self.handlers.into_iter() {
             compiler.do_handler(do_instance);
 
-            let ir_params = Self::compile_params(compiler, handler);
-            let body = Compiler::body(&handler.body, compiler)?;
+            let ir_params = Self::compile_params(compiler, &handler);
+            let body = Compiler::body(handler.body, compiler)?;
             class.add(selector.clone(), IRHandler::on(ir_params, body));
 
             do_instance = compiler.end_do_handler();
@@ -41,17 +41,17 @@ impl ObjectBuilder {
         Ok((alloc, arg))
     }
 
-    pub fn compile(&self, compiler: &mut Compiler, binding: Option<&Binding>) -> CompileResult {
+    pub fn compile(self, compiler: &mut Compiler, binding: Option<&Binding>) -> CompileResult {
         let mut class = Class::new();
         let mut instance = Instance::new();
 
-        for (selector, handler) in self.handlers.iter() {
+        for (selector, handler) in self.handlers.into_iter() {
             compiler.handler(instance);
 
-            let ir_params = Self::compile_params(compiler, handler);
+            let ir_params = Self::compile_params(compiler, &handler);
 
             let mut out = Self::compile_self_binding(compiler, binding);
-            let mut body = Compiler::body(&handler.body, compiler)?;
+            let mut body = Compiler::body(handler.body, compiler)?;
             out.append(&mut body);
 
             class.add(selector.clone(), IRHandler::on(ir_params, out));

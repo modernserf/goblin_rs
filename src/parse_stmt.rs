@@ -14,7 +14,7 @@ pub enum Stmt {
 }
 
 impl Stmt {
-    pub fn compile(&self, compiler: &mut Compiler) -> CompileResult {
+    pub fn compile(self, compiler: &mut Compiler) -> CompileResult {
         match self {
             Stmt::Expr(expr) => {
                 let mut res = expr.compile(compiler)?;
@@ -22,7 +22,7 @@ impl Stmt {
                 Ok(res)
             }
             Stmt::Let(binding, expr) => {
-                let mut value = expr.compile_self_ref(compiler, binding)?;
+                let mut value = expr.compile_self_ref(compiler, &binding)?;
                 match binding {
                     Binding::Identifier(name, _) => {
                         let record = compiler.add_let(name.to_string());
@@ -43,20 +43,20 @@ impl Stmt {
                         value.push(IR::Assign(record.index));
                         return Ok(value);
                     }
-                    Binding::Placeholder(source) => Err(CompileError::InvalidVarBinding(*source)),
+                    Binding::Placeholder(source) => Err(CompileError::InvalidVarBinding(source)),
                 }
             }
             Stmt::Set(binding, expr) => {
                 let mut value = expr.compile(compiler)?;
                 match binding {
                     Binding::Identifier(name, src) => {
-                        if let Some(index) = compiler.get_var_index(name) {
+                        if let Some(index) = compiler.get_var_index(&name) {
                             value.push(IR::Assign(index));
                             return Ok(value);
                         }
-                        Err(CompileError::InvalidVarBinding(*src))
+                        Err(CompileError::InvalidVarBinding(src))
                     }
-                    Binding::Placeholder(source) => Err(CompileError::InvalidVarBinding(*source)),
+                    Binding::Placeholder(source) => Err(CompileError::InvalidVarBinding(source)),
                 }
             }
         }

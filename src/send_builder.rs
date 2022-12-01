@@ -16,13 +16,14 @@ pub struct Send {
 }
 
 impl Send {
-    pub fn compile(&self, compiler: &mut Compiler, target: &Expr) -> CompileResult {
+    pub fn compile(mut self, compiler: &mut Compiler, target: Expr) -> CompileResult {
         let mut out = Vec::new();
         // Do args must be processed in two separate phases -- the allocation & the class
         let mut queue = VecDeque::new();
-        for arg in self.args.iter() {
+        for arg in self.args.iter_mut() {
             match arg {
                 SendArg::Do(builder) => {
+                    let builder = std::mem::replace(builder, ObjectBuilder::new());
                     let (mut allocation, arg) = builder.compile_do(compiler)?;
                     out.append(&mut allocation);
                     queue.push_back(arg);
@@ -34,13 +35,13 @@ impl Send {
         let mut tgt = target.compile(compiler)?;
         out.append(&mut tgt);
         let arity = self.args.len();
-        for arg in self.args.iter() {
+        for arg in self.args.into_iter() {
             match arg {
                 SendArg::Value(value) => {
                     let mut result = value.compile(compiler)?;
                     out.append(&mut result);
                 }
-                SendArg::Var(key) => match compiler.get_var_index(key) {
+                SendArg::Var(key) => match compiler.get_var_index(&key) {
                     Some(index) => {
                         out.push(IR::VarArg(index));
                     }

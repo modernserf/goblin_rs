@@ -20,10 +20,10 @@ fn get_cached_class(selector: &str) -> Option<RcClass> {
     })
 }
 
-fn set_cached_class(selector: &str, class: &RcClass) {
+fn set_cached_class(selector: String, class: RcClass) {
     CACHE.with(|cell| {
         let mut map = cell.borrow_mut();
-        map.insert(selector.to_string(), class.clone());
+        map.insert(selector, class);
     });
 }
 
@@ -34,10 +34,10 @@ pub enum Frame {
 }
 
 impl Frame {
-    pub fn compile(&self, compiler: &mut Compiler) -> CompileResult {
+    pub fn compile(self, compiler: &mut Compiler) -> CompileResult {
         match self {
             Frame::Key(key) => {
-                if let Some(class) = get_cached_class(key) {
+                if let Some(class) = get_cached_class(&key) {
                     return Ok(vec![IR::Object(class, 0)]);
                 }
 
@@ -52,13 +52,13 @@ impl Frame {
                 );
 
                 let cls = class.rc();
-                set_cached_class(key, &cls);
+                set_cached_class(key, cls.clone());
                 return Ok(vec![IR::Object(cls, 0)]);
             }
             Frame::Pairs(selector, args) => {
                 let arity = args.len();
                 let mut out = Vec::new();
-                if let Some(class) = get_cached_class(selector) {
+                if let Some(class) = get_cached_class(&selector) {
                     // write ivars
                     for (_, val) in args {
                         let mut ivar = val.compile(compiler)?;
@@ -83,7 +83,7 @@ impl Frame {
                     }),
                 );
 
-                for (index, (key, val)) in args.iter().enumerate() {
+                for (index, (key, val)) in args.into_iter().enumerate() {
                     // write ivar
                     let mut ivar = val.compile(compiler)?;
                     out.append(&mut ivar);
@@ -129,7 +129,7 @@ impl Frame {
                     );
                 }
                 let cls = class.rc();
-                set_cached_class(selector, &cls);
+                set_cached_class(selector, cls.clone());
                 out.push(IR::Object(cls, arity));
                 Ok(out)
             }
