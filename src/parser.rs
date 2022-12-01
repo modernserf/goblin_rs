@@ -152,6 +152,18 @@ impl<'a> Parser<'a> {
 
     fn object(&mut self) -> ParseResult<ObjectBuilder> {
         let mut builder = ObjectBuilder::new();
+        match self.peek() {
+            Token::OpenBrace(_) => {
+                self.advance();
+                let params = self.params()?;
+                self.expect_token("}")?;
+                let body = self.body()?;
+                builder.add_on(params, body)?;
+                return Ok(builder);
+            }
+            _ => {}
+        }
+
         loop {
             match self.peek() {
                 Token::On(_) => {
@@ -162,6 +174,7 @@ impl<'a> Parser<'a> {
                     let body = self.body()?;
                     builder.add_on(params, body)?;
                 }
+
                 _ => break,
             }
         }
@@ -240,6 +253,10 @@ impl<'a> Parser<'a> {
                 let src = *source;
                 self.advance();
                 let expr = match self.peek() {
+                    Token::OpenBrace(_) => {
+                        let builder = self.object()?;
+                        Expr::Object(builder, src)
+                    }
                     Token::On(_) => {
                         let builder = self.object()?;
                         Expr::Object(builder, src)
@@ -256,6 +273,10 @@ impl<'a> Parser<'a> {
     fn arg(&mut self, builder: &mut SendBuilder, key: String) -> ParseResult<()> {
         match self.peek() {
             Token::On(_) => {
+                let obj = self.object()?;
+                builder.add_do(key, obj)?;
+            }
+            Token::OpenBrace(_) => {
                 let obj = self.object()?;
                 builder.add_do(key, obj)?;
             }

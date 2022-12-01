@@ -49,6 +49,9 @@ let pun := 3
 (target{_pun_} = 3){assert: "pun args"}
 (target{ivar} = 123){assert: "ivars"}
 
+let target := [{: x} x + 1]
+(target{: 3} = 4){assert: "object shorthand"}
+
 let target := [
   on {foo}
     self{foo: 1}
@@ -79,10 +82,7 @@ let target := [
   on {foo: do f}
     f{: 2}
 ]
-let res := target{foo: 
-  on {: value} value + 1
-}
-
+let res := target{foo: {: value} value + 1}
 (res = 3){assert: "do block"}
 
 # frames
