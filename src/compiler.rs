@@ -57,7 +57,7 @@ impl Compiler {
             Self::Handler(ls, _) => ls.index,
             Self::DoHandler(ls, _) => ls.index,
         };
-        Self::DoHandler(Locals::block(index), Box::new(self))
+        Self::DoHandler(Locals::scope(index), Box::new(self))
     }
     fn take_instance(self) -> Instance {
         match self {
@@ -220,7 +220,7 @@ impl Locals {
             map: HashMap::new(),
         }
     }
-    fn block(index: usize) -> Self {
+    fn scope(index: usize) -> Self {
         Self {
             index,
             map: HashMap::new(),

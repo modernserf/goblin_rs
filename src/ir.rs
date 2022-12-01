@@ -1,5 +1,6 @@
 use crate::{class::RcClass, value::Value};
 
+#[allow(unused)]
 #[derive(Debug, Clone, PartialEq)]
 pub enum IR {
     Drop,
@@ -13,4 +14,5 @@ pub enum IR {
     SelfRef,
     DoBlock(RcClass),
     Allocate(usize),
+    Debug(String),
 }

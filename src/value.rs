@@ -2,7 +2,7 @@ use std::{cell::RefCell, rc::Rc};
 
 use crate::{
     class::{Object, RcClass},
-    interpreter::Eval,
+    interpreter::SendEffect,
     primitive::{
         bool_class, cell_class, does_not_understand, float_class, int_class, string_class,
     },
@@ -32,11 +32,11 @@ impl Value {
         Self::String(Rc::new(str.to_string()))
     }
 
-    pub fn eval(self) -> Eval {
-        Eval::Value(self)
+    pub fn eval(self) -> SendEffect {
+        SendEffect::Value(self)
     }
 
-    pub fn send(&self, selector: &str, args: Vec<Value>) -> Eval {
+    pub fn send(&self, selector: &str, args: Vec<Value>) -> SendEffect {
         match self {
             Self::Bool(target) => bool_class(selector, *target, &args),
             Self::Integer(target) => int_class(selector, *target, &args),

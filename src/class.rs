@@ -1,7 +1,7 @@
 use std::{collections::HashMap, rc::Rc};
 
 use crate::{
-    interpreter::{Eval, RuntimeError},
+    interpreter::{RuntimeError, SendEffect},
     ir::IR,
     primitive::does_not_understand,
     value::Value,
@@ -80,12 +80,6 @@ fn check_args(params: &[Param], args: &[Value]) -> Result<(), RuntimeError> {
 }
 
 impl Object {
-    pub fn empty() -> Rc<Self> {
-        Rc::new(Self {
-            class: Class::new().rc(),
-            ivars: Vec::new(),
-        })
-    }
     pub fn new(class: Rc<Class>, ivars: Vec<Value>) -> Self {
         Self { class, ivars }
     }
@@ -98,14 +92,14 @@ impl Object {
         self.class.clone()
     }
 
-    pub fn send(object: &Rc<Object>, selector: &str, args: Vec<Value>) -> Eval {
+    pub fn send(object: &Rc<Object>, selector: &str, args: Vec<Value>) -> SendEffect {
         if let Some(handler) = object.class.get(selector) {
             match handler {
                 Handler::OnHandler(params, body) => {
                     if let Err(err) = check_args(params, &args) {
-                        return Eval::Error(err);
+                        return SendEffect::Error(err);
                     }
-                    Eval::Call {
+                    SendEffect::Call {
                         args,
                         selector: selector.to_string(),
                         object: object.clone(),
@@ -123,14 +117,14 @@ impl Object {
         parent_offset: usize,
         selector: &str,
         args: Vec<Value>,
-    ) -> Eval {
+    ) -> SendEffect {
         if let Some(handler) = class.get(selector) {
             match handler {
                 Handler::OnHandler(params, body) => {
                     if let Err(err) = check_args(params, &args) {
-                        return Eval::Error(err);
+                        return SendEffect::Error(err);
                     }
-                    Eval::CallDoBlock {
+                    SendEffect::CallDoBlock {
                         args,
                         parent_object: parent_object.clone(),
                         parent_offset,

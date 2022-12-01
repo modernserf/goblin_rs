@@ -1,29 +1,29 @@
 use std::{cell::RefCell, ops::Deref, rc::Rc};
 
 use crate::{
-    interpreter::{Eval, RuntimeError},
+    interpreter::{RuntimeError, SendEffect},
     value::Value,
 };
 
-pub fn does_not_understand(selector: &str) -> Eval {
-    Eval::Error(RuntimeError::DoesNotUnderstand(selector.to_string()))
+pub fn does_not_understand(selector: &str) -> SendEffect {
+    SendEffect::Error(RuntimeError::DoesNotUnderstand(selector.to_string()))
 }
 
-fn primitive_type_error(expected: &str, arg: &Value) -> Eval {
-    Eval::Error(RuntimeError::PrimitiveTypeError {
+fn primitive_type_error(expected: &str, arg: &Value) -> SendEffect {
+    SendEffect::Error(RuntimeError::PrimitiveTypeError {
         expected: expected.to_string(),
         received: arg.clone(),
     })
 }
 
-pub fn bool_class(selector: &str, target: bool, args: &[Value]) -> Eval {
+pub fn bool_class(selector: &str, target: bool, args: &[Value]) -> SendEffect {
     match selector {
         "assert:" => match &args[0] {
             Value::String(str) => {
                 if target {
                     Value::Unit.eval()
                 } else {
-                    Eval::Error(RuntimeError::AssertionError(str.to_string()))
+                    SendEffect::Error(RuntimeError::AssertionError(str.to_string()))
                 }
             }
             _ => primitive_type_error("string", &args[0]),
@@ -32,7 +32,7 @@ pub fn bool_class(selector: &str, target: bool, args: &[Value]) -> Eval {
     }
 }
 
-pub fn int_class(selector: &str, target: i64, args: &[Value]) -> Eval {
+pub fn int_class(selector: &str, target: i64, args: &[Value]) -> SendEffect {
     match selector {
         "-" => Value::Integer(-target).eval(),
         "+:" => match args[0] {
@@ -53,7 +53,7 @@ pub fn int_class(selector: &str, target: i64, args: &[Value]) -> Eval {
     }
 }
 
-pub fn float_class(selector: &str, target: f64, args: &[Value]) -> Eval {
+pub fn float_class(selector: &str, target: f64, args: &[Value]) -> SendEffect {
     match selector {
         "-" => Value::Float(-target).eval(),
         "+:" => match args[0] {
@@ -74,7 +74,7 @@ pub fn float_class(selector: &str, target: f64, args: &[Value]) -> Eval {
     }
 }
 
-pub fn string_class(selector: &str, target: &Rc<String>, args: &[Value]) -> Eval {
+pub fn string_class(selector: &str, target: &Rc<String>, args: &[Value]) -> SendEffect {
     match selector {
         "++:" => match &args[0] {
             Value::String(arg) => {
@@ -95,7 +95,7 @@ pub fn string_class(selector: &str, target: &Rc<String>, args: &[Value]) -> Eval
     }
 }
 
-pub fn cell_class(selector: &str, target: Rc<RefCell<Value>>, mut args: Vec<Value>) -> Eval {
+pub fn cell_class(selector: &str, target: Rc<RefCell<Value>>, mut args: Vec<Value>) -> SendEffect {
     match selector {
         "" => target.deref().borrow().clone().eval(),
         ":" => {
@@ -109,7 +109,7 @@ pub fn cell_class(selector: &str, target: Rc<RefCell<Value>>, mut args: Vec<Valu
 }
 
 #[allow(unused)]
-pub fn cell_module(selector: &str, mut args: Vec<Value>) -> Eval {
+pub fn cell_module(selector: &str, mut args: Vec<Value>) -> SendEffect {
     match selector {
         ":" => {
             let arg = std::mem::take(&mut args[0]);

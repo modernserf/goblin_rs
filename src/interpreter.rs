@@ -15,8 +15,7 @@ pub enum RuntimeError {
 }
 
 #[derive(Debug, Clone)]
-pub enum Eval {
-    Ok,
+pub enum SendEffect {
     Value(Value),
     Error(RuntimeError),
     Call {
@@ -66,9 +65,6 @@ impl Values {
         let value = self.values.pop().unwrap();
         self.values[index] = value;
     }
-    fn result(&self) -> Value {
-        self.values.last().cloned().unwrap_or(Value::Unit)
-    }
     fn push_args(&mut self, mut args: Vec<Value>) -> usize {
         let offset = self.values.len();
         self.values.append(&mut args);
@@ -107,6 +103,34 @@ impl Code {
     }
     fn next(&mut self) {
         self.index += 1;
+    }
+}
+
+#[derive(Debug)]
+struct CodeStack {
+    code: Vec<Code>,
+}
+
+impl CodeStack {
+    fn new(program: Body) -> Self {
+        Self {
+            code: vec![Code::new(program)],
+        }
+    }
+    fn has_code(&self) -> bool {
+        !self.code.is_empty()
+    }
+    fn peek(&self) -> Option<&IR> {
+        self.code.last().and_then(|code| code.peek())
+    }
+    fn next(&mut self) {
+        self.code.last_mut().unwrap().next();
+    }
+    fn push(&mut self, body: Body) {
+        self.code.push(Code::new(body));
+    }
+    fn pop(&mut self) {
+        self.code.pop().unwrap();
     }
 }
 
@@ -160,6 +184,7 @@ impl Frames {
     }
     fn push(&mut self, stack: &mut Values, instance: Rc<Object>, args: Vec<Value>) {
         let offset = stack.push_args(args);
+        println!("push @{}", offset);
         self.frames.push(StackFrame::Handler { offset, instance })
     }
     // fn push_do(
@@ -177,24 +202,8 @@ impl Frames {
     //         parent_instance,
     //     });
     // }
-    fn pop(&mut self, stack: &mut Values) -> Option<Value> {
-        let last = self.frames.pop().unwrap();
-        match last {
-            StackFrame::Root { .. } => {
-                let result = stack.result();
-                return Some(result);
-            }
-            StackFrame::Handler { offset, .. } => {
-                stack.return_value(offset);
-                return None;
-            } // StackFrame::DoHandler {
-              //     own_offset,
-              //     parent_offset,
-              //     parent_instance,
-              // } => {
-              //     unimplemented!()
-              // }
-        };
+    fn pop(&mut self) -> StackFrame {
+        self.frames.pop().unwrap()
     }
 }
 
@@ -218,54 +227,53 @@ impl Interpreter {
         }
     }
     fn run(&mut self, program: Body) -> Result<Value, RuntimeError> {
-        let mut code_stack = vec![Code::new(program)];
-        while let Some(mut code) = code_stack.last_mut() {
+        let mut code = CodeStack::new(program);
+        while code.has_code() {
             while let Some(ir) = code.peek() {
-                let eval = self.eval(ir);
-                match eval {
-                    Eval::Ok => {
-                        code.next();
-                    }
-                    Eval::Value(value) => {
-                        self.values.push(value);
-                        code.next();
-                    }
-                    Eval::Error(err) => {
-                        return Err(err);
-                    }
-                    Eval::Call {
-                        selector,
-                        object,
-                        args,
-                        body,
-                        ..
-                    } => {
-                        code.next();
-                        self.frames.push(&mut self.values, object, args);
-                        *code = Code::new(body);
-                    }
-                    Eval::CallDoBlock {
-                        parent_object,
-                        parent_offset,
-                        args,
-                        body,
-                        ..
-                    } => {
-                        code.next();
-                        unimplemented!();
-                        // self.frames.push_do();
-                        // *code = Code::new(body);
-                    }
+                let result = self.eval(ir);
+                code.next();
+                if let Some(effect) = result {
+                    self.do_effect(&mut code, effect)?;
                 }
             }
-            if let Some(result) = self.frames.pop(&mut self.values) {
-                return Ok(result);
-            }
-            code_stack.pop().unwrap();
+            let frame = self.frames.pop();
+            self.values.return_value(frame.offset());
+            code.pop();
         }
-        return Ok(Value::Unit);
+        Ok(self.values.pop())
     }
-    fn eval(&mut self, ir: &IR) -> Eval {
+    fn do_effect(&mut self, code: &mut CodeStack, effect: SendEffect) -> Result<(), RuntimeError> {
+        match effect {
+            SendEffect::Value(value) => {
+                self.values.push(value);
+            }
+            SendEffect::Error(err) => {
+                return Err(err);
+            }
+            SendEffect::Call {
+                selector,
+                object,
+                args,
+                body,
+                ..
+            } => {
+                self.frames.push(&mut self.values, object, args);
+                code.push(body);
+            }
+            SendEffect::CallDoBlock {
+                parent_object,
+                parent_offset,
+                args,
+                body,
+                ..
+            } => {
+                unimplemented!();
+            }
+        }
+        Ok(())
+    }
+
+    fn eval(&mut self, ir: &IR) -> Option<SendEffect> {
         match ir {
             IR::Drop => {
                 self.values.drop();
@@ -277,7 +285,8 @@ impl Interpreter {
                 self.values.push(value.clone());
             }
             IR::Assign(index) => {
-                self.values.assign(*index);
+                let offset = self.frames.offset();
+                self.values.assign(index + offset);
             }
             IR::Local(index) => {
                 let offset = self.frames.offset();
@@ -295,7 +304,8 @@ impl Interpreter {
             IR::Send(selector, arity) => {
                 let args = self.values.pop_args(*arity);
                 let target = self.values.pop();
-                return target.send(selector, args);
+                let result = target.send(selector, args);
+                return Some(result);
             }
             IR::Object(class, arity) => {
                 let ivars = self.values.pop_args(*arity);
@@ -311,7 +321,77 @@ impl Interpreter {
             IR::DoBlock(class) => {
                 unimplemented!();
             }
+            IR::Debug(msg) => {
+                println!(
+                    "{} ({}) {:?}",
+                    msg,
+                    self.values.values.len(),
+                    self.values.values
+                );
+            }
         };
-        Eval::Ok
+        return None;
+    }
+}
+
+#[cfg(test)]
+mod test {
+    use crate::class::{Class, Handler, Param};
+
+    fn assert_ok(code: Vec<IR>, expected: Value) {
+        let result = program(code);
+        assert_eq!(result, Ok(expected));
+    }
+
+    use super::*;
+
+    #[test]
+    fn closure() {
+        // let x := 1
+        // let y := 2
+        // let target := [
+        //     on {foo: x}
+        //         let y := 3
+        //         x + y
+        // ]
+        // let res := target{foo: 10}
+        let code = vec![
+            // let x := 1
+            IR::Constant(Value::Integer(1)),
+            IR::Assign(0),
+            // let y := 2
+            IR::Constant(Value::Integer(2)),
+            IR::Assign(1),
+            // let target = [ ... ]
+            IR::Object(
+                {
+                    let mut class = Class::new();
+                    // on {foo: x}
+                    class.add(
+                        "foo:".to_string(),
+                        Handler::on(
+                            vec![Param::Value],
+                            vec![
+                                // let y := 3
+                                IR::Constant(Value::Integer(3)),
+                                IR::Assign(1),
+                                // x + y
+                                IR::Local(0),
+                                IR::Local(1),
+                                IR::Send("+:".to_string(), 1),
+                            ],
+                        ),
+                    );
+                    class.rc()
+                },
+                0,
+            ),
+            IR::Assign(2),
+            // let res := target{foo: 10}
+            IR::Local(2),
+            IR::Constant(Value::Integer(10)),
+            IR::Send("foo:".to_string(), 1),
+        ];
+        assert_ok(code, Value::Integer(13));
     }
 }
