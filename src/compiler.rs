@@ -6,6 +6,7 @@ use crate::{ir::IR, parse_stmt::Stmt, source::Source, value::Value};
 pub enum CompileError {
     UnknownIdentifier(String, Source),
     InvalidSelf(Source),
+    InvalidVarBinding(Source),
 }
 
 pub type CompileResult = Result<Vec<IR>, CompileError>;
@@ -13,6 +14,7 @@ pub type CompileResult = Result<Vec<IR>, CompileError>;
 #[derive(Debug, PartialEq, Clone, Copy)]
 pub enum BindingType {
     Let,
+    Var,
 }
 #[derive(Debug, PartialEq, Clone, Copy)]
 pub struct BindingRecord {
@@ -232,6 +234,9 @@ impl Compiler {
     pub fn add_let(&mut self, key: String) -> BindingRecord {
         self.top_mut().add(key, BindingType::Let)
     }
+    pub fn add_var(&mut self, key: String) -> BindingRecord {
+        self.top_mut().add(key, BindingType::Var)
+    }
     fn top(&self) -> &CompilerFrame {
         self.stack.last().unwrap()
     }
@@ -244,6 +249,7 @@ impl Compiler {
             _ => Ok(vec![IR::SelfRef]),
         }
     }
+    // TODO: accept source, return Result<IR, CompileError>
     pub fn get(&mut self, key: &str) -> Option<IR> {
         for i in (0..self.stack.len()).rev() {
             let frame = &mut self.stack[i];
@@ -267,6 +273,29 @@ impl Compiler {
             }
         }
         out
+    }
+    // TODO: accept source, return Result<usize, CompileError>
+    pub fn get_var_index(&self, key: &str) -> Option<usize> {
+        for i in (0..self.stack.len()).rev() {
+            let frame = &self.stack[i];
+            if let Some(value) = frame.locals.get(key) {
+                println!("value: {:?}", value);
+                match value.typ {
+                    BindingType::Var => {
+                        return Some(value.index);
+                    }
+                    _ => {
+                        panic!("not a var")
+                    }
+                }
+            }
+            match frame.scope {
+                Scope::DoHandler(_) => {}
+                _ => return None,
+            }
+        }
+
+        None
     }
 }
 

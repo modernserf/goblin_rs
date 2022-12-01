@@ -369,6 +369,20 @@ impl<'a> Parser<'a> {
 
                 Ok(Some(Stmt::Let(binding, expr)))
             }
+            Token::Var(_) => {
+                self.advance();
+                let binding = expect(self.binding(), "binding")?;
+                self.expect_token(":=")?;
+                let expr = expect(self.expr(), "expr")?;
+                Ok(Some(Stmt::Var(binding, expr)))
+            }
+            Token::Set(_) => {
+                self.advance();
+                let binding = expect(self.binding(), "binding")?;
+                self.expect_token(":=")?;
+                let expr = expect(self.expr(), "expr")?;
+                Ok(Some(Stmt::Set(binding, expr)))
+            }
             _ => match self.expr()? {
                 Some(expr) => Ok(Some(Stmt::Expr(expr))),
                 None => Ok(None),

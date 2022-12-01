@@ -1,5 +1,5 @@
 use crate::{
-    compiler::{CompileResult, Compiler},
+    compiler::{CompileError, CompileResult, Compiler},
     ir::IR,
     parse_binding::Binding,
     parse_expr::Expr,
@@ -9,6 +9,8 @@ use crate::{
 pub enum Stmt {
     Expr(Expr),
     Let(Binding, Expr),
+    Var(Binding, Expr),
+    Set(Binding, Expr),
 }
 
 impl Stmt {
@@ -31,6 +33,30 @@ impl Stmt {
                         value.push(IR::Drop);
                         return Ok(value);
                     }
+                }
+            }
+            Stmt::Var(binding, expr) => {
+                let mut value = expr.compile(compiler)?;
+                match binding {
+                    Binding::Identifier(name, _) => {
+                        let record = compiler.add_var(name.to_string());
+                        value.push(IR::Assign(record.index));
+                        return Ok(value);
+                    }
+                    Binding::Placeholder(source) => Err(CompileError::InvalidVarBinding(*source)),
+                }
+            }
+            Stmt::Set(binding, expr) => {
+                let mut value = expr.compile(compiler)?;
+                match binding {
+                    Binding::Identifier(name, src) => {
+                        if let Some(index) = compiler.get_var_index(name) {
+                            value.push(IR::Assign(index));
+                            return Ok(value);
+                        }
+                        Err(CompileError::InvalidVarBinding(*src))
+                    }
+                    Binding::Placeholder(source) => Err(CompileError::InvalidVarBinding(*source)),
                 }
             }
         }

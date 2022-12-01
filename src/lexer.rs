@@ -14,6 +14,8 @@ pub enum Token {
     Operator(String, Source),
     On(Source),
     Let(Source),
+    Var(Source),
+    Set(Source),
     Do(Source),
     SelfRef(Source),
     Colon(Source),
@@ -210,6 +212,8 @@ impl<'a> Lexer<'a> {
         let source = Source::new(start, str.len());
         match str.as_str() {
             "let" => Token::Let(source),
+            "var" => Token::Var(source),
+            "set" => Token::Set(source),
             "on" => Token::On(source),
             "self" => Token::SelfRef(source),
             "do" => Token::Do(source),

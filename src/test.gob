@@ -103,3 +103,21 @@ let x := 1
 let y := 2
 let f := [_x_ _y_]
 (f{x} = 1){assert: "frame pun args"}
+
+# vars
+var x := 1
+(x = 1){assert: "vars"}
+set x := 2
+(x = 2){assert: "set"}
+
+# vars in do blocks
+let do_block := [
+  on {: do f}
+    f{}
+]
+
+var x := 1
+do_block{: on {}
+  set x := 3
+}
+(x = 3){assert: "set in do block"}

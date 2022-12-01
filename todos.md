@@ -2,4 +2,3 @@
 - import core
 - wrap selector strings in Rc
 - store selectors in stack frames for error traces
-- send args instead of Do as expr
