@@ -21,6 +21,7 @@ impl ObjectBuilder {
     }
     pub fn compile_do(&self, compiler: &mut Compiler) -> Result<(Vec<IR>, Vec<IR>), CompileError> {
         let mut class = Class::new();
+        let own_offset = compiler.own_offset();
         let mut allocated_results = Vec::new();
         for (selector, handler) in self.handlers.iter() {
             let allocated = compiler.with_do_block(|compiler| {
@@ -35,7 +36,10 @@ impl ObjectBuilder {
 
         let max_allocated = allocated_results.into_iter().max().unwrap_or(0);
         let alloc = compiler.allocate(max_allocated)?;
-        let arg = vec![IR::DoBlock(class.rc())];
+        let arg = vec![IR::DoBlock {
+            class: class.rc(),
+            own_offset,
+        }];
         Ok((alloc, arg))
     }
 

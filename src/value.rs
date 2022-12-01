@@ -18,7 +18,12 @@ pub enum Value {
     String(Rc<String>),
     Cell(Rc<RefCell<Value>>),
     Object(Rc<Object>),
-    Do(RcClass, Rc<Object>, usize),
+    Do {
+        class: RcClass,
+        own_offset: usize,
+        parent_object: Rc<Object>,
+        parent_offset: usize,
+    },
 }
 
 impl Default for Value {
@@ -44,9 +49,19 @@ impl Value {
             Self::String(target) => string_class(selector, target, &args),
             Self::Cell(target) => cell_class(selector, target.clone(), args),
             Self::Object(obj) => Object::send(obj, selector, args),
-            Self::Do(class, parent_object, parent_offset) => {
-                Object::send_do_block(class, parent_object, *parent_offset, selector, args)
-            }
+            Self::Do {
+                class,
+                own_offset,
+                parent_object,
+                parent_offset,
+            } => Object::send_do_block(
+                class,
+                *own_offset,
+                parent_object,
+                *parent_offset,
+                selector,
+                args,
+            ),
             _ => does_not_understand(selector),
         }
     }

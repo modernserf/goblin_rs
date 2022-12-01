@@ -12,7 +12,7 @@ pub enum IR {
     SelfObject(usize),
     IVar(usize),
     SelfRef,
-    DoBlock(RcClass),
+    DoBlock { class: RcClass, own_offset: usize },
     Allocate(usize),
     Debug(String),
 }

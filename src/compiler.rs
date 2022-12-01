@@ -132,6 +132,10 @@ impl Compiler {
         }
     }
 
+    pub fn own_offset(&mut self) -> usize {
+        self.locals().index
+    }
+
     pub fn allocate(&mut self, size: usize) -> CompileResult {
         self.locals().allocate(size);
         Ok(vec![IR::Allocate(size)])

@@ -65,8 +65,8 @@ fn check_args(params: &[Param], args: &[Value]) -> Result<(), RuntimeError> {
     }
     for (param, arg) in params.iter().zip(args.iter()) {
         match (param, arg) {
-            (Param::Do, Value::Do(..)) => {}
-            (_, Value::Do(..)) => {
+            (Param::Do, Value::Do { .. }) => {}
+            (_, Value::Do { .. }) => {
                 return Err(RuntimeError::InvalidArg {
                     expected: "value".to_string(),
                     received: arg.clone(),
@@ -113,6 +113,7 @@ impl Object {
     }
     pub fn send_do_block(
         class: &RcClass,
+        own_offset: usize,
         parent_object: &Rc<Object>,
         parent_offset: usize,
         selector: &str,
@@ -126,6 +127,7 @@ impl Object {
                     }
                     SendEffect::CallDoBlock {
                         args,
+                        own_offset,
                         parent_object: parent_object.clone(),
                         parent_offset,
                         body: body.clone(),

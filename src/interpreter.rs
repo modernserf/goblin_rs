@@ -1,7 +1,7 @@
 use std::rc::Rc;
 
 use crate::{
-    class::{Body, Object},
+    class::{Body, Class, Object},
     ir::IR,
     value::Value,
 };
@@ -25,6 +25,7 @@ pub enum SendEffect {
         body: Body,
     },
     CallDoBlock {
+        own_offset: usize,
         parent_object: Rc<Object>,
         parent_offset: usize,
         args: Vec<Value>,
@@ -76,11 +77,11 @@ impl Values {
     fn pop_args(&mut self, arity: usize) -> Vec<Value> {
         self.values.split_off(self.values.len() - arity)
     }
-    // fn insert_do_args(&mut self, args: Vec<Value>, offset: usize) {
-    //     for (i, arg) in args.into_iter().enumerate() {
-    //         self.values[i + offset] = arg;
-    //     }
-    // }
+    fn insert_do_args(&mut self, args: Vec<Value>, offset: usize) {
+        for (i, arg) in args.into_iter().enumerate() {
+            self.values[i + offset] = arg;
+        }
+    }
     fn return_value(&mut self, offset: usize) {
         let value = self.pop();
         self.values.truncate(offset);
@@ -137,12 +138,18 @@ impl CodeStack {
 #[derive(Debug)]
 enum StackFrame {
     Root,
-    Handler { offset: usize, instance: Rc<Object> },
-    // DoHandler {
-    //     own_offset: usize,
-    //     parent_offset: usize,
-    //     parent_instance: Rc<Object>,
-    // },
+    Handler {
+        offset: usize,
+        instance: Rc<Object>,
+    },
+    DoHandler {
+        parent_offset: usize,
+        parent_instance: Rc<Object>,
+    },
+}
+
+thread_local! {
+    static NIL_INSTANCE: Rc<Object> = Rc::new(Object::new(Class::new().rc(), vec![]));
 }
 
 #[allow(unused)]
@@ -151,16 +158,16 @@ impl StackFrame {
         match self {
             Self::Root { .. } => 0,
             Self::Handler { offset, .. } => *offset,
-            // Self::DoHandler { parent_offset, .. } => *parent_offset,
+            Self::DoHandler { parent_offset, .. } => *parent_offset,
         }
     }
     fn instance(&self) -> Rc<Object> {
         match self {
-            Self::Root { .. } => unreachable!(),
+            Self::Root { .. } => NIL_INSTANCE.with(|x| x.clone()),
             Self::Handler { instance, .. } => instance.clone(),
-            // Self::DoHandler {
-            //     parent_instance, ..
-            // } => parent_instance.clone(),
+            Self::DoHandler {
+                parent_instance, ..
+            } => parent_instance.clone(),
         }
     }
 }
@@ -184,26 +191,36 @@ impl Frames {
     }
     fn push(&mut self, stack: &mut Values, instance: Rc<Object>, args: Vec<Value>) {
         let offset = stack.push_args(args);
-        println!("push @{}", offset);
         self.frames.push(StackFrame::Handler { offset, instance })
     }
-    // fn push_do(
-    //     &mut self,
-    //     stack: &mut Values,
-    //     own_offset: usize,
-    //     parent_offset: usize,
-    //     parent_instance: Rc<Object>,
-    //     args: Vec<Value>,
-    // ) {
-    //     stack.insert_do_args(args, own_offset);
-    //     self.frames.push(StackFrame::DoHandler {
-    //         own_offset,
-    //         parent_offset,
-    //         parent_instance,
-    //     });
-    // }
-    fn pop(&mut self) -> StackFrame {
-        self.frames.pop().unwrap()
+    fn push_do(
+        &mut self,
+        stack: &mut Values,
+        own_offset: usize,
+        parent_offset: usize,
+        parent_instance: Rc<Object>,
+        args: Vec<Value>,
+    ) {
+        stack.insert_do_args(args, own_offset);
+        self.frames.push(StackFrame::DoHandler {
+            parent_offset,
+            parent_instance,
+        });
+    }
+    fn pop(&mut self, stack: &mut Values) {
+        match self.frames.pop().unwrap() {
+            StackFrame::Root => {
+                stack.return_value(0);
+            }
+            StackFrame::Handler { offset, .. } => {
+                stack.return_value(offset);
+            }
+            StackFrame::DoHandler { .. } => {
+                // return value is on top of stack
+                // args & locals are in allocated space
+                // nothing needs to be moved / cleaned up
+            }
+        }
     }
 }
 
@@ -236,8 +253,7 @@ impl Interpreter {
                     self.do_effect(&mut code, effect)?;
                 }
             }
-            let frame = self.frames.pop();
-            self.values.return_value(frame.offset());
+            self.frames.pop(&mut self.values);
             code.pop();
         }
         Ok(self.values.pop())
@@ -261,13 +277,21 @@ impl Interpreter {
                 code.push(body);
             }
             SendEffect::CallDoBlock {
+                own_offset,
                 parent_object,
                 parent_offset,
                 args,
                 body,
                 ..
             } => {
-                unimplemented!();
+                self.frames.push_do(
+                    &mut self.values,
+                    own_offset,
+                    parent_offset,
+                    parent_object,
+                    args,
+                );
+                code.push(body);
             }
         }
         Ok(())
@@ -318,8 +342,14 @@ impl Interpreter {
                 let obj = Value::Object(Rc::new(Object::new(class.clone(), ivars)));
                 self.values.push(obj);
             }
-            IR::DoBlock(class) => {
-                unimplemented!();
+            IR::DoBlock { class, own_offset } => {
+                let obj = Value::Do {
+                    class: class.clone(),
+                    own_offset: *own_offset,
+                    parent_object: self.frames.instance(),
+                    parent_offset: self.frames.offset(),
+                };
+                self.values.push(obj);
             }
             IR::Debug(msg) => {
                 println!(
