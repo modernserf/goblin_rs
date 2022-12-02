@@ -21,8 +21,7 @@ pub enum Value {
     Do {
         class: RcClass,
         own_offset: usize,
-        parent_object: Rc<Object>,
-        parent_offset: usize,
+        parent_index: usize,
     },
     Var(usize, Box<Value>),
 }
@@ -54,16 +53,8 @@ impl Value {
             Self::Do {
                 class,
                 own_offset,
-                parent_object,
-                parent_offset,
-            } => Object::send_do_block(
-                class,
-                *own_offset,
-                parent_object,
-                *parent_offset,
-                selector,
-                args,
-            ),
+                parent_index,
+            } => Object::send_do_block(class, *own_offset, *parent_index, selector, args),
             _ => does_not_understand(selector),
         }
     }

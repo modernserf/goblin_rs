@@ -4,6 +4,7 @@ use crate::{class::RcClass, value::Value};
 #[derive(Debug, Clone, PartialEq)]
 pub enum IR {
     Drop,
+    Return,
     Constant(Value),
     Local(usize),
     Assign(usize),

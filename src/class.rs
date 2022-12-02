@@ -122,8 +122,7 @@ impl Object {
     pub fn send_do_block(
         class: &RcClass,
         own_offset: usize,
-        parent_object: &Rc<Object>,
-        parent_offset: usize,
+        parent_index: usize,
         selector: &str,
         args: Vec<Value>,
     ) -> SendEffect {
@@ -136,8 +135,7 @@ impl Object {
                     SendEffect::CallDoBlock {
                         args,
                         own_offset,
-                        parent_object: parent_object.clone(),
-                        parent_offset,
+                        parent_index,
                         body: body.clone(),
                     }
                 }

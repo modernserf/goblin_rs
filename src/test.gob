@@ -168,3 +168,12 @@ else
   30
 end
 (res = 20){assert: "if expression"}
+
+# control flow
+let target := [{: value}
+  if value = 1 then
+    return 10
+  end
+  20
+]
+(target{: 1} = 10){assert: "early return"}

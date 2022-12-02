@@ -26,11 +26,11 @@ pub enum SendEffect {
     },
     CallDoBlock {
         own_offset: usize,
-        parent_object: Rc<Object>,
-        parent_offset: usize,
+        parent_index: usize,
         args: Vec<Value>,
         body: Body,
     },
+    Return,
 }
 
 #[derive(Debug)]
@@ -155,8 +155,10 @@ enum StackFrame {
         args: Vec<Value>,
     },
     DoHandler {
+        parent_index: usize,
         parent_offset: usize,
         parent_instance: Rc<Object>,
+        args: Vec<Value>,
     },
 }
 
@@ -201,6 +203,9 @@ impl Frames {
     fn instance(&self) -> Rc<Object> {
         self.frames.last().unwrap().instance()
     }
+    fn index(&self) -> usize {
+        self.frames.len() - 1
+    }
     fn push(&mut self, stack: &mut Values, instance: Rc<Object>, args: Vec<Value>) {
         let offset = stack.push_args(args.clone());
         self.frames.push(StackFrame::Handler {
@@ -213,14 +218,18 @@ impl Frames {
         &mut self,
         stack: &mut Values,
         own_offset: usize,
-        parent_offset: usize,
-        parent_instance: Rc<Object>,
+        parent_index: usize,
         args: Vec<Value>,
     ) {
-        stack.insert_do_args(args, own_offset);
+        let parent_frame = &self.frames[parent_index];
+        let parent_offset = parent_frame.offset();
+        let parent_instance = parent_frame.instance();
+        stack.insert_do_args(args.clone(), own_offset);
         self.frames.push(StackFrame::DoHandler {
+            parent_index,
             parent_offset,
             parent_instance,
+            args,
         });
     }
     fn pop(&mut self, stack: &mut Values) {
@@ -232,10 +241,59 @@ impl Frames {
                 stack.update_vars(offset, args);
                 stack.return_value(offset);
             }
-            StackFrame::DoHandler { .. } => {
+            StackFrame::DoHandler {
+                args,
+                parent_offset,
+                ..
+            } => {
+                stack.update_vars(parent_offset, args);
                 // return value is on top of stack
                 // args & locals are in allocated space
                 // nothing needs to be moved / cleaned up
+            }
+        }
+    }
+    fn return_deep(&mut self, stack: &mut Values) -> usize {
+        match self.frames.pop().unwrap() {
+            StackFrame::Root => {
+                stack.return_value(0);
+                1
+            }
+            StackFrame::Handler { offset, args, .. } => {
+                stack.update_vars(offset, args);
+                stack.return_value(offset);
+                1
+            }
+            StackFrame::DoHandler {
+                parent_offset,
+                args,
+                parent_index,
+                ..
+            } => {
+                stack.update_vars(parent_offset, args);
+                let return_value = stack.pop();
+                let mut depth = 1;
+                while self.index() >= parent_index {
+                    self.pop_without_return(stack);
+                    depth += 1;
+                }
+                stack.push(return_value);
+                depth
+            }
+        }
+    }
+    fn pop_without_return(&mut self, stack: &mut Values) {
+        match self.frames.pop().unwrap() {
+            StackFrame::Root => {}
+            StackFrame::Handler { offset, args, .. } => {
+                stack.update_vars(offset, args);
+            }
+            StackFrame::DoHandler {
+                args,
+                parent_offset,
+                ..
+            } => {
+                stack.update_vars(parent_offset, args);
             }
         }
     }
@@ -263,20 +321,35 @@ impl Interpreter {
     fn run(&mut self, program: Body) -> Result<Value, RuntimeError> {
         let mut code = CodeStack::new(program);
         while code.has_code() {
+            let mut returned = false;
             while let Some(ir) = code.peek() {
                 let result = self.eval(ir);
                 code.next();
                 if let Some(effect) = result {
+                    if let SendEffect::Return = effect {
+                        returned = true;
+                        break;
+                    }
                     self.do_effect(&mut code, effect)?;
                 }
             }
-            self.frames.pop(&mut self.values);
-            code.pop();
+            if returned {
+                let return_depth = self.frames.return_deep(&mut self.values);
+                for _ in 0..return_depth {
+                    code.pop();
+                }
+            } else {
+                self.frames.pop(&mut self.values);
+                code.pop();
+            }
         }
         Ok(self.values.pop())
     }
     fn do_effect(&mut self, code: &mut CodeStack, effect: SendEffect) -> Result<(), RuntimeError> {
         match effect {
+            SendEffect::Return => {
+                unreachable!()
+            }
             SendEffect::Value(value) => {
                 self.values.push(value);
             }
@@ -295,19 +368,13 @@ impl Interpreter {
             }
             SendEffect::CallDoBlock {
                 own_offset,
-                parent_object,
-                parent_offset,
+                parent_index,
                 args,
                 body,
                 ..
             } => {
-                self.frames.push_do(
-                    &mut self.values,
-                    own_offset,
-                    parent_offset,
-                    parent_object,
-                    args,
-                );
+                self.frames
+                    .push_do(&mut self.values, own_offset, parent_index, args);
                 code.push(body);
             }
         }
@@ -319,6 +386,7 @@ impl Interpreter {
             IR::Drop => {
                 self.values.drop();
             }
+            IR::Return => return Some(SendEffect::Return),
             IR::Allocate(size) => {
                 self.values.allocate(*size);
             }
@@ -367,8 +435,7 @@ impl Interpreter {
                 let obj = Value::Do {
                     class: class.clone(),
                     own_offset: *own_offset,
-                    parent_object: self.frames.instance(),
-                    parent_offset: self.frames.offset(),
+                    parent_index: self.frames.index(),
                 };
                 self.values.push(obj);
             }

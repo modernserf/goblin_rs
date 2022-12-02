@@ -2,3 +2,4 @@
 - import core
 - wrap selector strings in Rc
 - store selectors in stack frames for error traces
+- use std::mem::discriminant for comparing tokens by tag only

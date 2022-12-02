@@ -462,6 +462,11 @@ impl<'a> Parser<'a> {
                     Ok(Some(set_in_place))
                 }
             }
+            Token::Return(_) => {
+                self.advance();
+                let opt_expr = self.expr()?;
+                Ok(Some(Stmt::Return(opt_expr)))
+            }
             _ => match self.expr()? {
                 Some(expr) => Ok(Some(Stmt::Expr(expr))),
                 None => Ok(None),

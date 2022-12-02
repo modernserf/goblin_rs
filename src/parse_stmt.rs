@@ -3,6 +3,7 @@ use crate::{
     ir::IR,
     parse_binding::Binding,
     parse_expr::Expr,
+    value::Value,
 };
 
 #[derive(Debug, Clone)]
@@ -11,6 +12,7 @@ pub enum Stmt {
     Let(Binding, Expr),
     Var(Binding, Expr),
     Set(Binding, Expr),
+    Return(Option<Expr>),
 }
 
 impl Stmt {
@@ -57,6 +59,16 @@ impl Stmt {
                         Err(CompileError::InvalidVarBinding(src))
                     }
                     Binding::Placeholder(source) => Err(CompileError::InvalidVarBinding(source)),
+                }
+            }
+            Stmt::Return(opt_expr) => {
+                if let Some(expr) = opt_expr {
+                    let mut ir = expr.compile(compiler)?;
+                    ir.push(IR::Return);
+                    return Ok(ir);
+                } else {
+                    let ir = vec![IR::Constant(Value::Unit), IR::Return];
+                    return Ok(ir);
                 }
             }
         }
