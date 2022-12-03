@@ -74,7 +74,7 @@ impl Expr {
             }
             Expr::Identifier(key, _) => match compiler.get(&key) {
                 Some(ir) => Ok(vec![ir]),
-                None => Err(CompileError::UnknownIdentifier(key)),
+                None => CompileError::unknown_identifier(&key),
             },
             Expr::Paren(mut body, source) => {
                 if body.len() == 0 {

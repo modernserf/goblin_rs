@@ -45,7 +45,7 @@ impl Stmt {
                         value.push(IR::Assign(record.index));
                         return Ok(value);
                     }
-                    Binding::Placeholder(_) => Err(CompileError::InvalidVarBinding),
+                    Binding::Placeholder(_) => CompileError::invalid_var_binding(),
                 }
             }
             Stmt::Set(binding, expr) => {
@@ -56,9 +56,9 @@ impl Stmt {
                             value.push(IR::Assign(index));
                             return Ok(value);
                         }
-                        Err(CompileError::InvalidVarBinding)
+                        CompileError::invalid_var_binding()
                     }
-                    Binding::Placeholder(_) => Err(CompileError::InvalidVarBinding),
+                    Binding::Placeholder(_) => CompileError::invalid_var_binding(),
                 }
             }
             Stmt::Return(opt_expr) => {

@@ -9,6 +9,18 @@ pub enum CompileError {
     InvalidVarBinding,
 }
 
+impl CompileError {
+    pub fn unknown_identifier<T>(key: &str) -> Compile<T> {
+        Err(Self::UnknownIdentifier(key.to_string()))
+    }
+    pub fn invalid_self<T>() -> Compile<T> {
+        Err(Self::InvalidSelf)
+    }
+    pub fn invalid_var_binding<T>() -> Compile<T> {
+        Err(Self::InvalidVarBinding)
+    }
+}
+
 pub type CompileIR = Result<Vec<IR>, CompileError>;
 pub type Compile<T> = Result<T, CompileError>;
 
@@ -245,7 +257,7 @@ impl Compiler {
     }
     pub fn get_self(&self) -> CompileIR {
         match self.top().scope {
-            Scope::Root => Err(CompileError::InvalidSelf),
+            Scope::Root => CompileError::invalid_self(),
             _ => Ok(vec![IR::SelfRef]),
         }
     }
