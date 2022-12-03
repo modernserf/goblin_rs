@@ -1,6 +1,6 @@
 use std::rc::Rc;
 
-use crate::compiler::{CompileError, CompileResult, Compiler};
+use crate::compiler::{CompileError, CompileIR, Compiler};
 use crate::frame::{Frame, FrameBuilder};
 use crate::ir::IR;
 use crate::object_builder::{ObjectBuilder, ParamsBuilder};
@@ -49,14 +49,14 @@ impl Expr {
         }
     }
 
-    pub fn compile_self_ref(self, compiler: &mut Compiler, binding: &Binding) -> CompileResult {
+    pub fn compile_self_ref(self, compiler: &mut Compiler, binding: &Binding) -> CompileIR {
         match self {
             Expr::Object(builder, _) => builder.compile(compiler, Some(binding)),
             _ => self.compile(compiler),
         }
     }
 
-    pub fn compile(self, compiler: &mut Compiler) -> CompileResult {
+    pub fn compile(self, compiler: &mut Compiler) -> CompileIR {
         match self {
             Expr::Integer(value, _) => {
                 let val = Value::Integer(value as i64);
@@ -72,7 +72,7 @@ impl Expr {
             }
             Expr::Identifier(key, src) => match compiler.get(&key) {
                 Some(ir) => Ok(vec![ir]),
-                None => Err(CompileError::UnknownIdentifier(key, src)),
+                None => Err(CompileError::UnknownIdentifier(key)),
             },
             Expr::Paren(mut body, source) => {
                 if body.len() == 0 {

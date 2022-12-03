@@ -1,8 +1,8 @@
 use std::{cell::RefCell, collections::HashMap};
 
 use crate::{
-    class::{Class, Handler, Param, RcClass},
-    compiler::{CompileResult, Compiler},
+    class::{Class, Param, RcClass},
+    compiler::{CompileIR, Compiler},
     ir::IR,
     parse_expr::Expr,
     parser::{ParseError, ParseResult},
@@ -34,7 +34,7 @@ pub enum Frame {
 }
 
 impl Frame {
-    pub fn compile(self, compiler: &mut Compiler) -> CompileResult {
+    pub fn compile(self, compiler: &mut Compiler) -> CompileIR {
         match self {
             Frame::Key(key) => {
                 if let Some(class) = get_cached_class(&key) {
@@ -43,12 +43,10 @@ impl Frame {
 
                 let mut class = Class::new();
                 // matcher
-                class.add(
-                    ":".to_string(),
-                    Handler::on(
-                        vec![Param::Do],
-                        vec![IR::Local(0), IR::Send(key.to_string(), 0)],
-                    ),
+                class.add_handler(
+                    ":",
+                    vec![Param::Do],
+                    vec![IR::Local(0), IR::Send(key.to_string(), 0)],
                 );
 
                 let cls = class.rc();
@@ -71,17 +69,14 @@ impl Frame {
                 let mut class = Class::new();
 
                 // matcher
-                class.add(
-                    ":".to_string(),
-                    Handler::on(vec![Param::Do], {
-                        let mut body = vec![IR::Local(0)];
-                        for i in 0..arity {
-                            body.push(IR::IVar(i));
-                        }
-                        body.push(IR::Send(selector.to_string(), arity));
-                        body
-                    }),
-                );
+                class.add_handler(":", vec![Param::Do], {
+                    let mut body = vec![IR::Local(0)];
+                    for i in 0..arity {
+                        body.push(IR::IVar(i));
+                    }
+                    body.push(IR::Send(selector.to_string(), arity));
+                    body
+                });
 
                 for (index, (key, val)) in args.into_iter().enumerate() {
                     // write ivar
@@ -89,44 +84,38 @@ impl Frame {
                     out.append(&mut ivar);
 
                     // getter
-                    class.add(key.to_string(), Handler::on(vec![], vec![IR::IVar(index)]));
+                    class.add_handler(&key, vec![], vec![IR::IVar(index)]);
 
                     // setter
-                    class.add(
-                        format!("{}:", key),
-                        Handler::on(vec![Param::Value], {
-                            let mut body = Vec::new();
-                            // write all ivars to stack, but replace one with the handler arg
-                            for i in 0..arity {
-                                if i == index {
-                                    body.push(IR::Local(0));
-                                } else {
-                                    body.push(IR::IVar(i));
-                                }
+                    class.add_handler(&format!("{}:", key), vec![Param::Value], {
+                        let mut body = Vec::new();
+                        // write all ivars to stack, but replace one with the handler arg
+                        for i in 0..arity {
+                            if i == index {
+                                body.push(IR::Local(0));
+                            } else {
+                                body.push(IR::IVar(i));
                             }
-                            body.push(IR::SelfObject(arity));
-                            body
-                        }),
-                    );
+                        }
+                        body.push(IR::SelfObject(arity));
+                        body
+                    });
 
                     // updater
-                    class.add(
-                        format!("-> {}:", key),
-                        Handler::on(vec![Param::Do], {
-                            let mut body = Vec::new();
-                            for i in 0..arity {
-                                if i == index {
-                                    body.push(IR::Local(0));
-                                    body.push(IR::IVar(i));
-                                    body.push(IR::Send(":".to_string(), 1));
-                                } else {
-                                    body.push(IR::IVar(i));
-                                }
+                    class.add_handler(&format!("-> {}:", key), vec![Param::Do], {
+                        let mut body = Vec::new();
+                        for i in 0..arity {
+                            if i == index {
+                                body.push(IR::Local(0));
+                                body.push(IR::IVar(i));
+                                body.push(IR::Send(":".to_string(), 1));
+                            } else {
+                                body.push(IR::IVar(i));
                             }
-                            body.push(IR::SelfObject(arity));
-                            body
-                        }),
-                    );
+                        }
+                        body.push(IR::SelfObject(arity));
+                        body
+                    });
                 }
                 let cls = class.rc();
                 set_cached_class(selector, cls.clone());

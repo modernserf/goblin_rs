@@ -10,7 +10,7 @@ use crate::{
 #[derive(Debug, Clone, PartialEq)]
 pub struct Class {
     handlers: HashMap<String, Handler>,
-    // else_handler: Option<Handler>,
+    else_handler: Option<Body>,
 }
 
 pub type RcClass = Rc<Class>;
@@ -19,13 +19,18 @@ impl Class {
     pub fn new() -> Self {
         Class {
             handlers: HashMap::new(),
-            // else_handler: None,
+            else_handler: None,
         }
     }
-    pub fn add(&mut self, key: String, handler: Handler) {
-        self.handlers.insert(key, handler);
+    // allows overwriting of existing handlers
+    pub fn add_handler(&mut self, key: &str, params: Vec<Param>, body: Vec<IR>) {
+        self.handlers
+            .insert(key.to_string(), Handler(params, Rc::new(body)));
     }
-    pub fn get(&self, selector: &str) -> Option<&Handler> {
+    pub fn add_else(&mut self, body: Vec<IR>) {
+        self.else_handler = Some(Rc::new(body));
+    }
+    fn get(&self, selector: &str) -> Option<&Handler> {
         self.handlers.get(selector)
     }
     pub fn rc(self) -> RcClass {
@@ -34,15 +39,7 @@ impl Class {
 }
 
 #[derive(Debug, Clone, PartialEq)]
-pub enum Handler {
-    OnHandler(Vec<Param>, Body),
-}
-
-impl Handler {
-    pub fn on(params: Vec<Param>, body: Vec<IR>) -> Self {
-        Handler::OnHandler(params, Rc::new(body))
-    }
-}
+struct Handler(Vec<Param>, Body);
 
 pub type Body = Rc<Vec<IR>>;
 
@@ -101,19 +98,22 @@ impl Object {
     }
 
     pub fn send(object: &Rc<Object>, selector: &str, args: Vec<Value>) -> SendEffect {
-        if let Some(handler) = object.class.get(selector) {
-            match handler {
-                Handler::OnHandler(params, body) => {
-                    if let Err(err) = check_args(params, &args) {
-                        return SendEffect::Error(err);
-                    }
-                    SendEffect::Call {
-                        args,
-                        selector: selector.to_string(),
-                        object: object.clone(),
-                        body: body.clone(),
-                    }
-                }
+        if let Some(Handler(params, body)) = object.class.get(selector) {
+            if let Err(err) = check_args(params, &args) {
+                return SendEffect::Error(err);
+            }
+            SendEffect::Call {
+                args,
+                selector: selector.to_string(),
+                object: object.clone(),
+                body: body.clone(),
+            }
+        } else if let Some(body) = &object.class.else_handler {
+            SendEffect::Call {
+                args: vec![],
+                selector: "else".to_string(),
+                object: object.clone(),
+                body: body.clone(),
             }
         } else {
             return does_not_understand(selector);
@@ -126,19 +126,22 @@ impl Object {
         selector: &str,
         args: Vec<Value>,
     ) -> SendEffect {
-        if let Some(handler) = class.get(selector) {
-            match handler {
-                Handler::OnHandler(params, body) => {
-                    if let Err(err) = check_args(params, &args) {
-                        return SendEffect::Error(err);
-                    }
-                    SendEffect::CallDoBlock {
-                        args,
-                        own_offset,
-                        parent_index,
-                        body: body.clone(),
-                    }
-                }
+        if let Some(Handler(params, body)) = class.get(selector) {
+            if let Err(err) = check_args(params, &args) {
+                return SendEffect::Error(err);
+            }
+            SendEffect::CallDoBlock {
+                args,
+                own_offset,
+                parent_index,
+                body: body.clone(),
+            }
+        } else if let Some(body) = &class.else_handler {
+            SendEffect::CallDoBlock {
+                args: vec![],
+                own_offset,
+                parent_index,
+                body: body.clone(),
             }
         } else {
             return does_not_understand(selector);

@@ -4,12 +4,13 @@ use crate::{ir::IR, parse_stmt::Stmt, source::Source, value::Value};
 
 #[derive(Debug, PartialEq, Clone)]
 pub enum CompileError {
-    UnknownIdentifier(String, Source),
-    InvalidSelf(Source),
-    InvalidVarBinding(Source),
+    UnknownIdentifier(String),
+    InvalidSelf,
+    InvalidVarBinding,
 }
 
-pub type CompileResult = Result<Vec<IR>, CompileError>;
+pub type CompileIR = Result<Vec<IR>, CompileError>;
+pub type Compile<T> = Result<T, CompileError>;
 
 #[derive(Debug, PartialEq, Clone, Copy)]
 pub enum BindingType {
@@ -166,11 +167,11 @@ impl Compiler {
             stack: vec![CompilerFrame::root()],
         }
     }
-    pub fn program(program: Vec<Stmt>) -> CompileResult {
+    pub fn program(program: Vec<Stmt>) -> CompileIR {
         let mut compiler = Self::new();
         Compiler::body(program, &mut compiler)
     }
-    pub fn body(mut body: Vec<Stmt>, compiler: &mut Compiler) -> CompileResult {
+    pub fn body(mut body: Vec<Stmt>, compiler: &mut Compiler) -> CompileIR {
         if let Some(last) = body.pop() {
             let mut out = Vec::new();
             for stmt in body {
@@ -242,9 +243,9 @@ impl Compiler {
     fn top_mut(&mut self) -> &mut CompilerFrame {
         self.stack.last_mut().unwrap()
     }
-    pub fn get_self(&self, source: Source) -> CompileResult {
+    pub fn get_self(&self, source: Source) -> CompileIR {
         match self.top().scope {
-            Scope::Root => Err(CompileError::InvalidSelf(source)),
+            Scope::Root => Err(CompileError::InvalidSelf),
             _ => Ok(vec![IR::SelfRef]),
         }
     }
@@ -300,13 +301,13 @@ impl Compiler {
 #[cfg(test)]
 mod test {
     use crate::{
-        class::{Class, Handler, Param},
+        class::{Class, Param},
         value::Value,
     };
 
     use super::*;
 
-    fn compile(code: &str) -> CompileResult {
+    fn compile(code: &str) -> CompileIR {
         let lexer = crate::lexer::Lexer::from_string(code);
         let mut parser = crate::parser::Parser::new(lexer);
         let program = parser.program().unwrap();
@@ -363,10 +364,7 @@ mod test {
             vec![IR::Object(
                 {
                     let mut class = Class::new();
-                    class.add(
-                        "".to_string(),
-                        Handler::on(vec![], vec![IR::Constant(Value::Unit)]),
-                    );
+                    class.add_handler("", vec![], vec![IR::Constant(Value::Unit)]);
                     class.rc()
                 },
                 0,
@@ -377,10 +375,7 @@ mod test {
             vec![IR::Object(
                 {
                     let mut class = Class::new();
-                    class.add(
-                        "".to_string(),
-                        Handler::on(vec![], vec![IR::Constant(Value::Integer(1))]),
-                    );
+                    class.add_handler("", vec![], vec![IR::Constant(Value::Integer(1))]);
                     class.rc()
                 },
                 0,
@@ -395,10 +390,7 @@ mod test {
             vec![IR::Object(
                 {
                     let mut class = Class::new();
-                    class.add(
-                        ":".to_string(),
-                        Handler::on(vec![Param::Value], vec![IR::Local(0)]),
-                    );
+                    class.add_handler(":", vec![Param::Value], vec![IR::Local(0)]);
                     class.rc()
                 },
                 0,

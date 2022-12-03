@@ -2,4 +2,5 @@
 - import core
 - wrap selector strings in Rc
 - store selectors in stack frames for error traces
-- use std::mem::discriminant for comparing tokens by tag only
+- clean up var args so we're not just copying the whole arg array
+- compiler returns proper errors for var, which are then "decorated" with source

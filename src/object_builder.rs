@@ -1,5 +1,5 @@
-use crate::class::{Class, Handler as IRHandler, Param as IRParam};
-use crate::compiler::{CompileError, CompileResult, Compiler, Instance};
+use crate::class::{Class, Param as IRParam};
+use crate::compiler::{Compile, CompileIR, Compiler, Instance};
 use crate::ir::IR;
 use crate::parse_binding::Binding;
 use crate::parse_stmt::Stmt;
@@ -9,17 +9,17 @@ use std::collections::HashMap;
 #[derive(Debug, Clone)]
 pub struct ObjectBuilder {
     handlers: HashMap<String, Handler>,
-    // else_handler: Option<ElseHandler>,
+    else_handler: Option<ElseHandler>,
 }
 
 impl ObjectBuilder {
     pub fn new() -> Self {
         ObjectBuilder {
             handlers: HashMap::new(),
-            // else_handler: None,
+            else_handler: None,
         }
     }
-    pub fn compile_do(self, compiler: &mut Compiler) -> Result<(Vec<IR>, Vec<IR>), CompileError> {
+    pub fn compile_do(self, compiler: &mut Compiler) -> Compile<(Vec<IR>, Vec<IR>)> {
         let mut class = Class::new();
         let mut do_instance = compiler.do_instance();
 
@@ -28,7 +28,7 @@ impl ObjectBuilder {
 
             let ir_params = Self::compile_params(compiler, &handler);
             let body = Compiler::body(handler.body, compiler)?;
-            class.add(selector.clone(), IRHandler::on(ir_params, body));
+            class.add_handler(&selector, ir_params, body);
 
             do_instance = compiler.end_do_handler();
         }
@@ -41,7 +41,7 @@ impl ObjectBuilder {
         Ok((alloc, arg))
     }
 
-    pub fn compile(self, compiler: &mut Compiler, binding: Option<&Binding>) -> CompileResult {
+    pub fn compile(self, compiler: &mut Compiler, binding: Option<&Binding>) -> CompileIR {
         let mut class = Class::new();
         let mut instance = Instance::new();
 
@@ -54,9 +54,21 @@ impl ObjectBuilder {
             let mut body = Compiler::body(handler.body, compiler)?;
             out.append(&mut body);
 
-            class.add(selector.clone(), IRHandler::on(ir_params, out));
+            class.add_handler(&selector, ir_params, out);
 
             instance = compiler.end_handler();
+        }
+
+        if let Some(else_handler) = self.else_handler {
+            compiler.handler(instance);
+
+            let mut out = Self::compile_self_binding(compiler, binding);
+            let mut body = Compiler::body(else_handler.body, compiler)?;
+            out.append(&mut body);
+
+            class.add_else(out);
+
+            instance = compiler.end_handler()
         }
 
         let mut out = instance.ivars();
@@ -109,9 +121,16 @@ impl ObjectBuilder {
     }
     fn add_handler(&mut self, handler: Handler) -> ParseResult<()> {
         if self.handlers.contains_key(&handler.selector) {
-            todo!("duplicate key parse error")
+            return Err(ParseError::DuplicateHandler(handler.selector.to_string()));
         }
         self.handlers.insert(handler.selector.clone(), handler);
+        Ok(())
+    }
+    pub fn add_else(&mut self, body: Vec<Stmt>) -> ParseResult<()> {
+        if self.else_handler.is_some() {
+            return Err(ParseError::DuplicateElseHandler);
+        }
+        self.else_handler = Some(ElseHandler { body });
         Ok(())
     }
 }
@@ -123,8 +142,10 @@ struct Handler {
     body: Vec<Stmt>,
 }
 
-// #[derive(Debug, Clone)]
-// struct ElseHandler {}
+#[derive(Debug, Clone)]
+struct ElseHandler {
+    body: Vec<Stmt>,
+}
 
 #[derive(Debug, Clone)]
 enum Param {

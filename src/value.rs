@@ -33,6 +33,7 @@ impl Default for Value {
 }
 
 impl Value {
+    #[allow(unused)]
     pub fn string(str: &str) -> Self {
         Self::String(Rc::new(str.to_string()))
     }

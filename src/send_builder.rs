@@ -1,7 +1,7 @@
 use std::collections::{HashMap, VecDeque};
 
 use crate::{
-    compiler::{CompileResult, Compiler},
+    compiler::{CompileIR, Compiler},
     ir::IR,
     object_builder::ObjectBuilder,
     parse_expr::Expr,
@@ -16,7 +16,7 @@ pub struct Send {
 }
 
 impl Send {
-    pub fn compile(mut self, compiler: &mut Compiler, target: Expr) -> CompileResult {
+    pub fn compile(mut self, compiler: &mut Compiler, target: Expr) -> CompileIR {
         let mut out = Vec::new();
         // Do args must be processed in two separate phases -- the allocation & the class
         let mut queue = VecDeque::new();

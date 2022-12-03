@@ -79,6 +79,16 @@ let target := [
 (target{foo} = 3){assert: "indirect self"}
 
 let target := [
+  on {foo} 1
+  on {bar} 2
+  else
+    self{bar}
+]
+(target{baz} = 2){assert: "else"}
+(target{foo: 1} = 2){assert: "else drops args"}
+
+
+let target := [
   on {foo: do f}
     f{: 2}
 ]
@@ -91,6 +101,7 @@ let target := [
 ]
 let res := target{foo: {} 1 end bar: {} 2 end}
 (res = 3){assert: "do block end"}
+
 
 # frames
 let f := [x: 1 y: 2]

@@ -454,7 +454,7 @@ impl Interpreter {
 
 #[cfg(test)]
 mod test {
-    use crate::class::{Class, Handler, Param};
+    use crate::class::{Class, Param};
 
     fn assert_ok(code: Vec<IR>, expected: Value) {
         let result = program(code);
@@ -485,20 +485,18 @@ mod test {
                 {
                     let mut class = Class::new();
                     // on {foo: x}
-                    class.add(
-                        "foo:".to_string(),
-                        Handler::on(
-                            vec![Param::Value],
-                            vec![
-                                // let y := 3
-                                IR::Constant(Value::Integer(3)),
-                                IR::Assign(1),
-                                // x + y
-                                IR::Local(0),
-                                IR::Local(1),
-                                IR::Send("+:".to_string(), 1),
-                            ],
-                        ),
+                    class.add_handler(
+                        "foo:",
+                        vec![Param::Value],
+                        vec![
+                            // let y := 3
+                            IR::Constant(Value::Integer(3)),
+                            IR::Assign(1),
+                            // x + y
+                            IR::Local(0),
+                            IR::Local(1),
+                            IR::Send("+:".to_string(), 1),
+                        ],
                     );
                     class.rc()
                 },

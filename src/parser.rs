@@ -16,6 +16,8 @@ pub enum ParseError {
     Expected(String),
     ExpectedPairGotKey(String),
     DuplicateKey(String),
+    DuplicateHandler(String),
+    DuplicateElseHandler,
 }
 
 fn expect<T>(value: ParseOpt<T>, error_msg: &str) -> ParseResult<T> {
@@ -187,7 +189,12 @@ impl<'a> Parser<'a> {
                     let _ = self.expect_token("end");
                     builder.add_on(params, body)?;
                 }
-
+                Token::Else(_) => {
+                    self.advance();
+                    let body = self.body()?;
+                    let _ = self.expect_token("end");
+                    builder.add_else(body)?;
+                }
                 _ => break,
             }
         }

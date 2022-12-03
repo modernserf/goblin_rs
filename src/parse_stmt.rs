@@ -1,5 +1,5 @@
 use crate::{
-    compiler::{CompileError, CompileResult, Compiler},
+    compiler::{CompileError, CompileIR, Compiler},
     ir::IR,
     parse_binding::Binding,
     parse_expr::Expr,
@@ -16,7 +16,7 @@ pub enum Stmt {
 }
 
 impl Stmt {
-    pub fn compile(self, compiler: &mut Compiler) -> CompileResult {
+    pub fn compile(self, compiler: &mut Compiler) -> CompileIR {
         match self {
             Stmt::Expr(expr) => {
                 let mut res = expr.compile(compiler)?;
@@ -45,7 +45,7 @@ impl Stmt {
                         value.push(IR::Assign(record.index));
                         return Ok(value);
                     }
-                    Binding::Placeholder(source) => Err(CompileError::InvalidVarBinding(source)),
+                    Binding::Placeholder(source) => Err(CompileError::InvalidVarBinding),
                 }
             }
             Stmt::Set(binding, expr) => {
@@ -56,9 +56,9 @@ impl Stmt {
                             value.push(IR::Assign(index));
                             return Ok(value);
                         }
-                        Err(CompileError::InvalidVarBinding(src))
+                        Err(CompileError::InvalidVarBinding)
                     }
-                    Binding::Placeholder(source) => Err(CompileError::InvalidVarBinding(source)),
+                    Binding::Placeholder(source) => Err(CompileError::InvalidVarBinding),
                 }
             }
             Stmt::Return(opt_expr) => {
