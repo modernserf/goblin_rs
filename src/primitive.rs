@@ -1,20 +1,6 @@
 use std::{cell::RefCell, ops::Deref, rc::Rc};
 
-use crate::{
-    interpreter::{RuntimeError, SendEffect},
-    value::Value,
-};
-
-pub fn does_not_understand(selector: &str) -> SendEffect {
-    SendEffect::Error(RuntimeError::DoesNotUnderstand(selector.to_string()))
-}
-
-fn primitive_type_error(expected: &str, arg: &Value) -> SendEffect {
-    SendEffect::Error(RuntimeError::PrimitiveTypeError {
-        expected: expected.to_string(),
-        received: arg.clone(),
-    })
-}
+use crate::{interpreter::SendEffect, runtime_error::RuntimeError, value::Value};
 
 pub fn bool_class(selector: &str, target: bool, args: &[Value]) -> SendEffect {
     match selector {
@@ -23,16 +9,16 @@ pub fn bool_class(selector: &str, target: bool, args: &[Value]) -> SendEffect {
                 if target {
                     Value::Unit.eval()
                 } else {
-                    SendEffect::Error(RuntimeError::AssertionError(str.to_string()))
+                    RuntimeError::assertion_error(str)
                 }
             }
-            _ => primitive_type_error("string", &args[0]),
+            _ => RuntimeError::primitive_type_error("string", &args[0]),
         },
         ":" => {
             let selector = if target { "true" } else { "false" };
             args[0].send(selector, vec![])
         }
-        _ => does_not_understand(selector),
+        _ => RuntimeError::does_not_understand(selector),
     }
 }
 
@@ -42,18 +28,18 @@ pub fn int_class(selector: &str, target: i64, args: &[Value]) -> SendEffect {
         "+:" => match args[0] {
             Value::Integer(r) => Value::Integer(target + r).eval(),
             Value::Float(f) => Value::Float(target as f64 + f).eval(),
-            _ => primitive_type_error("number", &args[0]),
+            _ => RuntimeError::primitive_type_error("number", &args[0]),
         },
         "-:" => match args[0] {
             Value::Integer(r) => Value::Integer(target - r).eval(),
             Value::Float(f) => Value::Float(target as f64 - f).eval(),
-            _ => primitive_type_error("number", &args[0]),
+            _ => RuntimeError::primitive_type_error("number", &args[0]),
         },
         "=:" => match args[0] {
             Value::Integer(r) => Value::Bool(target == r).eval(),
-            _ => primitive_type_error("integer", &args[0]),
+            _ => RuntimeError::primitive_type_error("integer", &args[0]),
         },
-        _ => does_not_understand(selector),
+        _ => RuntimeError::does_not_understand(selector),
     }
 }
 
@@ -63,18 +49,18 @@ pub fn float_class(selector: &str, target: f64, args: &[Value]) -> SendEffect {
         "+:" => match args[0] {
             Value::Integer(r) => Value::Float(target + r as f64).eval(),
             Value::Float(r) => Value::Float(target + r).eval(),
-            _ => primitive_type_error("number", &args[0]),
+            _ => RuntimeError::primitive_type_error("number", &args[0]),
         },
         "-:" => match args[0] {
             Value::Integer(r) => Value::Float(target - r as f64).eval(),
             Value::Float(r) => Value::Float(target - r).eval(),
-            _ => primitive_type_error("number", &args[0]),
+            _ => RuntimeError::primitive_type_error("number", &args[0]),
         },
         "=:" => match args[0] {
             Value::Float(r) => Value::Bool(target == r).eval(),
-            _ => primitive_type_error("float", &args[0]),
+            _ => RuntimeError::primitive_type_error("float", &args[0]),
         },
-        _ => does_not_understand(selector),
+        _ => RuntimeError::does_not_understand(selector),
     }
 }
 
@@ -85,17 +71,17 @@ pub fn string_class(selector: &str, target: &Rc<String>, args: &[Value]) -> Send
                 let concat = format!("{}{}", target, arg);
                 Value::String(Rc::new(concat)).eval()
             }
-            _ => primitive_type_error("string", &args[0]),
+            _ => RuntimeError::primitive_type_error("string", &args[0]),
         },
         "=:" => match &args[0] {
             Value::String(r) => Value::Bool(target == r).eval(),
-            _ => primitive_type_error("integer", &args[0]),
+            _ => RuntimeError::primitive_type_error("integer", &args[0]),
         },
         "debug" => {
             println!("{}", target);
             Value::Unit.eval()
         }
-        _ => does_not_understand(selector),
+        _ => RuntimeError::does_not_understand(selector),
     }
 }
 
@@ -108,7 +94,7 @@ pub fn cell_class(selector: &str, target: Rc<RefCell<Value>>, mut args: Vec<Valu
             *tgt = arg;
             Value::Unit.eval()
         }
-        _ => does_not_understand(selector),
+        _ => RuntimeError::does_not_understand(selector),
     }
 }
 
@@ -119,6 +105,6 @@ pub fn cell_module(selector: &str, mut args: Vec<Value>) -> SendEffect {
             let arg = std::mem::take(&mut args[0]);
             Value::Cell(Rc::new(RefCell::new(arg))).eval()
         }
-        _ => does_not_understand(selector),
+        _ => RuntimeError::does_not_understand(selector),
     }
 }

@@ -11,12 +11,13 @@ mod parse_expr;
 mod parse_stmt;
 mod parser;
 mod primitive;
+mod runtime_error;
 mod send_builder;
 mod source;
 mod value;
 
 #[allow(unused)]
-fn run(code: &str) -> Result<value::Value, interpreter::RuntimeError> {
+fn run(code: &str) -> Result<value::Value, runtime_error::RuntimeError> {
     let lexer = lexer::Lexer::from_string(code);
     let mut parser = parser::Parser::new(lexer);
     let program = parser.program().unwrap();
@@ -31,8 +32,8 @@ fn main() {
 
 #[cfg(test)]
 mod test {
-    use crate::interpreter::RuntimeError;
     use crate::run;
+    use crate::runtime_error::RuntimeError;
     use crate::value::Value;
 
     fn assert_ok(code: &str, value: Value) {

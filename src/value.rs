@@ -3,9 +3,8 @@ use std::{cell::RefCell, rc::Rc};
 use crate::{
     class::{Object, RcClass},
     interpreter::SendEffect,
-    primitive::{
-        bool_class, cell_class, does_not_understand, float_class, int_class, string_class,
-    },
+    primitive::{bool_class, cell_class, float_class, int_class, string_class},
+    runtime_error::RuntimeError,
 };
 
 #[allow(unused)]
@@ -56,7 +55,7 @@ impl Value {
                 own_offset,
                 parent_index,
             } => Object::send_do_block(class, *own_offset, *parent_index, selector, args),
-            _ => does_not_understand(selector),
+            _ => RuntimeError::does_not_understand(selector),
         }
     }
 }

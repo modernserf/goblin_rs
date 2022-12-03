@@ -3,16 +3,9 @@ use std::rc::Rc;
 use crate::{
     class::{Body, Class, Object},
     ir::IR,
+    runtime_error::RuntimeError,
     value::Value,
 };
-
-#[derive(Debug, PartialEq, Clone)]
-pub enum RuntimeError {
-    DoesNotUnderstand(String),
-    PrimitiveTypeError { expected: String, received: Value },
-    InvalidArg { expected: String, received: Value },
-    AssertionError(String),
-}
 
 #[derive(Debug, Clone)]
 pub enum SendEffect {

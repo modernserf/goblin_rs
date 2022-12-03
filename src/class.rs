@@ -1,11 +1,6 @@
 use std::{collections::HashMap, rc::Rc};
 
-use crate::{
-    interpreter::{RuntimeError, SendEffect},
-    ir::IR,
-    primitive::does_not_understand,
-    value::Value,
-};
+use crate::{interpreter::SendEffect, ir::IR, runtime_error::RuntimeError, value::Value};
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct Class {
@@ -57,7 +52,7 @@ pub struct Object {
     ivars: Vec<Value>,
 }
 
-fn check_args(params: &[Param], args: &[Value]) -> Result<(), RuntimeError> {
+fn check_args(params: &[Param], args: &[Value]) -> Option<SendEffect> {
     if params.len() != args.len() {
         panic!("param length mismatch")
     }
@@ -66,22 +61,16 @@ fn check_args(params: &[Param], args: &[Value]) -> Result<(), RuntimeError> {
             (Param::Do, Value::Do { .. }) => {}
             (Param::Var, Value::Var(..)) => {}
             (_, Value::Var(..)) => {
-                return Err(RuntimeError::InvalidArg {
-                    expected: "value".to_string(),
-                    received: arg.clone(),
-                })
+                return Some(RuntimeError::invalid_arg("value", arg));
             }
             (_, Value::Do { .. }) => {
-                return Err(RuntimeError::InvalidArg {
-                    expected: "value".to_string(),
-                    received: arg.clone(),
-                })
+                return Some(RuntimeError::invalid_arg("value", arg));
             }
             (_, _) => {}
         }
     }
 
-    Ok(())
+    None
 }
 
 impl Object {
@@ -99,8 +88,8 @@ impl Object {
 
     pub fn send(object: &Rc<Object>, selector: &str, args: Vec<Value>) -> SendEffect {
         if let Some(Handler(params, body)) = object.class.get(selector) {
-            if let Err(err) = check_args(params, &args) {
-                return SendEffect::Error(err);
+            if let Some(err) = check_args(params, &args) {
+                return err;
             }
             SendEffect::Call {
                 args,
@@ -116,7 +105,7 @@ impl Object {
                 body: body.clone(),
             }
         } else {
-            return does_not_understand(selector);
+            return RuntimeError::does_not_understand(selector);
         }
     }
     pub fn send_do_block(
@@ -127,8 +116,8 @@ impl Object {
         args: Vec<Value>,
     ) -> SendEffect {
         if let Some(Handler(params, body)) = class.get(selector) {
-            if let Err(err) = check_args(params, &args) {
-                return SendEffect::Error(err);
+            if let Some(err) = check_args(params, &args) {
+                return err;
             }
             SendEffect::CallDoBlock {
                 args,
@@ -144,7 +133,7 @@ impl Object {
                 body: body.clone(),
             }
         } else {
-            return does_not_understand(selector);
+            return RuntimeError::does_not_understand(selector);
         }
     }
 }
