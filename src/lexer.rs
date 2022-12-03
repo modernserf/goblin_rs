@@ -37,18 +37,22 @@ pub enum Token {
 
 type CharIter<'a> = std::iter::Peekable<std::iter::Enumerate<std::str::Chars<'a>>>;
 
+thread_local! {
+    static OPERATORS: HashSet<char> = HashSet::from_iter("~!@$%^&*-+=|/,<>".chars());
+}
+
+fn is_operator(ch: char) -> bool {
+    OPERATORS.with(|set| set.contains(&ch))
+}
+
 pub struct Lexer<'a> {
     chars: CharIter<'a>,
-    operators: HashSet<char>,
 }
 
 impl<'a> Lexer<'a> {
     pub fn from_string(string: &str) -> Lexer {
         let chars = string.chars().enumerate().peekable();
-        Lexer {
-            chars,
-            operators: HashSet::from_iter("~!@$%^&*-+=|/,<>".chars()),
-        }
+        Lexer { chars }
     }
     fn get_token(&mut self) -> Token {
         let (start, ch) = match self.chars.peek() {
@@ -115,7 +119,7 @@ impl<'a> Lexer<'a> {
                 return self.whitespace(start);
             }
             _ => {
-                if self.operators.contains(&ch) {
+                if is_operator(ch) {
                     return self.operator(start);
                 } else {
                     unimplemented!()
@@ -263,7 +267,7 @@ impl<'a> Lexer<'a> {
     fn operator(&mut self, start: usize) -> Token {
         let mut str = String::new();
         while let Some((_, ch)) = self.chars.peek() {
-            if !self.operators.contains(ch) {
+            if !is_operator(*ch) {
                 break;
             }
             str.push(*ch);
