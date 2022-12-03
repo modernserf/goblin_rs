@@ -420,6 +420,19 @@ impl Interpreter {
                 let result = target.send(selector, args);
                 return Some(result);
             }
+            IR::TrySend(selector, arity) => {
+                let or_else = self.values.pop();
+                let args = self.values.pop_args(*arity);
+                let target = self.values.pop();
+                let result = target.send(selector, args);
+                return match &result {
+                    // TODO: check that this doesn't "bubble"
+                    SendEffect::Error(RuntimeError::DoesNotUnderstand(_)) => {
+                        Some(or_else.send("", vec![]))
+                    }
+                    _ => Some(result),
+                };
+            }
             IR::Object(class, arity) => {
                 let ivars = self.values.pop_args(*arity);
                 let obj = Value::Object(Rc::new(Object::new(class.clone(), ivars)));

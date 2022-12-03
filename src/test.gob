@@ -87,6 +87,11 @@ let target := [
 (target{baz} = 2){assert: "else"}
 (target{foo: 1} = 2){assert: "else drops args"}
 
+let target := [
+  on {foo} 1
+]
+((target{bar} ? target{foo}) = 1){assert: "try send"}
+((target{foo: 2} ? target{foo}) = 1){assert: "try send args"}
 
 let target := [
   on {foo: do f}

@@ -9,6 +9,7 @@ pub enum IR {
     Local(usize),
     Assign(usize),
     Send(String, usize),
+    TrySend(String, usize),
     Object(RcClass, usize),
     SelfObject(usize),
     IVar(usize),

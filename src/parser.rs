@@ -390,18 +390,29 @@ impl<'a> Parser<'a> {
             _ => self.call_expr(),
         }
     }
+
     fn binary_op_expr(&mut self) -> ParseOpt<Expr> {
         let mut expr = match self.unary_op_expr()? {
             Some(expr) => expr,
             None => return Ok(None),
         };
-        while let Token::Operator(value, source) = self.peek() {
-            let src = *source;
-            let mut operator = mem::take(value);
-            operator.push(':');
-            self.advance();
-            let operand = expect(self.unary_op_expr(), "expr")?;
-            expr = SendBuilder::binary_op(operator, expr, operand, src)?;
+        loop {
+            match self.peek() {
+                Token::Operator(value, source) => {
+                    let src = *source;
+                    let mut operator = mem::take(value);
+                    operator.push(':');
+                    self.advance();
+                    let operand = expect(self.unary_op_expr(), "expr")?;
+                    expr = SendBuilder::binary_op(operator, expr, operand, src)?;
+                }
+                Token::QuestionMark(_) => {
+                    self.advance();
+                    let other = expect(self.unary_op_expr(), "expr")?;
+                    expr = Expr::Try(Box::new(expr), Box::new(other))
+                }
+                _ => break,
+            }
         }
         Ok(Some(expr))
     }

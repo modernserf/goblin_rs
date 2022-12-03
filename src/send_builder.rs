@@ -3,9 +3,10 @@ use std::collections::{HashMap, VecDeque};
 use crate::{
     compiler::{CompileIR, Compiler},
     ir::IR,
-    object_builder::ObjectBuilder,
+    object_builder::{ObjectBuilder, ParamsBuilder},
     parse_error::ParseError,
     parse_expr::Expr,
+    parse_stmt::Stmt,
     parser::Parse,
     source::Source,
 };
@@ -17,7 +18,32 @@ pub struct Send {
 }
 
 impl Send {
-    pub fn compile(mut self, compiler: &mut Compiler, target: Expr) -> CompileIR {
+    pub fn compile(self, compiler: &mut Compiler, target: Expr) -> CompileIR {
+        let arity = self.args.len();
+        let selector = self.selector.to_string();
+        let mut out = self.compile_base(compiler, target)?;
+        out.push(IR::Send(selector, arity));
+        Ok(out)
+    }
+    pub fn compile_try(self, compiler: &mut Compiler, target: Expr, or_else: Expr) -> CompileIR {
+        let arity = self.args.len();
+        let selector = self.selector.to_string();
+        let mut out = self.compile_base(compiler, target)?;
+
+        let mut do_block = ObjectBuilder::new();
+        do_block
+            .add_on(
+                ParamsBuilder::key("".to_string()),
+                vec![Stmt::Expr(or_else)],
+            )
+            .unwrap();
+        let mut ir = do_block.compile(compiler, None)?;
+        println!("or_else ir {:?}", ir);
+        out.append(&mut ir);
+        out.push(IR::TrySend(selector, arity));
+        Ok(out)
+    }
+    fn compile_base(mut self, compiler: &mut Compiler, target: Expr) -> CompileIR {
         let mut out = Vec::new();
         // Do args must be processed in two separate phases -- the allocation & the class
         let mut queue = VecDeque::new();
@@ -35,7 +61,6 @@ impl Send {
 
         let mut tgt = target.compile(compiler)?;
         out.append(&mut tgt);
-        let arity = self.args.len();
         for arg in self.args.into_iter() {
             match arg {
                 SendArg::Value(value) => {
@@ -56,7 +81,6 @@ impl Send {
                 }
             }
         }
-        out.push(IR::Send(self.selector.to_string(), arity));
         Ok(out)
     }
 }

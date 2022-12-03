@@ -31,6 +31,7 @@ pub enum Token {
     CloseBrace(Source),
     OpenBracket(Source),
     CloseBracket(Source),
+    QuestionMark(Source),
     EndOfInput,
 }
 
@@ -82,6 +83,10 @@ impl<'a> Lexer<'a> {
             ']' => {
                 self.chars.next();
                 return Token::CloseBracket(Source::new(start, 1));
+            }
+            '?' => {
+                self.chars.next();
+                return Token::QuestionMark(Source::new(start, 1));
             }
             ':' => {
                 self.chars.next();

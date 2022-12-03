@@ -24,6 +24,7 @@ pub enum Expr {
     Frame(Frame, Source),
     SelfRef(Source),
     If(Box<Expr>, Vec<Stmt>, Vec<Stmt>, Source),
+    Try(Box<Expr>, Box<Expr>),
 }
 
 impl Expr {
@@ -117,6 +118,10 @@ impl Expr {
             Expr::Object(builder, _) => builder.compile(compiler, None),
             Expr::Frame(frame, _) => frame.compile(compiler),
             Expr::SelfRef(_) => compiler.get_self(),
+            Expr::Try(expr, or_else) => match *expr {
+                Expr::Send(target, send, _) => send.compile_try(compiler, *target, *or_else),
+                _ => todo!("invalid send"),
+            },
         }
     }
 }
