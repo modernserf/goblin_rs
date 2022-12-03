@@ -5,6 +5,7 @@ use crate::frame::{Frame, FrameBuilder};
 use crate::ir::IR;
 use crate::object_builder::{ObjectBuilder, ParamsBuilder};
 use crate::parse_binding::Binding;
+use crate::parse_error::ParseError;
 use crate::parse_stmt::Stmt;
 use crate::parser::Parse;
 use crate::send_builder::{Send, SendBuilder};
@@ -29,7 +30,7 @@ impl Expr {
     pub fn as_binding(self) -> Parse<Binding> {
         match self {
             Expr::Identifier(key, source) => Ok(Binding::Identifier(key, source)),
-            _ => panic!("invalid set binding"),
+            _ => ParseError::invalid_set_binding(),
         }
     }
     pub fn as_set_in_place(self) -> Parse<Stmt> {
@@ -38,14 +39,14 @@ impl Expr {
                 let binding = target.root_target_binding()?;
                 Ok(Stmt::Set(binding, Expr::Send(target, sender, source)))
             }
-            _ => panic!("invalid set in place"),
+            _ => ParseError::invalid_set_in_place(),
         }
     }
     fn root_target_binding(&self) -> Parse<Binding> {
         match self {
             Expr::Send(target, _, _) => target.root_target_binding(),
             Expr::Identifier(key, source) => Ok(Binding::Identifier(key.to_string(), *source)),
-            _ => panic!("invalid set in place"),
+            _ => ParseError::invalid_set_in_place(),
         }
     }
 
@@ -70,7 +71,7 @@ impl Expr {
                 let val = Value::String(Rc::new(value));
                 Ok(vec![IR::Constant(val)])
             }
-            Expr::Identifier(key, src) => match compiler.get(&key) {
+            Expr::Identifier(key, _) => match compiler.get(&key) {
                 Some(ir) => Ok(vec![ir]),
                 None => Err(CompileError::UnknownIdentifier(key)),
             },
@@ -115,7 +116,7 @@ impl Expr {
             Expr::Send(target, send, _) => send.compile(compiler, *target),
             Expr::Object(builder, _) => builder.compile(compiler, None),
             Expr::Frame(frame, _) => frame.compile(compiler),
-            Expr::SelfRef(source) => compiler.get_self(source),
+            Expr::SelfRef(_) => compiler.get_self(),
         }
     }
 }

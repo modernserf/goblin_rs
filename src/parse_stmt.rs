@@ -45,20 +45,20 @@ impl Stmt {
                         value.push(IR::Assign(record.index));
                         return Ok(value);
                     }
-                    Binding::Placeholder(source) => Err(CompileError::InvalidVarBinding),
+                    Binding::Placeholder(_) => Err(CompileError::InvalidVarBinding),
                 }
             }
             Stmt::Set(binding, expr) => {
                 let mut value = expr.compile(compiler)?;
                 match binding {
-                    Binding::Identifier(name, src) => {
+                    Binding::Identifier(name, _) => {
                         if let Some(index) = compiler.get_var_index(&name) {
                             value.push(IR::Assign(index));
                             return Ok(value);
                         }
                         Err(CompileError::InvalidVarBinding)
                     }
-                    Binding::Placeholder(source) => Err(CompileError::InvalidVarBinding),
+                    Binding::Placeholder(_) => Err(CompileError::InvalidVarBinding),
                 }
             }
             Stmt::Return(opt_expr) => {

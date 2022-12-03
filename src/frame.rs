@@ -139,7 +139,7 @@ impl FrameBuilder {
     }
     pub fn build_key(self, key: String, source: Source) -> Parse<Expr> {
         if self.args.len() > 0 {
-            return ParseError::expected_pair_got_key(&key);
+            return ParseError::expected_pair_got_key(&key).map_err(|e| e.with_source(source));
         }
         return Ok(Expr::Frame(Frame::Key(key), source));
     }

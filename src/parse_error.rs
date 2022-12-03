@@ -6,6 +6,8 @@ pub enum ParseError {
     DuplicateKey(String),
     DuplicateHandler(String),
     DuplicateElseHandler,
+    InvalidSetBinding,
+    InvalidSetInPlace,
     WithSource(Box<ParseError>, Source),
 }
 
@@ -31,7 +33,13 @@ impl ParseError {
     pub fn duplicate_else_handler<T>() -> Parse<T> {
         Err(DuplicateElseHandler)
     }
-    pub fn with_source<T>(self, source: Source) -> Parse<T> {
-        Err(WithSource(Box::new(self), source))
+    pub fn invalid_set_binding<T>() -> Parse<T> {
+        Err(InvalidSetBinding)
+    }
+    pub fn invalid_set_in_place<T>() -> Parse<T> {
+        Err(InvalidSetInPlace)
+    }
+    pub fn with_source(self, source: Source) -> Self {
+        WithSource(Box::new(self), source)
     }
 }

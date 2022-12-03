@@ -122,14 +122,14 @@ impl ObjectBuilder {
     }
     fn add_handler(&mut self, handler: Handler) -> Parse<()> {
         if self.handlers.contains_key(&handler.selector) {
-            return Err(ParseError::DuplicateHandler(handler.selector.to_string()));
+            return ParseError::duplicate_handler(&handler.selector);
         }
         self.handlers.insert(handler.selector.clone(), handler);
         Ok(())
     }
     pub fn add_else(&mut self, body: Vec<Stmt>) -> Parse<()> {
         if self.else_handler.is_some() {
-            return Err(ParseError::DuplicateElseHandler);
+            return ParseError::duplicate_else_handler();
         }
         self.else_handler = Some(ElseHandler { body });
         Ok(())

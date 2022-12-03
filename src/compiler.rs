@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 
-use crate::{ir::IR, parse_stmt::Stmt, source::Source, value::Value};
+use crate::{ir::IR, parse_stmt::Stmt, value::Value};
 
 #[derive(Debug, PartialEq, Clone)]
 pub enum CompileError {
@@ -243,7 +243,7 @@ impl Compiler {
     fn top_mut(&mut self) -> &mut CompilerFrame {
         self.stack.last_mut().unwrap()
     }
-    pub fn get_self(&self, source: Source) -> CompileIR {
+    pub fn get_self(&self) -> CompileIR {
         match self.top().scope {
             Scope::Root => Err(CompileError::InvalidSelf),
             _ => Ok(vec![IR::SelfRef]),
