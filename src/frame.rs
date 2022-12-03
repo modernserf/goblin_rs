@@ -4,8 +4,9 @@ use crate::{
     class::{Class, Param, RcClass},
     compiler::{CompileIR, Compiler},
     ir::IR,
+    parse_error::ParseError,
     parse_expr::Expr,
-    parser::{ParseError, ParseResult},
+    parser::Parse,
     source::Source,
 };
 
@@ -136,20 +137,20 @@ impl FrameBuilder {
             args: HashMap::new(),
         }
     }
-    pub fn build_key(self, key: String, source: Source) -> ParseResult<Expr> {
+    pub fn build_key(self, key: String, source: Source) -> Parse<Expr> {
         if self.args.len() > 0 {
-            return Err(ParseError::ExpectedPairGotKey(key));
+            return ParseError::expected_pair_got_key(&key);
         }
         return Ok(Expr::Frame(Frame::Key(key), source));
     }
-    pub fn add_pair(&mut self, key: String, value: Expr) -> ParseResult<()> {
+    pub fn add_pair(&mut self, key: String, value: Expr) -> Parse<()> {
         if self.args.contains_key(&key) {
-            return Err(ParseError::DuplicateKey(key));
+            return ParseError::duplicate_key(&key);
         }
         self.args.insert(key, value);
         Ok(())
     }
-    pub fn build(self, source: Source) -> ParseResult<Expr> {
+    pub fn build(self, source: Source) -> Parse<Expr> {
         let mut entries = self.args.into_iter().collect::<Vec<_>>();
         entries.sort_by(|(a, _), (b, _)| a.cmp(b));
         let mut selector = String::new();

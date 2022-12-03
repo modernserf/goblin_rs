@@ -2,8 +2,9 @@ use crate::class::{Class, Param as IRParam};
 use crate::compiler::{Compile, CompileIR, Compiler, Instance};
 use crate::ir::IR;
 use crate::parse_binding::Binding;
+use crate::parse_error::ParseError;
 use crate::parse_stmt::Stmt;
-use crate::parser::{ParseError, ParseResult};
+use crate::parser::Parse;
 use std::collections::HashMap;
 
 #[derive(Debug, Clone)]
@@ -116,17 +117,17 @@ impl ObjectBuilder {
         out
     }
 
-    pub fn add_on(&mut self, params_builder: ParamsBuilder, body: Vec<Stmt>) -> ParseResult<()> {
+    pub fn add_on(&mut self, params_builder: ParamsBuilder, body: Vec<Stmt>) -> Parse<()> {
         params_builder.build(self, body)
     }
-    fn add_handler(&mut self, handler: Handler) -> ParseResult<()> {
+    fn add_handler(&mut self, handler: Handler) -> Parse<()> {
         if self.handlers.contains_key(&handler.selector) {
             return Err(ParseError::DuplicateHandler(handler.selector.to_string()));
         }
         self.handlers.insert(handler.selector.clone(), handler);
         Ok(())
     }
-    pub fn add_else(&mut self, body: Vec<Stmt>) -> ParseResult<()> {
+    pub fn add_else(&mut self, body: Vec<Stmt>) -> Parse<()> {
         if self.else_handler.is_some() {
             return Err(ParseError::DuplicateElseHandler);
         }
@@ -164,7 +165,7 @@ impl ParamsBuilder {
     pub fn key(key: String) -> Self {
         ParamsBuilder::KeyBuilder(key)
     }
-    fn build(self, ob: &mut ObjectBuilder, body: Vec<Stmt>) -> ParseResult<()> {
+    fn build(self, ob: &mut ObjectBuilder, body: Vec<Stmt>) -> Parse<()> {
         match self {
             ParamsBuilder::KeyBuilder(selector) => ob.add_handler(Handler {
                 selector,
@@ -189,37 +190,32 @@ impl PairParamsBuilder {
             params: HashMap::new(),
         }
     }
-    pub fn add_value(&mut self, key: String, binding: Binding) -> ParseResult<()> {
-        if self.params.contains_key(&key) {
-            return Err(ParseError::DuplicateKey(key));
-        }
-        self.params.insert(
+    pub fn add_value(&mut self, key: String, binding: Binding) -> Parse<()> {
+        self.add(
             key,
             ParseParam::Param(ParamWithMatch::Param(Param::Value(binding))),
-        );
-        Ok(())
+        )
     }
-    pub fn add_var(&mut self, key: String, ident: String) -> ParseResult<()> {
-        if self.params.contains_key(&key) {
-            return Err(ParseError::DuplicateKey(key));
-        }
-        self.params.insert(
+    pub fn add_var(&mut self, key: String, ident: String) -> Parse<()> {
+        self.add(
             key,
             ParseParam::Param(ParamWithMatch::Param(Param::Var(ident))),
-        );
-        Ok(())
+        )
     }
-    pub fn add_do(&mut self, key: String, ident: String) -> ParseResult<()> {
-        if self.params.contains_key(&key) {
-            return Err(ParseError::DuplicateKey(key));
-        }
-        self.params.insert(
+    pub fn add_do(&mut self, key: String, ident: String) -> Parse<()> {
+        self.add(
             key,
             ParseParam::Param(ParamWithMatch::Param(Param::Do(ident))),
-        );
+        )
+    }
+    fn add(&mut self, key: String, param: ParseParam) -> Parse<()> {
+        if self.params.contains_key(&key) {
+            return ParseError::duplicate_key(&key);
+        }
+        self.params.insert(key, param);
         Ok(())
     }
-    fn build(self, ob: &mut ObjectBuilder, body: Vec<Stmt>) -> ParseResult<()> {
+    fn build(self, ob: &mut ObjectBuilder, body: Vec<Stmt>) -> Parse<()> {
         for params in self.expand_defaults() {
             let mut selector = String::new();
             let mut out_params = Vec::new();

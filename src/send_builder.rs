@@ -4,8 +4,9 @@ use crate::{
     compiler::{CompileIR, Compiler},
     ir::IR,
     object_builder::ObjectBuilder,
+    parse_error::ParseError,
     parse_expr::Expr,
-    parser::{ParseError, ParseResult},
+    parser::Parse,
     source::Source,
 };
 
@@ -77,7 +78,7 @@ impl SendBuilder {
             args: HashMap::new(),
         }
     }
-    pub fn unary_op(operator: String, target: Expr, source: Source) -> ParseResult<Expr> {
+    pub fn unary_op(operator: String, target: Expr, source: Source) -> Parse<Expr> {
         Ok(Expr::Send(
             Box::new(target),
             Send {
@@ -88,12 +89,7 @@ impl SendBuilder {
         ))
     }
 
-    pub fn binary_op(
-        operator: String,
-        target: Expr,
-        operand: Expr,
-        source: Source,
-    ) -> ParseResult<Expr> {
+    pub fn binary_op(operator: String, target: Expr, operand: Expr, source: Source) -> Parse<Expr> {
         Ok(Expr::Send(
             Box::new(target),
             Send {
@@ -104,9 +100,9 @@ impl SendBuilder {
         ))
     }
 
-    pub fn build_key(self, key: String, target: Expr, source: Source) -> ParseResult<Expr> {
+    pub fn build_key(self, key: String, target: Expr, source: Source) -> Parse<Expr> {
         if self.args.len() > 0 {
-            return Err(ParseError::ExpectedPairGotKey(key));
+            return ParseError::expected_pair_got_key(&key);
         }
         Ok(Expr::Send(
             Box::new(target),
@@ -117,25 +113,23 @@ impl SendBuilder {
             source,
         ))
     }
-    pub fn add_value(&mut self, key: String, value: Expr) -> ParseResult<()> {
-        match self.args.insert(key.to_string(), SendArg::Value(value)) {
-            Some(_) => Err(ParseError::DuplicateKey(key.to_string())),
-            None => Ok(()),
-        }
+    pub fn add_value(&mut self, key: String, value: Expr) -> Parse<()> {
+        self.add(key, SendArg::Value(value))
     }
-    pub fn add_var(&mut self, key: String, value: String) -> ParseResult<()> {
-        match self.args.insert(key.to_string(), SendArg::Var(value)) {
-            Some(_) => Err(ParseError::DuplicateKey(key.to_string())),
-            None => Ok(()),
-        }
+    pub fn add_var(&mut self, key: String, value: String) -> Parse<()> {
+        self.add(key, SendArg::Var(value))
     }
-    pub fn add_do(&mut self, key: String, value: ObjectBuilder) -> ParseResult<()> {
-        match self.args.insert(key.to_string(), SendArg::Do(value)) {
-            Some(_) => Err(ParseError::DuplicateKey(key.to_string())),
-            None => Ok(()),
-        }
+    pub fn add_do(&mut self, key: String, value: ObjectBuilder) -> Parse<()> {
+        self.add(key, SendArg::Do(value))
     }
-    pub fn build(self, target: Expr, source: Source) -> ParseResult<Expr> {
+    fn add(&mut self, key: String, value: SendArg) -> Parse<()> {
+        if self.args.contains_key(&key) {
+            return ParseError::duplicate_key(&key);
+        }
+        self.args.insert(key, value);
+        Ok(())
+    }
+    pub fn build(self, target: Expr, source: Source) -> Parse<Expr> {
         let mut selector = String::new();
         let mut args = Vec::new();
 

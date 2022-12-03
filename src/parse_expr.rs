@@ -6,7 +6,7 @@ use crate::ir::IR;
 use crate::object_builder::{ObjectBuilder, ParamsBuilder};
 use crate::parse_binding::Binding;
 use crate::parse_stmt::Stmt;
-use crate::parser::ParseError;
+use crate::parser::Parse;
 use crate::send_builder::{Send, SendBuilder};
 use crate::source::Source;
 use crate::value::Value;
@@ -26,13 +26,13 @@ pub enum Expr {
 }
 
 impl Expr {
-    pub fn as_binding(self) -> Result<Binding, ParseError> {
+    pub fn as_binding(self) -> Parse<Binding> {
         match self {
             Expr::Identifier(key, source) => Ok(Binding::Identifier(key, source)),
             _ => panic!("invalid set binding"),
         }
     }
-    pub fn as_set_in_place(self) -> Result<Stmt, ParseError> {
+    pub fn as_set_in_place(self) -> Parse<Stmt> {
         match self {
             Expr::Send(target, sender, source) => {
                 let binding = target.root_target_binding()?;
@@ -41,7 +41,7 @@ impl Expr {
             _ => panic!("invalid set in place"),
         }
     }
-    fn root_target_binding(&self) -> Result<Binding, ParseError> {
+    fn root_target_binding(&self) -> Parse<Binding> {
         match self {
             Expr::Send(target, _, _) => target.root_target_binding(),
             Expr::Identifier(key, source) => Ok(Binding::Identifier(key.to_string(), *source)),

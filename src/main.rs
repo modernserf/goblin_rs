@@ -6,6 +6,7 @@ mod ir;
 mod lexer;
 mod object_builder;
 mod parse_binding;
+mod parse_error;
 mod parse_expr;
 mod parse_stmt;
 mod parser;

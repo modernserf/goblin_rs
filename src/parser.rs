@@ -1,5 +1,6 @@
 use crate::frame::FrameBuilder;
 use crate::object_builder::{ObjectBuilder, PairParamsBuilder, ParamsBuilder};
+use crate::parse_error::ParseError;
 use crate::send_builder::SendBuilder;
 use crate::{
     lexer::{Lexer, Token},
@@ -10,24 +11,14 @@ use crate::{
 };
 use std::mem;
 
-#[derive(Debug, Clone, PartialEq)]
-pub enum ParseError {
-    ExpectedEndOfInput,
-    Expected(String),
-    ExpectedPairGotKey(String),
-    DuplicateKey(String),
-    DuplicateHandler(String),
-    DuplicateElseHandler,
-}
-
-fn expect<T>(value: ParseOpt<T>, error_msg: &str) -> ParseResult<T> {
+fn expect<T>(value: ParseOpt<T>, error_msg: &str) -> Parse<T> {
     match value? {
         Some(x) => Ok(x),
-        None => Err(ParseError::Expected(error_msg.to_string())),
+        None => ParseError::expected(error_msg),
     }
 }
 
-pub type ParseResult<T> = Result<T, ParseError>;
+pub type Parse<T> = Result<T, ParseError>;
 type ParseOpt<T> = Result<Option<T>, ParseError>;
 
 type TokenIter<'a> = std::iter::Peekable<Lexer<'a>>;
@@ -50,7 +41,7 @@ impl<'a> Parser<'a> {
     fn advance(&mut self) -> Token {
         self.tokens.next().unwrap_or(Token::EndOfInput)
     }
-    fn expect_token(&mut self, expected: &str) -> ParseResult<()> {
+    fn expect_token(&mut self, expected: &str) -> Parse<()> {
         match (self.peek(), expected) {
             (Token::CloseParen(_), ")") => {
                 self.advance();
@@ -76,7 +67,7 @@ impl<'a> Parser<'a> {
             (Token::End(_), "end") => {
                 self.advance();
             }
-            (_, _) => return Err(ParseError::Expected(expected.to_string())),
+            (_, _) => return ParseError::expected(expected),
         }
         Ok(())
     }
@@ -103,7 +94,7 @@ impl<'a> Parser<'a> {
         parts.join(" ")
     }
 
-    fn ident(&mut self) -> ParseResult<String> {
+    fn ident(&mut self) -> Parse<String> {
         match self.peek() {
             Token::Identifier(value, _) => {
                 let key = mem::take(value);
@@ -115,11 +106,11 @@ impl<'a> Parser<'a> {
                 self.advance();
                 Ok(key)
             }
-            _ => Err(ParseError::Expected("identifier".to_string())),
+            _ => ParseError::expected("identifier"),
         }
     }
 
-    fn param(&mut self, key: String, builder: &mut PairParamsBuilder) -> ParseResult<()> {
+    fn param(&mut self, key: String, builder: &mut PairParamsBuilder) -> Parse<()> {
         match self.peek() {
             Token::Do(_) => {
                 self.advance();
@@ -139,7 +130,7 @@ impl<'a> Parser<'a> {
         Ok(())
     }
 
-    fn params(&mut self) -> ParseResult<ParamsBuilder> {
+    fn params(&mut self) -> Parse<ParamsBuilder> {
         let mut builder = PairParamsBuilder::new();
         loop {
             if let Token::QuotedIdent(key, src) = self.peek() {
@@ -163,7 +154,7 @@ impl<'a> Parser<'a> {
         Ok(ParamsBuilder::PairBuilder(builder))
     }
 
-    fn object(&mut self) -> ParseResult<ObjectBuilder> {
+    fn object(&mut self) -> Parse<ObjectBuilder> {
         let mut builder = ObjectBuilder::new();
         match self.peek() {
             Token::OpenBrace(_) => {
@@ -201,7 +192,7 @@ impl<'a> Parser<'a> {
         Ok(builder)
     }
 
-    fn frame(&mut self, source: Source) -> ParseResult<Expr> {
+    fn frame(&mut self, source: Source) -> Parse<Expr> {
         let mut builder = FrameBuilder::new();
         loop {
             if let Token::QuotedIdent(key, source) = self.peek() {
@@ -225,7 +216,7 @@ impl<'a> Parser<'a> {
         builder.build(source)
     }
 
-    fn if_expr(&mut self, source: Source) -> ParseResult<Expr> {
+    fn if_expr(&mut self, source: Source) -> Parse<Expr> {
         let cond = expect(self.expr(), "expr")?;
         self.expect_token("then")?;
         let if_true = self.body()?;
@@ -251,7 +242,7 @@ impl<'a> Parser<'a> {
                 self.expect_token("end")?;
                 Ok(Expr::If(Box::new(cond), if_true, if_false, source))
             }
-            _ => Err(ParseError::Expected("else / end".to_string())),
+            _ => ParseError::expected("else / end"),
         }
     }
 
@@ -325,7 +316,7 @@ impl<'a> Parser<'a> {
         }
     }
 
-    fn arg(&mut self, builder: &mut SendBuilder, key: String) -> ParseResult<()> {
+    fn arg(&mut self, builder: &mut SendBuilder, key: String) -> Parse<()> {
         match self.peek() {
             Token::On(_) => {
                 let obj = self.object()?;
@@ -480,19 +471,19 @@ impl<'a> Parser<'a> {
             },
         }
     }
-    pub fn body(&mut self) -> ParseResult<Vec<Stmt>> {
+    pub fn body(&mut self) -> Parse<Vec<Stmt>> {
         let mut out = Vec::new();
         while let Some(stmt) = self.stmt()? {
             out.push(stmt)
         }
         Ok(out)
     }
-    pub fn program(&mut self) -> Result<Vec<Stmt>, ParseError> {
+    pub fn program(&mut self) -> Parse<Vec<Stmt>> {
         let out = self.body()?;
         if self.advance() == Token::EndOfInput {
             return Ok(out);
         }
-        Err(ParseError::ExpectedEndOfInput)
+        ParseError::expected_end_of_input()
     }
 }
 
@@ -500,7 +491,7 @@ impl<'a> Parser<'a> {
 pub mod tests {
     use super::*;
 
-    fn parse(string: &str) -> Result<Vec<Stmt>, ParseError> {
+    fn parse(string: &str) -> Parse<Vec<Stmt>> {
         let lexer = Lexer::from_string(&string);
         Parser::new(lexer).program()
     }
