@@ -55,9 +55,33 @@ fn build_int_class() -> RcClass {
     class.rc()
 }
 
+fn build_float_class() -> RcClass {
+    let mut class = Class::new();
+    class.add_native("=", vec![], |target, args| {
+        Value::Float(-target.float()).eval()
+    });
+    class.add_native("+:", vec![Param::Value], |target, args| match args[0] {
+        Value::Integer(r) => Value::Float(target.float() + r as f64).eval(),
+        Value::Float(r) => Value::Float(target.float() + r).eval(),
+        _ => RuntimeError::primitive_type_error("number", &args[0]),
+    });
+    class.add_native("-:", vec![Param::Value], |target, args| match args[0] {
+        Value::Integer(r) => Value::Float(target.float() - r as f64).eval(),
+        Value::Float(r) => Value::Float(target.float() - r).eval(),
+        _ => RuntimeError::primitive_type_error("number", &args[0]),
+    });
+    class.add_native("=:", vec![Param::Value], |target, args| match args[0] {
+        Value::Float(r) => Value::Bool(target.float() == r).eval(),
+        _ => RuntimeError::primitive_type_error("float", &args[0]),
+    });
+
+    class.rc()
+}
+
 thread_local! {
     static BOOL_CLASS : RcClass = build_bool_class();
     static INT_CLASS : RcClass = build_int_class();
+    static FLOAT_CLASS : RcClass = build_float_class();
 }
 pub fn bool_class() -> RcClass {
     BOOL_CLASS.with(|c| c.clone())
@@ -67,25 +91,8 @@ pub fn int_class() -> RcClass {
     INT_CLASS.with(|c| c.clone())
 }
 
-pub fn float_class(selector: &str, target: f64, args: &[Value]) -> SendEffect {
-    match selector {
-        "-" => Value::Float(-target).eval(),
-        "+:" => match args[0] {
-            Value::Integer(r) => Value::Float(target + r as f64).eval(),
-            Value::Float(r) => Value::Float(target + r).eval(),
-            _ => RuntimeError::primitive_type_error("number", &args[0]),
-        },
-        "-:" => match args[0] {
-            Value::Integer(r) => Value::Float(target - r as f64).eval(),
-            Value::Float(r) => Value::Float(target - r).eval(),
-            _ => RuntimeError::primitive_type_error("number", &args[0]),
-        },
-        "=:" => match args[0] {
-            Value::Float(r) => Value::Bool(target == r).eval(),
-            _ => RuntimeError::primitive_type_error("float", &args[0]),
-        },
-        _ => RuntimeError::does_not_understand(selector),
-    }
+pub fn float_class() -> RcClass {
+    FLOAT_CLASS.with(|c| c.clone())
 }
 
 pub fn string_class(selector: &str, target: &Rc<String>, args: &[Value]) -> SendEffect {
