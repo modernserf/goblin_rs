@@ -1,4 +1,4 @@
-use std::rc::Rc;
+use std::{collections::HashMap, rc::Rc};
 
 use crate::{
     class::{Body, Class, Object},
@@ -296,19 +296,21 @@ impl Frames {
 struct Interpreter {
     values: Values,
     frames: Frames,
+    modules: HashMap<String, Value>,
 }
 
-pub fn program(program: Vec<IR>) -> Result<Value, RuntimeError> {
-    let mut interpreter = Interpreter::new();
+pub fn program(program: Vec<IR>, modules: HashMap<String, Value>) -> Result<Value, RuntimeError> {
+    let mut interpreter = Interpreter::new(modules);
     interpreter.run(Rc::new(program))
 }
 
 #[allow(unused)]
 impl Interpreter {
-    fn new() -> Self {
+    fn new(modules: HashMap<String, Value>) -> Self {
         Self {
             values: Values::new(),
             frames: Frames::root(),
+            modules: modules,
         }
     }
     fn run(&mut self, program: Body) -> Result<Value, RuntimeError> {
@@ -453,6 +455,13 @@ impl Interpreter {
                     self.values.values
                 );
             }
+            IR::Module(name) => {
+                if let Some(module) = self.modules.get(name) {
+                    self.values.push(module.clone());
+                } else {
+                    return Some(RuntimeError::unknown_module(name));
+                }
+            }
         };
         return None;
     }
@@ -463,7 +472,7 @@ mod test {
     use crate::class::{Class, Param};
 
     fn assert_ok(code: Vec<IR>, expected: Value) {
-        let result = program(code);
+        let result = program(code, HashMap::new());
         assert_eq!(result, Ok(expected));
     }
 

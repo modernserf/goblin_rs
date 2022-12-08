@@ -12,6 +12,7 @@ pub enum Stmt {
     Let(Binding, Expr),
     Var(Binding, Expr),
     Set(Binding, Expr),
+    Import(Binding, Expr),
     Return(Option<Expr>),
 }
 
@@ -25,6 +26,25 @@ impl Stmt {
             }
             Stmt::Let(binding, expr) => {
                 let mut value = expr.compile_self_ref(compiler, &binding)?;
+                match binding {
+                    Binding::Identifier(name, _) => {
+                        let record = compiler.add_let(name.to_string());
+                        value.push(IR::Assign(record.index));
+                        return Ok(value);
+                    }
+                    Binding::Placeholder(_) => {
+                        value.push(IR::Drop);
+                        return Ok(value);
+                    }
+                }
+            }
+            Stmt::Import(binding, expr) => {
+                let module_name = match expr {
+                    Expr::String(str, _) => str,
+                    _ => todo!("invalid import source"),
+                };
+                let mut value = vec![IR::Module(module_name)];
+
                 match binding {
                     Binding::Identifier(name, _) => {
                         let record = compiler.add_let(name.to_string());

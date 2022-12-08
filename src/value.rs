@@ -41,31 +41,31 @@ impl Value {
         SendEffect::Value(self)
     }
 
-    pub fn bool(&self) -> bool {
+    pub fn as_bool(&self) -> bool {
         match self {
             Value::Bool(val) => *val,
             _ => panic!("expected bool"),
         }
     }
-    pub fn integer(&self) -> i64 {
+    pub fn as_integer(&self) -> i64 {
         match self {
             Value::Integer(val) => *val,
             _ => panic!("expected integer"),
         }
     }
-    pub fn float(&self) -> f64 {
+    pub fn as_float(&self) -> f64 {
         match self {
             Value::Float(val) => *val,
             _ => panic!("expected float"),
         }
     }
-    pub fn str(&self) -> &Rc<String> {
+    pub fn as_string(&self) -> &Rc<String> {
         match self {
             Value::String(str) => str,
             _ => panic!("expected string"),
         }
     }
-    pub fn cell(&self) -> &Rc<RefCell<Value>> {
+    pub fn as_cell(&self) -> &Rc<RefCell<Value>> {
         match self {
             Value::Cell(cell) => cell,
             _ => panic!("expected cell"),

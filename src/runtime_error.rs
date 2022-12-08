@@ -6,6 +6,7 @@ pub enum RuntimeError {
     PrimitiveTypeError { expected: String, received: Value },
     InvalidArg { expected: String, received: Value },
     AssertionError(String),
+    UnknownModule(String),
 }
 
 impl RuntimeError {
@@ -29,5 +30,9 @@ impl RuntimeError {
 
     pub fn assertion_error(assertion: &str) -> SendEffect {
         SendEffect::Error(RuntimeError::AssertionError(assertion.to_string()))
+    }
+
+    pub fn unknown_module(name: &str) -> SendEffect {
+        SendEffect::Error(RuntimeError::UnknownModule(name.to_string()))
     }
 }

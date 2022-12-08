@@ -24,6 +24,12 @@ impl Class {
             Handler::ObjectHandler(params, Rc::new(body)),
         );
     }
+    pub fn add_constant(&mut self, key: &str, value: Value) {
+        self.handlers.insert(
+            key.to_string(),
+            Handler::ObjectHandler(vec![], Rc::new(vec![IR::Constant(value)])),
+        );
+    }
     pub fn add_native(&mut self, key: &str, params: Vec<Param>, f: NativeHandlerFn) {
         self.handlers
             .insert(key.to_string(), Handler::NativeHandler(params, f));
@@ -115,15 +121,25 @@ impl Object {
     }
 
     pub fn send(object: &Rc<Object>, selector: &str, args: Vec<Value>) -> SendEffect {
-        if let Some(Handler::ObjectHandler(params, body)) = object.class.get(selector) {
-            if let Some(err) = check_args(params, &args) {
-                return err;
-            }
-            SendEffect::Call {
-                args,
-                selector: selector.to_string(),
-                object: object.clone(),
-                body: body.clone(),
+        if let Some(handler) = object.class.get(selector) {
+            match handler {
+                Handler::ObjectHandler(params, body) => {
+                    if let Some(err) = check_args(params, &args) {
+                        return err;
+                    }
+                    SendEffect::Call {
+                        args,
+                        selector: selector.to_string(),
+                        object: object.clone(),
+                        body: body.clone(),
+                    }
+                }
+                Handler::NativeHandler(params, f) => {
+                    if let Some(err) = check_args(params, &args) {
+                        return err;
+                    }
+                    f(Value::Object(object.clone()), args)
+                }
             }
         } else if let Some(body) = &object.class.else_handler {
             SendEffect::Call {
