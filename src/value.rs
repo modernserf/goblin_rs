@@ -41,6 +41,12 @@ impl Value {
         SendEffect::Value(self)
     }
 
+    pub fn bool(&self) -> bool {
+        match self {
+            Value::Bool(val) => *val,
+            _ => panic!("expected bool"),
+        }
+    }
     pub fn integer(&self) -> i64 {
         match self {
             Value::Integer(val) => *val,
@@ -50,7 +56,7 @@ impl Value {
 
     pub fn send(&self, selector: &str, args: Vec<Value>) -> SendEffect {
         match self {
-            Self::Bool(target) => bool_class(selector, *target, &args),
+            Self::Bool(_) => Object::send_native(bool_class(), self.clone(), selector, args),
             Self::Integer(_) => Object::send_native(int_class(), self.clone(), selector, args),
             Self::Float(target) => float_class(selector, *target, &args),
             Self::String(target) => string_class(selector, target, &args),

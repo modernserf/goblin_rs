@@ -8,24 +8,25 @@ use crate::{
     value::Value,
 };
 
-pub fn bool_class(selector: &str, target: bool, args: &[Value]) -> SendEffect {
-    match selector {
-        "assert:" => match &args[0] {
+fn build_bool_class() -> RcClass {
+    let mut class = Class::new();
+    class.add_native("assert:", vec![Param::Value], |target, args| {
+        match &args[0] {
             Value::String(str) => {
-                if target {
+                if target.bool() {
                     Value::Unit.eval()
                 } else {
                     RuntimeError::assertion_error(str)
                 }
             }
             _ => RuntimeError::primitive_type_error("string", &args[0]),
-        },
-        ":" => {
-            let selector = if target { "true" } else { "false" };
-            args[0].send(selector, vec![])
         }
-        _ => RuntimeError::does_not_understand(selector),
-    }
+    });
+    class.add_native(":", vec![Param::Do], |target, args| {
+        let selector = if target.bool() { "true" } else { "false" };
+        args[0].send(selector, vec![])
+    });
+    class.rc()
 }
 
 fn build_int_class() -> RcClass {
@@ -55,32 +56,16 @@ fn build_int_class() -> RcClass {
 }
 
 thread_local! {
-    static INT_CLASS : RcClass = build_int_class()
+    static BOOL_CLASS : RcClass = build_bool_class();
+    static INT_CLASS : RcClass = build_int_class();
 }
+pub fn bool_class() -> RcClass {
+    BOOL_CLASS.with(|c| c.clone())
+}
+
 pub fn int_class() -> RcClass {
     INT_CLASS.with(|c| c.clone())
 }
-
-// pub fn int_class(selector: &str, target: i64, args: &[Value]) -> SendEffect {
-//     match selector {
-//         "-" => Value::Integer(-target).eval(),
-//         "+:" => match args[0] {
-//             Value::Integer(r) => Value::Integer(target + r).eval(),
-//             Value::Float(f) => Value::Float(target as f64 + f).eval(),
-//             _ => RuntimeError::primitive_type_error("number", &args[0]),
-//         },
-//         "-:" => match args[0] {
-//             Value::Integer(r) => Value::Integer(target - r).eval(),
-//             Value::Float(f) => Value::Float(target as f64 - f).eval(),
-//             _ => RuntimeError::primitive_type_error("number", &args[0]),
-//         },
-//         "=:" => match args[0] {
-//             Value::Integer(r) => Value::Bool(target == r).eval(),
-//             _ => RuntimeError::primitive_type_error("integer", &args[0]),
-//         },
-//         _ => RuntimeError::does_not_understand(selector),
-//     }
-// }
 
 pub fn float_class(selector: &str, target: f64, args: &[Value]) -> SendEffect {
     match selector {

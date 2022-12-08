@@ -104,7 +104,12 @@ impl Object {
         args: Vec<Value>,
     ) -> SendEffect {
         match class.get(selector) {
-            Some(Handler::NativeHandler(params, f)) => f(target, args),
+            Some(Handler::NativeHandler(params, f)) => {
+                if let Some(err) = check_args(params, &args) {
+                    return err;
+                }
+                f(target, args)
+            }
             _ => RuntimeError::does_not_understand(selector),
         }
     }
