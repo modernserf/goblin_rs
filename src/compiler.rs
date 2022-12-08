@@ -69,6 +69,14 @@ impl Locals {
         self.map.insert(key, record);
         record
     }
+    fn add_anon(&mut self, typ: BindingType) -> BindingRecord {
+        let record = BindingRecord {
+            index: self.index,
+            typ,
+        };
+        self.index += 1;
+        record
+    }
     fn allocate(&mut self, size: usize) {
         self.index += size;
     }
@@ -166,6 +174,9 @@ impl CompilerFrame {
     fn add(&mut self, key: String, typ: BindingType) -> BindingRecord {
         self.locals.add(key, typ)
     }
+    fn add_anon(&mut self, typ: BindingType) -> BindingRecord {
+        self.locals.add_anon(typ)
+    }
 }
 
 #[derive(Debug)]
@@ -243,6 +254,9 @@ impl Compiler {
         (own_offset, vec![IR::Allocate(size)])
     }
 
+    pub fn add_anon(&mut self) -> BindingRecord {
+        self.top_mut().add_anon(BindingType::Let)
+    }
     pub fn add_let(&mut self, key: String) -> BindingRecord {
         self.top_mut().add(key, BindingType::Let)
     }

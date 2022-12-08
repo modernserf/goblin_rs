@@ -1,6 +1,5 @@
-- primitives as regular classes stored as thread locals
-- import core
 - wrap selector strings in Rc
 - store selectors in stack frames for error traces
 - clean up var args so we're not just copying the whole arg array
 - compiler returns proper errors for var, which are then "decorated" with source
+- SendEffect callback for primitives that need send messages in a handler

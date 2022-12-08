@@ -88,6 +88,7 @@ impl ObjectBuilder {
                             compiler.add_let(key.to_string());
                         }
                         Binding::Placeholder(_) => {}
+                        Binding::Destructuring(_, _) => todo!("destructuring in params"),
                     }
                 }
                 Param::Var(key) => {
@@ -173,6 +174,22 @@ impl ParamsBuilder {
                 body,
             }),
             ParamsBuilder::PairBuilder(builder) => builder.build(ob, body),
+        }
+    }
+    pub fn build_destructuring(self) -> Parse<HashMap<String, Binding>> {
+        match self {
+            ParamsBuilder::KeyBuilder(_) => todo!("error: cannot destructure with key"),
+            ParamsBuilder::PairBuilder(pairs) => {
+                let mut out = HashMap::new();
+                for (key, param) in pairs.params {
+                    if let ParseParam::Param(ParamWithMatch::Param(Param::Value(binding))) = param {
+                        out.insert(key, binding);
+                    } else {
+                        todo!("error: invalid destructuring param")
+                    }
+                }
+                Ok(out)
+            }
         }
     }
 }

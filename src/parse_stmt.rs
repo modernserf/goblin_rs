@@ -26,17 +26,9 @@ impl Stmt {
             }
             Stmt::Let(binding, expr) => {
                 let mut value = expr.compile_self_ref(compiler, &binding)?;
-                match binding {
-                    Binding::Identifier(name, _) => {
-                        let record = compiler.add_let(name.to_string());
-                        value.push(IR::Assign(record.index));
-                        return Ok(value);
-                    }
-                    Binding::Placeholder(_) => {
-                        value.push(IR::Drop);
-                        return Ok(value);
-                    }
-                }
+                let mut bind_ir = binding.compile_let(compiler)?;
+                value.append(&mut bind_ir);
+                Ok(value)
             }
             Stmt::Import(binding, expr) => {
                 let module_name = match expr {
@@ -44,18 +36,9 @@ impl Stmt {
                     _ => todo!("invalid import source"),
                 };
                 let mut value = vec![IR::Module(module_name)];
-
-                match binding {
-                    Binding::Identifier(name, _) => {
-                        let record = compiler.add_let(name.to_string());
-                        value.push(IR::Assign(record.index));
-                        return Ok(value);
-                    }
-                    Binding::Placeholder(_) => {
-                        value.push(IR::Drop);
-                        return Ok(value);
-                    }
-                }
+                let mut bind_ir = binding.compile_let(compiler)?;
+                value.append(&mut bind_ir);
+                Ok(value)
             }
             Stmt::Var(binding, expr) => {
                 let mut value = expr.compile(compiler)?;
@@ -66,6 +49,7 @@ impl Stmt {
                         return Ok(value);
                     }
                     Binding::Placeholder(_) => CompileError::invalid_var_binding(),
+                    Binding::Destructuring(_, _) => CompileError::invalid_var_binding(),
                 }
             }
             Stmt::Set(binding, expr) => {
@@ -79,6 +63,7 @@ impl Stmt {
                         CompileError::invalid_var_binding()
                     }
                     Binding::Placeholder(_) => CompileError::invalid_var_binding(),
+                    Binding::Destructuring(_, _) => CompileError::invalid_var_binding(),
                 }
             }
             Stmt::Return(opt_expr) => {

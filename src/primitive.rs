@@ -20,6 +20,9 @@ fn build_bool_class() -> RcClass {
             _ => RuntimeError::primitive_type_error("string", &args[0]),
         }
     });
+    class.add_native("!", vec![], |target, _| {
+        Value::Bool(!target.as_bool()).eval()
+    });
     class.add_native(":", vec![Param::Do], |target, args| {
         let selector = if target.as_bool() { "true" } else { "false" };
         args[0].send(selector, vec![])

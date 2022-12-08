@@ -439,6 +439,14 @@ impl<'a> Parser<'a> {
                     Ok(Some(Binding::Identifier(key, src)))
                 }
             }
+            Token::OpenBracket(source) => {
+                let source = *source;
+                self.advance();
+                let params = self.params()?;
+                self.expect_token("]")?;
+                let map = params.build_destructuring()?;
+                Ok(Some(Binding::Destructuring(map, source)))
+            }
             _ => Ok(None),
         }
     }
