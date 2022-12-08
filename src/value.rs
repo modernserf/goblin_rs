@@ -65,6 +65,12 @@ impl Value {
             _ => panic!("expected string"),
         }
     }
+    pub fn cell(&self) -> &Rc<RefCell<Value>> {
+        match self {
+            Value::Cell(cell) => cell,
+            _ => panic!("expected cell"),
+        }
+    }
 
     pub fn send(&self, selector: &str, args: Vec<Value>) -> SendEffect {
         match self {
@@ -72,7 +78,7 @@ impl Value {
             Self::Integer(_) => Object::send_native(int_class(), self.clone(), selector, args),
             Self::Float(_) => Object::send_native(float_class(), self.clone(), selector, args),
             Self::String(_) => Object::send_native(string_class(), self.clone(), selector, args),
-            Self::Cell(target) => cell_class(selector, target.clone(), args),
+            Self::Cell(_) => Object::send_native(cell_class(), self.clone(), selector, args),
             Self::Object(obj) => Object::send(obj, selector, args),
             Self::Var(_, parent) => parent.send(selector, args),
             Self::Do {

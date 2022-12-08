@@ -101,11 +101,26 @@ pub fn build_string_class() -> RcClass {
     class.rc()
 }
 
+pub fn build_cell_class() -> RcClass {
+    let mut class = Class::new();
+    class.add_native("", vec![], |target, _| {
+        target.cell().deref().borrow().clone().eval()
+    });
+    class.add_native(":", vec![Param::Value], |target, mut args| {
+        let arg = std::mem::take(&mut args[0]);
+        let mut tgt = target.cell().borrow_mut();
+        *tgt = arg;
+        Value::Unit.eval()
+    });
+    class.rc()
+}
+
 thread_local! {
     static BOOL_CLASS : RcClass = build_bool_class();
     static INT_CLASS : RcClass = build_int_class();
     static FLOAT_CLASS : RcClass = build_float_class();
     static STRING_CLASS : RcClass = build_string_class();
+    static CELL_CLASS : RcClass = build_cell_class();
 }
 pub fn bool_class() -> RcClass {
     BOOL_CLASS.with(|c| c.clone())
@@ -119,18 +134,8 @@ pub fn float_class() -> RcClass {
 pub fn string_class() -> RcClass {
     STRING_CLASS.with(|c| c.clone())
 }
-
-pub fn cell_class(selector: &str, target: Rc<RefCell<Value>>, mut args: Vec<Value>) -> SendEffect {
-    match selector {
-        "" => target.deref().borrow().clone().eval(),
-        ":" => {
-            let arg = std::mem::take(&mut args[0]);
-            let mut tgt = target.borrow_mut();
-            *tgt = arg;
-            Value::Unit.eval()
-        }
-        _ => RuntimeError::does_not_understand(selector),
-    }
+pub fn cell_class() -> RcClass {
+    CELL_CLASS.with(|c| c.clone())
 }
 
 #[allow(unused)]
