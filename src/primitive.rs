@@ -78,42 +78,46 @@ fn build_float_class() -> RcClass {
     class.rc()
 }
 
+pub fn build_string_class() -> RcClass {
+    let mut class = Class::new();
+    class.add_native("++:", vec![Param::Value], |target, args| {
+        // TODO: send `toString` to arg
+        match &args[0] {
+            Value::String(arg) => {
+                let concat = format!("{}{}", target.str(), arg);
+                Value::String(Rc::new(concat)).eval()
+            }
+            _ => RuntimeError::primitive_type_error("string", &args[0]),
+        }
+    });
+    class.add_native("=:", vec![Param::Value], |target, args| match &args[0] {
+        Value::String(r) => Value::Bool(target.str() == r).eval(),
+        _ => RuntimeError::primitive_type_error("string", &args[0]),
+    });
+    class.add_native("debug", vec![], |target, _| {
+        println!("{}", target.str());
+        Value::Unit.eval()
+    });
+    class.rc()
+}
+
 thread_local! {
     static BOOL_CLASS : RcClass = build_bool_class();
     static INT_CLASS : RcClass = build_int_class();
     static FLOAT_CLASS : RcClass = build_float_class();
+    static STRING_CLASS : RcClass = build_string_class();
 }
 pub fn bool_class() -> RcClass {
     BOOL_CLASS.with(|c| c.clone())
 }
-
 pub fn int_class() -> RcClass {
     INT_CLASS.with(|c| c.clone())
 }
-
 pub fn float_class() -> RcClass {
     FLOAT_CLASS.with(|c| c.clone())
 }
-
-pub fn string_class(selector: &str, target: &Rc<String>, args: &[Value]) -> SendEffect {
-    match selector {
-        "++:" => match &args[0] {
-            Value::String(arg) => {
-                let concat = format!("{}{}", target, arg);
-                Value::String(Rc::new(concat)).eval()
-            }
-            _ => RuntimeError::primitive_type_error("string", &args[0]),
-        },
-        "=:" => match &args[0] {
-            Value::String(r) => Value::Bool(target == r).eval(),
-            _ => RuntimeError::primitive_type_error("integer", &args[0]),
-        },
-        "debug" => {
-            println!("{}", target);
-            Value::Unit.eval()
-        }
-        _ => RuntimeError::does_not_understand(selector),
-    }
+pub fn string_class() -> RcClass {
+    STRING_CLASS.with(|c| c.clone())
 }
 
 pub fn cell_class(selector: &str, target: Rc<RefCell<Value>>, mut args: Vec<Value>) -> SendEffect {

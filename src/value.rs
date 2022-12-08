@@ -59,13 +59,19 @@ impl Value {
             _ => panic!("expected float"),
         }
     }
+    pub fn str(&self) -> &Rc<String> {
+        match self {
+            Value::String(str) => str,
+            _ => panic!("expected string"),
+        }
+    }
 
     pub fn send(&self, selector: &str, args: Vec<Value>) -> SendEffect {
         match self {
             Self::Bool(_) => Object::send_native(bool_class(), self.clone(), selector, args),
             Self::Integer(_) => Object::send_native(int_class(), self.clone(), selector, args),
             Self::Float(_) => Object::send_native(float_class(), self.clone(), selector, args),
-            Self::String(target) => string_class(selector, target, &args),
+            Self::String(_) => Object::send_native(string_class(), self.clone(), selector, args),
             Self::Cell(target) => cell_class(selector, target.clone(), args),
             Self::Object(obj) => Object::send(obj, selector, args),
             Self::Var(_, parent) => parent.send(selector, args),
