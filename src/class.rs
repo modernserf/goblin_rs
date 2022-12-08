@@ -19,8 +19,14 @@ impl Class {
     }
     // allows overwriting of existing handlers
     pub fn add_handler(&mut self, key: &str, params: Vec<Param>, body: Vec<IR>) {
+        self.handlers.insert(
+            key.to_string(),
+            Handler::ObjectHandler(params, Rc::new(body)),
+        );
+    }
+    pub fn add_native(&mut self, key: &str, params: Vec<Param>, f: NativeHandlerFn) {
         self.handlers
-            .insert(key.to_string(), Handler(params, Rc::new(body)));
+            .insert(key.to_string(), Handler::NativeHandler(params, f));
     }
     pub fn add_else(&mut self, body: Vec<IR>) {
         self.else_handler = Some(Rc::new(body));
@@ -34,7 +40,12 @@ impl Class {
 }
 
 #[derive(Debug, Clone, PartialEq)]
-struct Handler(Vec<Param>, Body);
+enum Handler {
+    ObjectHandler(Vec<Param>, Body),
+    NativeHandler(Vec<Param>, NativeHandlerFn),
+}
+
+type NativeHandlerFn = fn(Value, Vec<Value>) -> SendEffect;
 
 pub type Body = Rc<Vec<IR>>;
 
@@ -86,8 +97,20 @@ impl Object {
         self.class.clone()
     }
 
+    pub fn send_native(
+        class: RcClass,
+        target: Value,
+        selector: &str,
+        args: Vec<Value>,
+    ) -> SendEffect {
+        match class.get(selector) {
+            Some(Handler::NativeHandler(params, f)) => f(target, args),
+            _ => RuntimeError::does_not_understand(selector),
+        }
+    }
+
     pub fn send(object: &Rc<Object>, selector: &str, args: Vec<Value>) -> SendEffect {
-        if let Some(Handler(params, body)) = object.class.get(selector) {
+        if let Some(Handler::ObjectHandler(params, body)) = object.class.get(selector) {
             if let Some(err) = check_args(params, &args) {
                 return err;
             }
@@ -115,7 +138,7 @@ impl Object {
         selector: &str,
         args: Vec<Value>,
     ) -> SendEffect {
-        if let Some(Handler(params, body)) = class.get(selector) {
+        if let Some(Handler::ObjectHandler(params, body)) = class.get(selector) {
             if let Some(err) = check_args(params, &args) {
                 return err;
             }

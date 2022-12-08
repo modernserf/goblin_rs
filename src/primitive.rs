@@ -1,6 +1,12 @@
 use std::{cell::RefCell, ops::Deref, rc::Rc};
 
-use crate::{interpreter::SendEffect, runtime_error::RuntimeError, value::Value};
+use crate::{
+    class::{Class, Object, Param, RcClass},
+    interpreter::SendEffect,
+    ir::IR,
+    runtime_error::RuntimeError,
+    value::Value,
+};
 
 pub fn bool_class(selector: &str, target: bool, args: &[Value]) -> SendEffect {
     match selector {
@@ -22,26 +28,59 @@ pub fn bool_class(selector: &str, target: bool, args: &[Value]) -> SendEffect {
     }
 }
 
-pub fn int_class(selector: &str, target: i64, args: &[Value]) -> SendEffect {
-    match selector {
-        "-" => Value::Integer(-target).eval(),
-        "+:" => match args[0] {
+fn build_int_class() -> RcClass {
+    let mut class = Class::new();
+    class.add_native("-", vec![], |it, _| Value::Integer(-it.integer()).eval());
+    class.add_native("+:", vec![Param::Value], |target, args| {
+        let target = target.integer();
+        match args[0] {
             Value::Integer(r) => Value::Integer(target + r).eval(),
             Value::Float(f) => Value::Float(target as f64 + f).eval(),
             _ => RuntimeError::primitive_type_error("number", &args[0]),
-        },
-        "-:" => match args[0] {
+        }
+    });
+    class.add_native("-:", vec![Param::Value], |target, args| {
+        let target = target.integer();
+        match args[0] {
             Value::Integer(r) => Value::Integer(target - r).eval(),
             Value::Float(f) => Value::Float(target as f64 - f).eval(),
             _ => RuntimeError::primitive_type_error("number", &args[0]),
-        },
-        "=:" => match args[0] {
-            Value::Integer(r) => Value::Bool(target == r).eval(),
-            _ => RuntimeError::primitive_type_error("integer", &args[0]),
-        },
-        _ => RuntimeError::does_not_understand(selector),
-    }
+        }
+    });
+    class.add_native("=:", vec![Param::Value], |target, args| match args[0] {
+        Value::Integer(r) => Value::Bool(target.integer() == r).eval(),
+        _ => RuntimeError::primitive_type_error("integer", &args[0]),
+    });
+    class.rc()
 }
+
+thread_local! {
+    static INT_CLASS : RcClass = build_int_class()
+}
+pub fn int_class() -> RcClass {
+    INT_CLASS.with(|c| c.clone())
+}
+
+// pub fn int_class(selector: &str, target: i64, args: &[Value]) -> SendEffect {
+//     match selector {
+//         "-" => Value::Integer(-target).eval(),
+//         "+:" => match args[0] {
+//             Value::Integer(r) => Value::Integer(target + r).eval(),
+//             Value::Float(f) => Value::Float(target as f64 + f).eval(),
+//             _ => RuntimeError::primitive_type_error("number", &args[0]),
+//         },
+//         "-:" => match args[0] {
+//             Value::Integer(r) => Value::Integer(target - r).eval(),
+//             Value::Float(f) => Value::Float(target as f64 - f).eval(),
+//             _ => RuntimeError::primitive_type_error("number", &args[0]),
+//         },
+//         "=:" => match args[0] {
+//             Value::Integer(r) => Value::Bool(target == r).eval(),
+//             _ => RuntimeError::primitive_type_error("integer", &args[0]),
+//         },
+//         _ => RuntimeError::does_not_understand(selector),
+//     }
+// }
 
 pub fn float_class(selector: &str, target: f64, args: &[Value]) -> SendEffect {
     match selector {
@@ -107,4 +146,29 @@ pub fn cell_module(selector: &str, mut args: Vec<Value>) -> SendEffect {
         }
         _ => RuntimeError::does_not_understand(selector),
     }
+}
+
+fn get_cell_module() -> Value {
+    let mut class = Class::new();
+    class.add_native(":", vec![Param::Value], |_, mut args| {
+        let arg = std::mem::take(&mut args[0]);
+        Value::Cell(Rc::new(RefCell::new(arg))).eval()
+    });
+    let obj = Object::new(class.rc(), vec![Value::Unit]);
+    Value::Object(Rc::new(obj))
+}
+
+fn get_native_module() -> RcClass {
+    let mut class = Class::new();
+    class.add_handler("Cell", vec![], vec![IR::Constant(get_cell_module())]);
+
+    class.rc()
+}
+
+thread_local! {
+    static NATIVE_MODULE : RcClass = get_native_module()
+}
+
+pub fn native() -> RcClass {
+    NATIVE_MODULE.with(|x| x.clone())
 }
