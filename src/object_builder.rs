@@ -8,6 +8,38 @@ use crate::parser::Parse;
 use std::collections::HashMap;
 
 #[derive(Debug, Clone)]
+pub struct Exports {
+    exports: HashMap<String, usize>,
+}
+
+impl Exports {
+    pub fn new() -> Self {
+        Exports {
+            exports: HashMap::new(),
+        }
+    }
+    pub fn add(&mut self, key: &str, index: usize) -> Compile<()> {
+        if self.exports.insert(key.to_string(), index).is_some() {
+            todo!("error: duplicate export")
+        }
+        Ok(())
+    }
+
+    pub fn compile(self) -> CompileIR {
+        let mut entries = self.exports.into_iter().collect::<Vec<_>>();
+        entries.sort_by(|(a, _), (b, _)| a.cmp(b));
+        let mut out = Vec::new();
+        let mut class = Class::new();
+        for (ivar, (key, local)) in entries.iter().enumerate() {
+            out.push(IR::Local(*local));
+            class.add_handler(&key, vec![], vec![IR::IVar(ivar)]);
+        }
+        out.push(IR::Object(class.rc(), entries.len()));
+        Ok(out)
+    }
+}
+
+#[derive(Debug, Clone)]
 pub struct ObjectBuilder {
     handlers: HashMap<String, Handler>,
     else_handler: Option<ElseHandler>,
@@ -24,7 +56,7 @@ impl ObjectBuilder {
         let mut class = Class::new();
         let mut do_instance = compiler.do_instance();
 
-        for (selector, handler) in self.handlers.into_iter() {
+        for (selector, handler) in self.handlers {
             compiler.do_handler(do_instance);
 
             let ir_params = Self::compile_params(compiler, &handler);

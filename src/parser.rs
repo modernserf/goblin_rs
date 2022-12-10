@@ -452,13 +452,35 @@ impl<'a> Parser<'a> {
     }
     fn stmt(&mut self) -> ParseOpt<Stmt> {
         match self.peek() {
+            Token::Export(_) => {
+                self.advance();
+                match self.peek() {
+                    Token::Let(_) => {
+                        self.advance();
+                        let binding = expect(self.binding(), "binding")?;
+                        self.expect_token(":=")?;
+                        let expr = expect(self.expr(), "expr")?;
+
+                        Ok(Some(Stmt::Let(binding, expr, true)))
+                    }
+                    Token::Import(_) => {
+                        self.advance();
+                        let binding = expect(self.binding(), "binding")?;
+                        self.expect_token(":=")?;
+                        let expr = expect(self.expr(), "expr")?;
+
+                        Ok(Some(Stmt::Import(binding, expr, true)))
+                    }
+                    _ => ParseError::expected("let | import"),
+                }
+            }
             Token::Let(_) => {
                 self.advance();
                 let binding = expect(self.binding(), "binding")?;
                 self.expect_token(":=")?;
                 let expr = expect(self.expr(), "expr")?;
 
-                Ok(Some(Stmt::Let(binding, expr)))
+                Ok(Some(Stmt::Let(binding, expr, false)))
             }
             Token::Import(_) => {
                 self.advance();
@@ -466,7 +488,7 @@ impl<'a> Parser<'a> {
                 self.expect_token(":=")?;
                 let expr = expect(self.expr(), "expr")?;
 
-                Ok(Some(Stmt::Import(binding, expr)))
+                Ok(Some(Stmt::Import(binding, expr, false)))
             }
             Token::Var(_) => {
                 self.advance();

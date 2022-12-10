@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 
-use crate::{ir::IR, parse_stmt::Stmt, value::Value};
+use crate::{ir::IR, object_builder::Exports, parse_stmt::Stmt, value::Value};
 
 #[derive(Debug, PartialEq, Clone)]
 pub enum CompileError {
@@ -182,18 +182,29 @@ impl CompilerFrame {
 #[derive(Debug)]
 pub struct Compiler {
     stack: Vec<CompilerFrame>,
+    exports: Exports,
 }
 
 impl Compiler {
     pub fn new() -> Self {
         Self {
             stack: vec![CompilerFrame::root()],
+            exports: Exports::new(),
         }
     }
     pub fn program(program: Vec<Stmt>) -> CompileIR {
         let mut compiler = Self::new();
         Compiler::body(program, &mut compiler)
     }
+
+    pub fn module(program: Vec<Stmt>) -> CompileIR {
+        let mut compiler = Self::new();
+        let mut out = Compiler::body(program, &mut compiler)?;
+        let mut exports = compiler.exports.compile()?;
+        out.append(&mut exports);
+        Ok(out)
+    }
+
     pub fn body(mut body: Vec<Stmt>, compiler: &mut Compiler) -> CompileIR {
         if let Some(last) = body.pop() {
             let mut out = Vec::new();
@@ -216,6 +227,10 @@ impl Compiler {
         } else {
             Ok(vec![IR::Constant(Value::Unit)])
         }
+    }
+
+    pub fn export(&mut self, name: &str, record: BindingRecord) -> Compile<()> {
+        self.exports.add(name, record.index)
     }
 
     pub fn handler(&mut self, instance: Instance) {

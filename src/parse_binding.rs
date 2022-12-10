@@ -15,10 +15,13 @@ pub enum Binding {
 
 impl Binding {
     // value being bound is on top of IR stack
-    pub fn compile_let(self, compiler: &mut Compiler) -> CompileIR {
+    pub fn compile_let(self, compiler: &mut Compiler, is_export: bool) -> CompileIR {
         match self {
             Binding::Identifier(name, _) => {
                 let record = compiler.add_let(name.to_string());
+                if is_export {
+                    compiler.export(&name, record)?;
+                }
                 return Ok(vec![IR::Assign(record.index)]);
             }
             Binding::Placeholder(_) => {
@@ -31,7 +34,7 @@ impl Binding {
                 for (key, binding) in map {
                     out.push(IR::Local(root_record.index));
                     out.push(IR::Send(key, 0));
-                    let mut child = binding.compile_let(compiler)?;
+                    let mut child = binding.compile_let(compiler, is_export)?;
                     out.append(&mut child);
                 }
                 return Ok(out);

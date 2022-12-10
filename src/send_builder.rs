@@ -61,7 +61,7 @@ impl Send {
 
         let mut tgt = target.compile(compiler)?;
         out.append(&mut tgt);
-        for arg in self.args.into_iter() {
+        for arg in self.args {
             match arg {
                 SendArg::Value(value) => {
                     let mut result = value.compile(compiler)?;
