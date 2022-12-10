@@ -19,7 +19,6 @@ pub enum IR {
     SelfRef,
     DoBlock { class: RcClass, own_offset: usize },
     Allocate(usize),
-    Debug(String),
     Module(String),
 }
 

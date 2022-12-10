@@ -28,7 +28,15 @@ fn build_stdlib() -> module_loader::ModuleLoader {
     let mut modules = module_loader::ModuleLoader::new();
     modules.add_ready("native", primitive::native_module());
     modules.add_init("core", compile_module(include_str!("./stdlib/core.gob")));
+    modules.add_init(
+        "core/option",
+        compile_module(include_str!("./stdlib/option.gob")),
+    );
     modules.add_init("core/ord", compile_module(include_str!("./stdlib/ord.gob")));
+    modules.add_init(
+        "core/result",
+        compile_module(include_str!("./stdlib/result.gob")),
+    );
     modules
 }
 
@@ -68,11 +76,6 @@ mod test {
     use crate::run;
 
     #[test]
-    fn test_file() {
-        run(include_str!("test.gob")).unwrap();
-    }
-
-    #[test]
     fn primitives() {
         run(include_str!("./stdlib/primitive.test.gob")).unwrap();
     }
@@ -85,5 +88,15 @@ mod test {
     #[test]
     fn frames() {
         run(include_str!("./stdlib/frame.test.gob")).unwrap();
+    }
+
+    #[test]
+    fn option() {
+        run(include_str!("./stdlib/option.test.gob")).unwrap();
+    }
+
+    #[test]
+    fn result() {
+        run(include_str!("./stdlib/result.test.gob")).unwrap();
     }
 }

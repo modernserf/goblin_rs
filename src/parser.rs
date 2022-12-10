@@ -88,6 +88,59 @@ impl<'a> Parser<'a> {
                     parts.push(value.to_string());
                     self.advance();
                 }
+                // TODO: clean this up
+                Token::Let(_) => {
+                    parts.push("let".to_string());
+                    self.advance();
+                }
+                Token::Var(_) => {
+                    parts.push("var".to_string());
+                    self.advance();
+                }
+                Token::Set(_) => {
+                    parts.push("set".to_string());
+                    self.advance();
+                }
+                Token::Import(_) => {
+                    parts.push("import".to_string());
+                    self.advance();
+                }
+                Token::Export(_) => {
+                    parts.push("export".to_string());
+                    self.advance();
+                }
+                Token::On(_) => {
+                    parts.push("on".to_string());
+                    self.advance();
+                }
+                Token::SelfRef(_) => {
+                    parts.push("self".to_string());
+                    self.advance();
+                }
+                Token::Do(_) => {
+                    parts.push("do".to_string());
+                    self.advance();
+                }
+                Token::If(_) => {
+                    parts.push("if".to_string());
+                    self.advance();
+                }
+                Token::Then(_) => {
+                    parts.push("then".to_string());
+                    self.advance();
+                }
+                Token::Else(_) => {
+                    parts.push("else".to_string());
+                    self.advance();
+                }
+                Token::End(_) => {
+                    parts.push("end".to_string());
+                    self.advance();
+                }
+                Token::Return(_) => {
+                    parts.push("return".to_string());
+                    self.advance();
+                }
                 _ => break,
             }
         }

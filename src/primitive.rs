@@ -9,19 +9,6 @@ use crate::{
 
 fn build_bool_class() -> RcClass {
     let mut class = Class::new();
-    // TODO: remove this after removing test.gob
-    class.add_native("assert:", vec![Param::Value], |target, args| {
-        match &args[0] {
-            Value::String(str) => {
-                if target.as_bool() {
-                    Value::Unit.eval()
-                } else {
-                    RuntimeError::assertion_error(str)
-                }
-            }
-            _ => RuntimeError::primitive_type_error("string", &args[0]),
-        }
-    });
     // match
     class.add_native(":", vec![Param::Do], |target, args| {
         let selector = if target.as_bool() { "true" } else { "false" };
@@ -603,6 +590,16 @@ fn get_string_module() -> Value {
     Value::Object(Rc::new(obj))
 }
 
+fn get_panic_module() -> Value {
+    let mut class = Class::new();
+    class.add_native(":", vec![Param::Value], |_, args| {
+        RuntimeError::panic(&args[0])
+    });
+
+    let obj = Object::new(class.rc(), vec![Value::Unit]);
+    Value::Object(Rc::new(obj))
+}
+
 fn get_native_module() -> RcClass {
     let mut class = Class::new();
     class.add_constant("true", Value::Bool(true));
@@ -611,6 +608,7 @@ fn get_native_module() -> RcClass {
     class.add_constant("Assert", get_assert_module());
     class.add_constant("File", get_file_module());
     class.add_constant("String", get_string_module());
+    class.add_constant("Panic", get_panic_module());
 
     class.rc()
 }

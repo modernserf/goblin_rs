@@ -8,6 +8,7 @@ pub enum RuntimeError {
     AssertionError(String),
     UnknownModule(String),
     IndexOutOfRange,
+    Panic(Value),
 }
 
 impl RuntimeError {
@@ -39,5 +40,9 @@ impl RuntimeError {
 
     pub fn index_out_of_range() -> SendEffect {
         SendEffect::Error(RuntimeError::IndexOutOfRange)
+    }
+
+    pub fn panic(value: &Value) -> SendEffect {
+        SendEffect::Error(RuntimeError::Panic(value.clone()))
     }
 }

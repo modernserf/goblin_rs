@@ -1,6 +1,9 @@
-export import [_true_ _false_ _Assert_ _File_ _String_] := "native"
+export import [_true_ _false_ _Assert_ _File_ _String_ _Panic_] := "native"
 
 export let Bool := [
   on {true} true
   on {false} false
 ]
+
+export import [_Option_] := "core/option"
+export import [_Result_] := "core/result"

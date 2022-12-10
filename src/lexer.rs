@@ -311,12 +311,6 @@ pub mod tests {
     }
 
     #[test]
-    fn test_file() {
-        let file = include_str!("test.gob");
-        lex(file);
-    }
-
-    #[test]
     fn numbers() {
         lex("0");
         lex("23");

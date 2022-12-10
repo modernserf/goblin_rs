@@ -465,14 +465,6 @@ impl<'a> Interpreter<'a> {
                 };
                 self.values.push(obj);
             }
-            IR::Debug(msg) => {
-                println!(
-                    "{} ({}) {:?}",
-                    msg,
-                    self.values.values.len(),
-                    self.values.values
-                );
-            }
             IR::Module(name) => return Some(self.modules.load(name)),
         };
         return None;
