@@ -38,7 +38,6 @@ impl Send {
             )
             .unwrap();
         let mut ir = do_block.compile(compiler, None)?;
-        println!("or_else ir {:?}", ir);
         out.append(&mut ir);
         out.push(IR::TrySend(selector, arity));
         Ok(out)

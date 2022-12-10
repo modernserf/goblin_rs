@@ -1,4 +1,4 @@
-use crate::{class::RcClass, value::Value};
+use crate::{class::RcClass, interpreter::SendEffect, value::Value};
 
 #[allow(unused)]
 #[derive(Debug, Clone, PartialEq)]
@@ -9,6 +9,7 @@ pub enum IR {
     Local(usize),
     Assign(usize),
     Send(String, usize),
+    SendPrimitive(NativeHandlerFn, usize),
     TrySend(String, usize),
     Object(RcClass, usize),
     SelfObject(usize),
@@ -20,3 +21,5 @@ pub enum IR {
     Debug(String),
     Module(String),
 }
+
+pub type NativeHandlerFn = fn(Value, Vec<Value>) -> SendEffect;

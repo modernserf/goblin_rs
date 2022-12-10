@@ -2,6 +2,7 @@ use std::{cell::RefCell, ops::Deref, rc::Rc};
 
 use crate::{
     class::{Class, Object, Param, RcClass},
+    ir::IR,
     runtime_error::RuntimeError,
     value::Value,
 };
@@ -53,6 +54,11 @@ fn build_int_class() -> RcClass {
         Value::Integer(r) => Value::Bool(target.as_integer() == r).eval(),
         _ => RuntimeError::primitive_type_error("integer", &args[0]),
     });
+    class.add_native("to String", vec![], |target, _| {
+        let str = target.as_integer().to_string();
+        Value::String(Rc::new(str)).eval()
+    });
+
     class.rc()
 }
 
@@ -81,16 +87,26 @@ fn build_float_class() -> RcClass {
 
 pub fn build_string_class() -> RcClass {
     let mut class = Class::new();
-    class.add_native("++:", vec![Param::Value], |target, args| {
-        // TODO: send `toString` to arg
-        match &args[0] {
-            Value::String(arg) => {
-                let concat = format!("{}{}", target.as_string(), arg);
-                Value::String(Rc::new(concat)).eval()
-            }
-            _ => RuntimeError::primitive_type_error("string", &args[0]),
-        }
-    });
+    class.add_handler(
+        "++:",
+        vec![Param::Value],
+        vec![
+            IR::IVar(0),
+            IR::Local(0),
+            IR::Send("to String".to_string(), 0),
+            IR::SendPrimitive(
+                |target, args| match &args[0] {
+                    Value::String(arg) => {
+                        let concat = format!("{}{}", target.as_string(), arg);
+                        Value::String(Rc::new(concat)).eval()
+                    }
+                    _ => RuntimeError::primitive_type_error("string", &args[0]),
+                },
+                1,
+            ),
+        ],
+    );
+    class.add_native("to String", vec![], |target, _| target.eval());
     class.add_native("=:", vec![Param::Value], |target, args| match &args[0] {
         Value::String(r) => Value::Bool(target.as_string() == r).eval(),
         _ => RuntimeError::primitive_type_error("string", &args[0]),

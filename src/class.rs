@@ -1,6 +1,11 @@
 use std::{collections::HashMap, rc::Rc};
 
-use crate::{interpreter::SendEffect, ir::IR, runtime_error::RuntimeError, value::Value};
+use crate::{
+    interpreter::SendEffect,
+    ir::{NativeHandlerFn, IR},
+    runtime_error::RuntimeError,
+    value::Value,
+};
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct Class {
@@ -19,20 +24,32 @@ impl Class {
     }
     // allows overwriting of existing handlers
     pub fn add_handler(&mut self, key: &str, params: Vec<Param>, body: Vec<IR>) {
-        self.handlers.insert(
-            key.to_string(),
-            Handler::ObjectHandler(params, Rc::new(body)),
-        );
+        self.handlers
+            .insert(key.to_string(), Handler(params, Rc::new(body)));
     }
     pub fn add_constant(&mut self, key: &str, value: Value) {
         self.handlers.insert(
             key.to_string(),
-            Handler::ObjectHandler(vec![], Rc::new(vec![IR::Constant(value)])),
+            Handler(vec![], Rc::new(vec![IR::Constant(value)])),
         );
     }
     pub fn add_native(&mut self, key: &str, params: Vec<Param>, f: NativeHandlerFn) {
-        self.handlers
-            .insert(key.to_string(), Handler::NativeHandler(params, f));
+        let len = params.len();
+        self.handlers.insert(
+            key.to_string(),
+            Handler(
+                params,
+                Rc::new({
+                    let mut items = Vec::new();
+                    items.push(IR::IVar(0));
+                    for i in 0..len {
+                        items.push(IR::Local(i))
+                    }
+                    items.push(IR::SendPrimitive(f, len));
+                    items
+                }),
+            ),
+        );
     }
     pub fn add_else(&mut self, body: Vec<IR>) {
         self.else_handler = Some(Rc::new(body));
@@ -46,12 +63,7 @@ impl Class {
 }
 
 #[derive(Debug, Clone, PartialEq)]
-enum Handler {
-    ObjectHandler(Vec<Param>, Body),
-    NativeHandler(Vec<Param>, NativeHandlerFn),
-}
-
-type NativeHandlerFn = fn(Value, Vec<Value>) -> SendEffect;
+struct Handler(Vec<Param>, Body);
 
 pub type Body = Rc<Vec<IR>>;
 
@@ -110,36 +122,31 @@ impl Object {
         args: Vec<Value>,
     ) -> SendEffect {
         match class.get(selector) {
-            Some(Handler::NativeHandler(params, f)) => {
+            Some(Handler(params, body)) => {
                 if let Some(err) = check_args(params, &args) {
                     return err;
                 }
-                f(target, args)
+                SendEffect::Call {
+                    args,
+                    selector: selector.to_string(),
+                    object: Rc::new(Object::new(class.clone(), vec![target])),
+                    body: body.clone(),
+                }
             }
             _ => RuntimeError::does_not_understand(selector),
         }
     }
 
     pub fn send(object: &Rc<Object>, selector: &str, args: Vec<Value>) -> SendEffect {
-        if let Some(handler) = object.class.get(selector) {
-            match handler {
-                Handler::ObjectHandler(params, body) => {
-                    if let Some(err) = check_args(params, &args) {
-                        return err;
-                    }
-                    SendEffect::Call {
-                        args,
-                        selector: selector.to_string(),
-                        object: object.clone(),
-                        body: body.clone(),
-                    }
-                }
-                Handler::NativeHandler(params, f) => {
-                    if let Some(err) = check_args(params, &args) {
-                        return err;
-                    }
-                    f(Value::Object(object.clone()), args)
-                }
+        if let Some(Handler(params, body)) = object.class.get(selector) {
+            if let Some(err) = check_args(params, &args) {
+                return err;
+            }
+            SendEffect::Call {
+                args,
+                selector: selector.to_string(),
+                object: object.clone(),
+                body: body.clone(),
             }
         } else if let Some(body) = &object.class.else_handler {
             SendEffect::Call {
@@ -159,7 +166,7 @@ impl Object {
         selector: &str,
         args: Vec<Value>,
     ) -> SendEffect {
-        if let Some(Handler::ObjectHandler(params, body)) = class.get(selector) {
+        if let Some(Handler(params, body)) = class.get(selector) {
             if let Some(err) = check_args(params, &args) {
                 return err;
             }

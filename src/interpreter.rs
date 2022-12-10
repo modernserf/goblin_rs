@@ -415,6 +415,12 @@ impl Interpreter {
                 let result = target.send(selector, args);
                 return Some(result);
             }
+            IR::SendPrimitive(f, arity) => {
+                let args = self.values.pop_args(*arity);
+                let target = self.values.pop();
+                let result = f(target, args);
+                return Some(result);
+            }
             IR::TrySend(selector, arity) => {
                 let or_else = self.values.pop();
                 let args = self.values.pop_args(*arity);
@@ -477,6 +483,16 @@ mod test {
     }
 
     use super::*;
+
+    #[test]
+    fn primitive() {
+        let code = vec![
+            IR::Constant(Value::Integer(1)),
+            IR::Constant(Value::Integer(2)),
+            IR::Send("+:".to_string(), 1),
+        ];
+        assert_ok(code, Value::Integer(3));
+    }
 
     #[test]
     fn closure() {

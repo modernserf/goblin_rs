@@ -31,6 +31,7 @@ let  _foo bar 123 \_ \\ baz_ := 7
 (8 - 10 = -2){assert: "subtraction"}
 (1.5 + 0.5 = 2.0){assert: "floats"}
 ("hello," ++ " world" = "hello, world"){assert: "strings"}
+("hello " ++ 123 = "hello 123"){assert: "to String conversion"}
 
 import [_true_ _false_] := "native"
 true{assert: "booleans"}
