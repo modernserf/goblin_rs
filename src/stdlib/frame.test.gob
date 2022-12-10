@@ -1,0 +1,53 @@
+import [_Assert_] := "core"
+
+# key frames
+let f := [x]
+
+# match
+let result := f{:
+  on {x} 1
+  else 2
+}
+Assert{:result = 1}
+
+# fold
+Assert{
+  received: f{: 3 into: [x: 1 y: 2]}
+  expected: [x: 3 y: 2]
+}
+
+# pair frames
+let f := [x: 1 y: 2]
+
+# get
+Assert{: f{x} = 1}
+Assert{: f{y} = 2}
+
+# set
+Assert{received: f{x: 3} expected: [x: 3 y: 2]}
+
+# update
+Assert{received: f{->x: [+: 10]} expected: [x: 11 y: 2]}
+
+# match
+let result := f{:
+  on {x: x y: y}
+    x + y
+  else 0
+}
+Assert{: result = 3}
+
+# utilities
+
+# equality
+Assert{: [x] = [x]}
+Assert{: [x] != [y]}
+Assert{: [x] != [x: ()]}
+Assert{: [x] != ()}
+Assert{: [x: 1 y: 2] = [x: 1 y: 2]}
+Assert{: [x: 1 y: 2] != [x: 1 y: 2 z: 3]}
+Assert{: [x: 1 y: 2] != [x: 1]}
+Assert{: [x: 1 y: 2] != [x: 1 y: 3]}
+Assert{panics: [{}
+  [x: ()] = [x: 1]
+]}

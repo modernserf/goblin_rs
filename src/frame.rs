@@ -8,6 +8,7 @@ use crate::{
     parse_expr::Expr,
     parser::Parse,
     source::Source,
+    value::Value,
 };
 
 thread_local! {
@@ -49,6 +50,55 @@ impl Frame {
                     vec![Param::Do],
                     vec![IR::Local(0), IR::Send(key.to_string(), 0)],
                 );
+                // fold
+                class.add_handler(
+                    ":into:",
+                    vec![Param::Value, Param::Value],
+                    vec![IR::Local(1), IR::Local(0), IR::Send(format!("{}:", key), 1)],
+                );
+                class.add_handler(
+                    "=:",
+                    vec![Param::Value],
+                    vec![
+                        IR::Local(0),
+                        IR::Object(
+                            {
+                                let mut class = Class::new();
+                                class.add_handler(
+                                    &key,
+                                    vec![],
+                                    vec![IR::Constant(Value::Bool(true))],
+                                );
+                                class.add_else(vec![IR::Constant(Value::Bool(false))]);
+                                class.rc()
+                            },
+                            0,
+                        ),
+                        IR::Object(
+                            {
+                                let mut class = Class::new();
+                                class.add_handler(
+                                    "",
+                                    vec![],
+                                    vec![IR::Constant(Value::Bool(false))],
+                                );
+                                class.rc()
+                            },
+                            0,
+                        ),
+                        IR::TrySend(":".to_string(), 1),
+                    ],
+                );
+                class.add_handler(
+                    "!=:",
+                    vec![Param::Value],
+                    vec![
+                        IR::SelfRef,
+                        IR::Local(0),
+                        IR::Send("=:".to_string(), 1),
+                        IR::Send("!".to_string(), 0),
+                    ],
+                );
 
                 let cls = class.rc();
                 set_cached_class(key, cls.clone());
@@ -78,6 +128,56 @@ impl Frame {
                     body.push(IR::Send(selector.to_string(), arity));
                     body
                 });
+                // equality
+                class.add_handler("=:", vec![Param::Value], {
+                    let mut body = vec![];
+                    body.push(IR::Local(0));
+                    for i in 0..args.len() {
+                        body.push(IR::IVar(i));
+                    }
+                    body.push(IR::Object(
+                        {
+                            let mut class = Class::new();
+                            class.add_handler(
+                                &selector,
+                                args.iter().map(|_| Param::Value).collect(),
+                                {
+                                    let mut body = vec![IR::Constant(Value::Bool(true))];
+                                    for i in 0..args.len() {
+                                        body.push(IR::IVar(i));
+                                        body.push(IR::Local(i));
+                                        body.push(IR::Send("=:".to_string(), 1));
+                                        body.push(IR::Send("&&:".to_string(), 1));
+                                    }
+                                    body
+                                },
+                            );
+                            class.add_else(vec![IR::Constant(Value::Bool(false))]);
+                            class.rc()
+                        },
+                        args.len(),
+                    ));
+                    body.push(IR::Object(
+                        {
+                            let mut class = Class::new();
+                            class.add_handler("", vec![], vec![IR::Constant(Value::Bool(false))]);
+                            class.rc()
+                        },
+                        0,
+                    ));
+                    body.push(IR::TrySend(":".to_string(), 1));
+                    body
+                });
+                class.add_handler(
+                    "!=:",
+                    vec![Param::Value],
+                    vec![
+                        IR::SelfRef,
+                        IR::Local(0),
+                        IR::Send("=:".to_string(), 1),
+                        IR::Send("!".to_string(), 0),
+                    ],
+                );
 
                 for (index, (key, val)) in args.into_iter().enumerate() {
                     // write ivar

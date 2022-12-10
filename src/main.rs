@@ -81,4 +81,9 @@ mod test {
     fn strings() {
         run(include_str!("./stdlib/string.test.gob")).unwrap();
     }
+
+    #[test]
+    fn frames() {
+        run(include_str!("./stdlib/frame.test.gob")).unwrap();
+    }
 }
