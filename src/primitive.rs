@@ -48,6 +48,17 @@ fn build_bool_class() -> RcClass {
         Value::Bool(other) => Value::Bool(target.as_bool() || *other).eval(),
         _ => RuntimeError::primitive_type_error("bool", &args[0]),
     });
+    class.add_native(
+        "false:true:",
+        vec![Param::Value, Param::Value],
+        |target, args| {
+            if target.as_bool() {
+                args[1].clone().eval()
+            } else {
+                args[0].clone().eval()
+            }
+        },
+    );
 
     class.rc()
 }
@@ -221,6 +232,40 @@ fn build_int_class() -> RcClass {
             _ => RuntimeError::primitive_type_error("number", &args[0]),
         }
     });
+    class.add_handler(
+        "order:",
+        vec![Param::Value],
+        /*
+            on {order: other}
+                import [_Ord_] := "core/ord"
+                (it < other){
+                    true: Ord{<}
+                    false: (it > other){
+                        true: Ord{>}
+                        false: Ord{==}
+                    }
+                }
+        */
+        vec![
+            IR::Module("core/ord".to_string()),
+            IR::Send("Ord".to_string(), 0),
+            IR::Assign(1),
+            IR::IVar(0),
+            IR::Local(0),
+            IR::Send("<:".to_string(), 1),
+            IR::IVar(0),
+            IR::Local(0),
+            IR::Send(">:".to_string(), 1),
+            IR::Local(1),
+            IR::Send("==".to_string(), 0),
+            IR::Local(1),
+            IR::Send(">".to_string(), 0),
+            IR::Send("false:true:".to_string(), 2),
+            IR::Local(1),
+            IR::Send("<".to_string(), 0),
+            IR::Send("false:true:".to_string(), 2),
+        ],
+    );
 
     class.rc()
 }
@@ -312,7 +357,6 @@ fn build_float_class() -> RcClass {
             _ => RuntimeError::primitive_type_error("number", &args[0]),
         }
     });
-
     class.rc()
 }
 

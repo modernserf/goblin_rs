@@ -28,6 +28,7 @@ fn build_stdlib() -> module_loader::ModuleLoader {
     let mut modules = module_loader::ModuleLoader::new();
     modules.add_ready("native", primitive::native_module());
     modules.add_init("core", compile_module(include_str!("./stdlib/core.gob")));
+    modules.add_init("core/ord", compile_module(include_str!("./stdlib/ord.gob")));
     modules
 }
 
