@@ -9,6 +9,7 @@ use crate::{
 
 fn build_bool_class() -> RcClass {
     let mut class = Class::new();
+    // TODO: remove this after removing test.gob
     class.add_native("assert:", vec![Param::Value], |target, args| {
         match &args[0] {
             Value::String(str) => {
@@ -21,13 +22,33 @@ fn build_bool_class() -> RcClass {
             _ => RuntimeError::primitive_type_error("string", &args[0]),
         }
     });
-    class.add_native("!", vec![], |target, _| {
-        Value::Bool(!target.as_bool()).eval()
-    });
+    // match
     class.add_native(":", vec![Param::Do], |target, args| {
         let selector = if target.as_bool() { "true" } else { "false" };
         args[0].send(selector, vec![])
     });
+    // equality
+    class.add_native("=:", vec![Param::Value], |target, args| match &args[0] {
+        Value::Bool(other) => Value::Bool(target.as_bool() == *other).eval(),
+        _ => Value::Bool(false).eval(),
+    });
+    class.add_native("!=:", vec![Param::Value], |target, args| match &args[0] {
+        Value::Bool(other) => Value::Bool(target.as_bool() != *other).eval(),
+        _ => Value::Bool(true).eval(),
+    });
+    // logical operators
+    class.add_native("!", vec![], |target, _| {
+        Value::Bool(!target.as_bool()).eval()
+    });
+    class.add_native("&&:", vec![Param::Value], |target, args| match &args[0] {
+        Value::Bool(other) => Value::Bool(target.as_bool() && *other).eval(),
+        _ => RuntimeError::primitive_type_error("bool", &args[0]),
+    });
+    class.add_native("||:", vec![Param::Value], |target, args| match &args[0] {
+        Value::Bool(other) => Value::Bool(target.as_bool() || *other).eval(),
+        _ => RuntimeError::primitive_type_error("bool", &args[0]),
+    });
+
     class.rc()
 }
 
@@ -142,11 +163,62 @@ fn get_cell_module() -> Value {
     Value::Object(Rc::new(obj))
 }
 
+fn get_assert_module() -> Value {
+    let mut class = Class::new();
+    class.add_native(":", vec![Param::Value], |_, args| match &args[0] {
+        Value::Bool(value) => {
+            if *value {
+                Value::Unit.eval()
+            } else {
+                RuntimeError::assertion_error("expected false to be true")
+            }
+        }
+        _ => RuntimeError::primitive_type_error("bool", &args[0].clone()),
+    });
+    class.add_native("true:", vec![Param::Value], |_, args| match &args[0] {
+        Value::Bool(value) => {
+            if *value {
+                Value::Unit.eval()
+            } else {
+                RuntimeError::assertion_error("expected false to be true")
+            }
+        }
+        _ => RuntimeError::primitive_type_error("bool", &args[0].clone()),
+    });
+    class.add_native("false:", vec![Param::Value], |_, args| match &args[0] {
+        Value::Bool(value) => {
+            if !value {
+                Value::Unit.eval()
+            } else {
+                RuntimeError::assertion_error("expected false to be true")
+            }
+        }
+        _ => RuntimeError::primitive_type_error("bool", &args[0]),
+    });
+    class.add_native(
+        "expected:received:",
+        vec![Param::Value, Param::Value],
+        |_, args| {
+            if args[0] == args[1] {
+                return Value::Unit.eval();
+            }
+            return RuntimeError::assertion_error(&format!(
+                "expected: {:?}\nreceived: {:?}",
+                args[0], args[1]
+            ));
+        },
+    );
+
+    let obj = Object::new(class.rc(), vec![Value::Unit]);
+    Value::Object(Rc::new(obj))
+}
+
 fn get_native_module() -> RcClass {
     let mut class = Class::new();
     class.add_constant("true", Value::Bool(true));
     class.add_constant("false", Value::Bool(false));
     class.add_constant("Cell", get_cell_module());
+    class.add_constant("Assert", get_assert_module());
 
     class.rc()
 }

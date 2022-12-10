@@ -1,4 +1,4 @@
-export import [_true_ _false_] := "native"
+export import [_true_ _false_ _Assert_] := "native"
 
 export let Bool := [
   on {true} true

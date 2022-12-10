@@ -82,6 +82,11 @@ mod test {
     }
 
     #[test]
+    fn primitives() {
+        run(include_str!("./stdlib/primitive.test.gob")).unwrap();
+    }
+
+    #[test]
     fn empty_program() {
         assert_ok("", Value::Unit)
     }
