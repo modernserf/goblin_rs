@@ -45,44 +45,44 @@ Assert{: 3{min: 1 max: 5} = 3}
 Assert{: 0{min: 1 max: 5} = 1}
 Assert{: 9{min: 1 max: 5} = 5}
 
-# # floats
-# Assert{received: 1.0 + 1.0  expected: 2.0}
-# Assert{received: 0.2 - 0.1  expected: 0.1}
-# Assert{received: 0.5 * 0.5  expected: 0.25}
+# floats
+Assert{received: 1.0 + 1.0  expected: 2.0}
+Assert{received: 0.2 - 0.1  expected: 0.1}
+Assert{received: 0.5 * 0.5  expected: 0.25}
 
-# let n := 1.0
-# Assert{received: -n         expected: -1.0}
-# Assert{received: n{abs}     expected: 1.0}
+let n := 1.0
+Assert{received: -n         expected: -1.0}
+Assert{received: n{abs}     expected: 1.0}
 
-# # int->float conversion
-# Assert{received: 1 + 1.0  expected: 2.0}
-# Assert{received: 1.0 + 1  expected: 2.0}
+# int->float conversion
+Assert{received: 1 + 1.0  expected: 2.0}
+Assert{received: 1.0 + 1  expected: 2.0}
 
-# # strict equality
-# Assert{: 1 = 1}
-# Assert{: 1.0 = 1.0}
-# Assert{false: 1 = 2}
-# Assert{false: 1.0 = 2.0}
-# # does not convert int->flaot
-# Assert{false: 1 = 1.0}
-# Assert{false: 1.0 = 1}
-# # strict non-equality
-# Assert{: 1 != 2}
-# Assert{: 1 != 1.0}
-# Assert{false: 1 != 1}
-# Assert{: 1.0 != 2.0}
-# Assert{: 1.0 != 2}
-# Assert{false: 1.0 != 1.0}
+# strict equality
+Assert{: 1 = 1}
+Assert{: 1.0 = 1.0}
+Assert{false: 1 = 2}
+Assert{false: 1.0 = 2.0}
+# does not convert int->flaot
+Assert{false: 1 = 1.0}
+Assert{false: 1.0 = 1}
+# strict non-equality
+Assert{: 1 != 2}
+Assert{: 1 != 1.0}
+Assert{false: 1 != 1}
+Assert{: 1.0 != 2.0}
+Assert{: 1.0 != 2}
+Assert{false: 1.0 != 1.0}
 
-# # comparisons (with conversions)
-# Assert{: 1 == 1}
-# Assert{: 1 == 1.0}
-# Assert{: 1.0 == 1}
-# Assert{: 1 <> 2}
-# Assert{: 3 > 1}
-# Assert{: 3 >= 1}
-# Assert{: 3 >= 1.0}
-# Assert{: 3.0 >= 1}
+# comparisons (with conversions)
+Assert{: 1 == 1}
+Assert{: 1 == 1.0}
+Assert{: 1.0 == 1}
+Assert{: 1 <> 2}
+Assert{: 3 > 1}
+Assert{: 3 >= 1}
+Assert{: 3 >= 1.0}
+Assert{: 3.0 >= 1}
 
 # # order
 # Assert{:  <1{order: 2}}

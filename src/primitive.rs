@@ -172,14 +172,81 @@ fn build_int_class() -> RcClass {
             }
         },
     );
+    // comparison
+    class.add_native("<:", vec![Param::Value], |target, args| {
+        let target = target.as_integer();
+        match args[0] {
+            Value::Integer(r) => Value::Bool(target < r).eval(),
+            Value::Float(f) => Value::Bool((target as f64) < f).eval(),
+            _ => RuntimeError::primitive_type_error("number", &args[0]),
+        }
+    });
+    class.add_native("<=:", vec![Param::Value], |target, args| {
+        let target = target.as_integer();
+        match args[0] {
+            Value::Integer(r) => Value::Bool(target <= r).eval(),
+            Value::Float(f) => Value::Bool((target as f64) <= f).eval(),
+            _ => RuntimeError::primitive_type_error("number", &args[0]),
+        }
+    });
+    class.add_native("==:", vec![Param::Value], |target, args| {
+        let target = target.as_integer();
+        match args[0] {
+            Value::Integer(r) => Value::Bool(target == r).eval(),
+            Value::Float(f) => Value::Bool((target as f64) == f).eval(),
+            _ => RuntimeError::primitive_type_error("number", &args[0]),
+        }
+    });
+    class.add_native("<>:", vec![Param::Value], |target, args| {
+        let target = target.as_integer();
+        match args[0] {
+            Value::Integer(r) => Value::Bool(target != r).eval(),
+            Value::Float(f) => Value::Bool((target as f64) != f).eval(),
+            _ => RuntimeError::primitive_type_error("number", &args[0]),
+        }
+    });
+    class.add_native(">=:", vec![Param::Value], |target, args| {
+        let target = target.as_integer();
+        match args[0] {
+            Value::Integer(r) => Value::Bool(target >= r).eval(),
+            Value::Float(f) => Value::Bool((target as f64) >= f).eval(),
+            _ => RuntimeError::primitive_type_error("number", &args[0]),
+        }
+    });
+    class.add_native(">:", vec![Param::Value], |target, args| {
+        let target = target.as_integer();
+        match args[0] {
+            Value::Integer(r) => Value::Bool(target > r).eval(),
+            Value::Float(f) => Value::Bool((target as f64) > f).eval(),
+            _ => RuntimeError::primitive_type_error("number", &args[0]),
+        }
+    });
 
     class.rc()
 }
 
 fn build_float_class() -> RcClass {
     let mut class = Class::new();
-    class.add_native("=", vec![], |target, _| {
+    // equality
+    class.add_native("=:", vec![Param::Value], |target, args| match args[0] {
+        Value::Float(r) => Value::Bool(target.as_float() == r).eval(),
+        _ => Value::Bool(false).eval(),
+    });
+    class.add_native("!=:", vec![Param::Value], |target, args| match args[0] {
+        Value::Float(r) => Value::Bool(target.as_float() != r).eval(),
+        _ => Value::Bool(true).eval(),
+    });
+    // conversions
+    class.add_native("to String", vec![], |target, _| {
+        let str = target.as_float().to_string();
+        Value::String(Rc::new(str)).eval()
+    });
+    // arithmetic
+    class.add_native("-", vec![], |target, _| {
         Value::Float(-target.as_float()).eval()
+    });
+    class.add_native("abs", vec![], |target, _| {
+        Value::Float(target.as_float().abs()).eval()
     });
     class.add_native("+:", vec![Param::Value], |target, args| match args[0] {
         Value::Integer(r) => Value::Float(target.as_float() + r as f64).eval(),
@@ -191,9 +258,59 @@ fn build_float_class() -> RcClass {
         Value::Float(r) => Value::Float(target.as_float() - r).eval(),
         _ => RuntimeError::primitive_type_error("number", &args[0]),
     });
-    class.add_native("=:", vec![Param::Value], |target, args| match args[0] {
-        Value::Float(r) => Value::Bool(target.as_float() == r).eval(),
-        _ => RuntimeError::primitive_type_error("float", &args[0]),
+    class.add_native("*:", vec![Param::Value], |target, args| match args[0] {
+        Value::Integer(r) => Value::Float(target.as_float() * r as f64).eval(),
+        Value::Float(r) => Value::Float(target.as_float() * r).eval(),
+        _ => RuntimeError::primitive_type_error("number", &args[0]),
+    });
+    // comparison
+    class.add_native("<:", vec![Param::Value], |target, args| {
+        let target = target.as_float();
+        match args[0] {
+            Value::Float(f) => Value::Bool(target < f).eval(),
+            Value::Integer(r) => Value::Bool(target < (r as f64)).eval(),
+            _ => RuntimeError::primitive_type_error("number", &args[0]),
+        }
+    });
+    class.add_native("<=:", vec![Param::Value], |target, args| {
+        let target = target.as_float();
+        match args[0] {
+            Value::Float(f) => Value::Bool(target <= f).eval(),
+            Value::Integer(r) => Value::Bool(target <= (r as f64)).eval(),
+            _ => RuntimeError::primitive_type_error("number", &args[0]),
+        }
+    });
+    class.add_native("==:", vec![Param::Value], |target, args| {
+        let target = target.as_float();
+        match args[0] {
+            Value::Float(f) => Value::Bool(target == f).eval(),
+            Value::Integer(r) => Value::Bool(target == (r as f64)).eval(),
+            _ => RuntimeError::primitive_type_error("number", &args[0]),
+        }
+    });
+    class.add_native("<>:", vec![Param::Value], |target, args| {
+        let target = target.as_float();
+        match args[0] {
+            Value::Float(f) => Value::Bool(target != f).eval(),
+            Value::Integer(r) => Value::Bool(target != (r as f64)).eval(),
+            _ => RuntimeError::primitive_type_error("number", &args[0]),
+        }
+    });
+    class.add_native(">=:", vec![Param::Value], |target, args| {
+        let target = target.as_float();
+        match args[0] {
+            Value::Float(f) => Value::Bool(target >= f).eval(),
+            Value::Integer(r) => Value::Bool(target >= (r as f64)).eval(),
+            _ => RuntimeError::primitive_type_error("number", &args[0]),
+        }
+    });
+    class.add_native(">:", vec![Param::Value], |target, args| {
+        let target = target.as_float();
+        match args[0] {
+            Value::Float(f) => Value::Bool(target > f).eval(),
+            Value::Integer(r) => Value::Bool(target > (r as f64)).eval(),
+            _ => RuntimeError::primitive_type_error("number", &args[0]),
+        }
     });
 
     class.rc()
