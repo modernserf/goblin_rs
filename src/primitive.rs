@@ -485,12 +485,32 @@ fn get_assert_module() -> Value {
     Value::Object(Rc::new(obj))
 }
 
+fn get_file_module() -> Value {
+    use std::fs;
+    let mut class = Class::new();
+    class.add_native(
+        "read text sync:",
+        vec![Param::Value],
+        |_, args| match &args[0] {
+            Value::String(path) => match fs::read_to_string(path.deref()) {
+                Ok(text) => Value::String(Rc::new(text)).eval(),
+                _ => todo!("error loading file"),
+            },
+            _ => RuntimeError::primitive_type_error("string", &args[0]),
+        },
+    );
+
+    let obj = Object::new(class.rc(), vec![Value::Unit]);
+    Value::Object(Rc::new(obj))
+}
+
 fn get_native_module() -> RcClass {
     let mut class = Class::new();
     class.add_constant("true", Value::Bool(true));
     class.add_constant("false", Value::Bool(false));
     class.add_constant("Cell", get_cell_module());
     class.add_constant("Assert", get_assert_module());
+    class.add_constant("File", get_file_module());
 
     class.rc()
 }

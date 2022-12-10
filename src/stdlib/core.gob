@@ -1,6 +1,13 @@
-export import [_true_ _false_ _Assert_] := "native"
+export import [_true_ _false_ _Assert_ _File_] := "native"
 
 export let Bool := [
   on {true} true
   on {false} false
+]
+
+let newline := "
+"
+
+export let String := [
+  on {newline} newline
 ]

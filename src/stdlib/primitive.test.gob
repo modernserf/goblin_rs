@@ -105,9 +105,9 @@ Assert{panics: [{} 1.0 + "hello"]}
 Assert{panics: [{} 1 & 1.0]}
 Assert{panics: [{} 1 >= "hello"]}
 
-# # file 
-# import [_File_ _String_] := "core"
-# Assert{
-#   received: File{read text sync: "./src/stdlib/test.txt"}
-#   expected: "Test file for File module" ++ String{newline}
-# }
+# file 
+import [_File_ _String_] := "core"
+Assert{
+  received: File{read text sync: "./src/stdlib/test.txt"}
+  expected: "Test file for File module" ++ String{newline}
+}
