@@ -20,30 +20,30 @@ Assert{false: true && false}
 Assert{true: true || false}
 Assert{false: false || false}
 
-# # integers
-# Assert{received: 1 + 1    expected: 2}
-# let n := 1
-# Assert{received: -n       expected: -1}
-# Assert{received: 2 - 3    expected: -1}
-# Assert{received: 2 * 5    expected: 10}
-# let n := -1
-# Assert{received: n{abs}   expected: 1}
+# integers
+Assert{received: 1 + 1    expected: 2}
+let n := 1
+Assert{received: -n       expected: -1}
+Assert{received: 2 - 3    expected: -1}
+Assert{received: 2 * 5    expected: 10}
+let n := -1
+Assert{received: n{abs}   expected: 1}
 
-# # bitwise
-# Assert{: (3 << 1) = 6}
-# Assert{: (3 >> 1) = 1}
-# Assert{: (3 | 6) =  7}
-# Assert{: (3 & 6) =  2}
-# Assert{: (3 ^ 6) =  5}
+# bitwise
+Assert{: (3 << 1) = 6}
+Assert{: (3 >> 1) = 1}
+Assert{: (3 | 6) =  7}
+Assert{: (3 & 6) =  2}
+Assert{: (3 ^ 6) =  5}
 
-# # min max
-# Assert{: 1{min: 2} = 1}
-# Assert{: 2{min: 1} = 1}
-# Assert{: 1{max: 2} = 2}
-# Assert{: 2{max: 1} = 2}
-# Assert{: 3{min: 1 max: 5} = 3}
-# Assert{: 0{min: 1 max: 5} = 1}
-# Assert{: 9{min: 1 max: 5} = 5}
+# min max
+Assert{: 1{min: 2} = 1}
+Assert{: 2{min: 1} = 1}
+Assert{: 1{max: 2} = 2}
+Assert{: 2{max: 1} = 2}
+Assert{: 3{min: 1 max: 5} = 3}
+Assert{: 0{min: 1 max: 5} = 1}
+Assert{: 9{min: 1 max: 5} = 5}
 
 # # floats
 # Assert{received: 1.0 + 1.0  expected: 2.0}

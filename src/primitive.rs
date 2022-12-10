@@ -54,7 +54,25 @@ fn build_bool_class() -> RcClass {
 
 fn build_int_class() -> RcClass {
     let mut class = Class::new();
+    // equality
+    class.add_native("=:", vec![Param::Value], |target, args| match args[0] {
+        Value::Integer(r) => Value::Bool(target.as_integer() == r).eval(),
+        _ => Value::Bool(false).eval(),
+    });
+    class.add_native("!=:", vec![Param::Value], |target, args| match args[0] {
+        Value::Integer(r) => Value::Bool(target.as_integer() != r).eval(),
+        _ => Value::Bool(true).eval(),
+    });
+    // conversions
+    class.add_native("to String", vec![], |target, _| {
+        let str = target.as_integer().to_string();
+        Value::String(Rc::new(str)).eval()
+    });
+    // arithmetic
     class.add_native("-", vec![], |it, _| Value::Integer(-it.as_integer()).eval());
+    class.add_native("abs", vec![], |it, _| {
+        Value::Integer(it.as_integer().abs()).eval()
+    });
     class.add_native("+:", vec![Param::Value], |target, args| {
         let target = target.as_integer();
         match args[0] {
@@ -71,14 +89,89 @@ fn build_int_class() -> RcClass {
             _ => RuntimeError::primitive_type_error("number", &args[0]),
         }
     });
-    class.add_native("=:", vec![Param::Value], |target, args| match args[0] {
-        Value::Integer(r) => Value::Bool(target.as_integer() == r).eval(),
-        _ => RuntimeError::primitive_type_error("integer", &args[0]),
+    class.add_native("*:", vec![Param::Value], |target, args| {
+        let target = target.as_integer();
+        match args[0] {
+            Value::Integer(r) => Value::Integer(target * r).eval(),
+            Value::Float(f) => Value::Float(target as f64 * f).eval(),
+            _ => RuntimeError::primitive_type_error("number", &args[0]),
+        }
     });
-    class.add_native("to String", vec![], |target, _| {
-        let str = target.as_integer().to_string();
-        Value::String(Rc::new(str)).eval()
+    // bitwise
+    class.add_native("<<:", vec![Param::Value], |target, args| {
+        let target = target.as_integer();
+        match args[0] {
+            Value::Integer(r) => Value::Integer(target << r).eval(),
+            _ => RuntimeError::primitive_type_error("integer", &args[0]),
+        }
     });
+    class.add_native(">>:", vec![Param::Value], |target, args| {
+        let target = target.as_integer();
+        match args[0] {
+            Value::Integer(r) => Value::Integer(target >> r).eval(),
+            _ => RuntimeError::primitive_type_error("integer", &args[0]),
+        }
+    });
+    class.add_native("&:", vec![Param::Value], |target, args| {
+        let target = target.as_integer();
+        match args[0] {
+            Value::Integer(r) => Value::Integer(target & r).eval(),
+            _ => RuntimeError::primitive_type_error("integer", &args[0]),
+        }
+    });
+    class.add_native("|:", vec![Param::Value], |target, args| {
+        let target = target.as_integer();
+        match args[0] {
+            Value::Integer(r) => Value::Integer(target | r).eval(),
+            _ => RuntimeError::primitive_type_error("integer", &args[0]),
+        }
+    });
+    class.add_native("^:", vec![Param::Value], |target, args| {
+        let target = target.as_integer();
+        match args[0] {
+            Value::Integer(r) => Value::Integer(target ^ r).eval(),
+            _ => RuntimeError::primitive_type_error("integer", &args[0]),
+        }
+    });
+    // minmax
+    class.add_native("min:", vec![Param::Value], |target, args| {
+        let target = target.as_integer();
+        match args[0] {
+            Value::Integer(r) => Value::Integer(target.min(r)).eval(),
+            Value::Float(f) => Value::Float((target as f64).min(f)).eval(),
+            _ => RuntimeError::primitive_type_error("number", &args[0]),
+        }
+    });
+    class.add_native("max:", vec![Param::Value], |target, args| {
+        let target = target.as_integer();
+        match args[0] {
+            Value::Integer(r) => Value::Integer(target.max(r)).eval(),
+            Value::Float(f) => Value::Float((target as f64).max(f)).eval(),
+            _ => RuntimeError::primitive_type_error("number", &args[0]),
+        }
+    });
+    class.add_native(
+        "max:min:",
+        vec![Param::Value, Param::Value],
+        |target, args| {
+            let target = target.as_integer();
+            match (&args[0], &args[1]) {
+                (Value::Float(max), Value::Float(min)) => {
+                    Value::Float((target as f64).clamp(*min, *max)).eval()
+                }
+                (Value::Float(max), Value::Integer(min)) => {
+                    Value::Float((target as f64).clamp(*min as f64, *max)).eval()
+                }
+                (Value::Integer(max), Value::Float(min)) => {
+                    Value::Float((target as f64).clamp(*min, *max as f64)).eval()
+                }
+                (Value::Integer(max), Value::Integer(min)) => {
+                    Value::Integer(target.clamp(*min, *max)).eval()
+                }
+                _ => RuntimeError::primitive_type_error("number", &args[0]),
+            }
+        },
+    );
 
     class.rc()
 }
