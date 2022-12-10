@@ -1,13 +1,10 @@
-use std::collections::HashMap;
-
-use primitive::native_module;
-
 mod class;
 mod compiler;
 mod frame;
 mod interpreter;
 mod ir;
 mod lexer;
+mod module_loader;
 mod object_builder;
 mod parse_binding;
 mod parse_error;
@@ -26,8 +23,8 @@ fn run(code: &str) -> Result<value::Value, runtime_error::RuntimeError> {
     let mut parser = parser::Parser::new(lexer);
     let program = parser.program().unwrap();
     let ir = compiler::Compiler::program(program).unwrap();
-    let mut modules = HashMap::new();
-    modules.insert("native".to_string(), native_module());
+    let mut modules = module_loader::ModuleLoader::new();
+    modules.add_ready("native".to_string(), primitive::native_module());
     let result = interpreter::program(ir, modules);
     result
 }

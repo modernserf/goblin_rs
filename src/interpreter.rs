@@ -1,8 +1,9 @@
-use std::{collections::HashMap, rc::Rc};
+use std::rc::Rc;
 
 use crate::{
     class::{Body, Class, Object},
     ir::IR,
+    module_loader::ModuleLoader,
     runtime_error::RuntimeError,
     value::Value,
 };
@@ -296,17 +297,17 @@ impl Frames {
 struct Interpreter {
     values: Values,
     frames: Frames,
-    modules: HashMap<String, Value>,
+    modules: ModuleLoader,
 }
 
-pub fn program(program: Vec<IR>, modules: HashMap<String, Value>) -> Result<Value, RuntimeError> {
+pub fn program(program: Vec<IR>, modules: ModuleLoader) -> Result<Value, RuntimeError> {
     let mut interpreter = Interpreter::new(modules);
     interpreter.run(Rc::new(program))
 }
 
 #[allow(unused)]
 impl Interpreter {
-    fn new(modules: HashMap<String, Value>) -> Self {
+    fn new(modules: ModuleLoader) -> Self {
         Self {
             values: Values::new(),
             frames: Frames::root(),
@@ -461,13 +462,7 @@ impl Interpreter {
                     self.values.values
                 );
             }
-            IR::Module(name) => {
-                if let Some(module) = self.modules.get(name) {
-                    self.values.push(module.clone());
-                } else {
-                    return Some(RuntimeError::unknown_module(name));
-                }
-            }
+            IR::Module(name) => return Some(self.modules.load(name)),
         };
         return None;
     }
@@ -478,7 +473,7 @@ mod test {
     use crate::class::{Class, Param};
 
     fn assert_ok(code: Vec<IR>, expected: Value) {
-        let result = program(code, HashMap::new());
+        let result = program(code, ModuleLoader::new());
         assert_eq!(result, Ok(expected));
     }
 
