@@ -17,15 +17,32 @@ mod send_builder;
 mod source;
 mod value;
 
+fn compile_module(code: &str) -> Vec<ir::IR> {
+    let lexer = lexer::Lexer::from_string(code);
+    let mut parser = parser::Parser::new(lexer);
+    let module = parser.program().unwrap();
+    compiler::Compiler::module(module).unwrap()
+}
+
+fn build_stdlib() -> module_loader::ModuleLoader {
+    let mut modules = module_loader::ModuleLoader::new();
+    modules.add_ready("native", primitive::native_module());
+    modules.add_init("core", compile_module(include_str!("./stdlib/core.gob")));
+    modules
+}
+
+thread_local! {
+    static STDLIB : module_loader::ModuleLoader = build_stdlib()
+}
+
 #[allow(unused)]
 fn run(code: &str) -> Result<value::Value, runtime_error::RuntimeError> {
     let lexer = lexer::Lexer::from_string(code);
     let mut parser = parser::Parser::new(lexer);
     let program = parser.program().unwrap();
     let ir = compiler::Compiler::program(program).unwrap();
-    let mut modules = module_loader::ModuleLoader::new();
-    modules.add_ready("native".to_string(), primitive::native_module());
-    let result = interpreter::program(ir, modules);
+    let mut modules = STDLIB.with(|m| m.clone());
+    let result = interpreter::program(ir, &mut modules);
     result
 }
 

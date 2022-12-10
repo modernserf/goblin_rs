@@ -294,27 +294,27 @@ impl Frames {
 }
 
 #[derive(Debug)]
-struct Interpreter {
+struct Interpreter<'a> {
     values: Values,
     frames: Frames,
-    modules: ModuleLoader,
+    modules: &'a mut ModuleLoader,
 }
 
-pub fn program(program: Vec<IR>, modules: ModuleLoader) -> Result<Value, RuntimeError> {
+pub fn program(program: Vec<IR>, modules: &mut ModuleLoader) -> Result<Value, RuntimeError> {
     let mut interpreter = Interpreter::new(modules);
     interpreter.run(Rc::new(program))
 }
 
 #[allow(unused)]
-impl Interpreter {
-    fn new(modules: ModuleLoader) -> Self {
+impl<'a> Interpreter<'a> {
+    fn new(modules: &'a mut ModuleLoader) -> Self {
         Self {
             values: Values::new(),
             frames: Frames::root(),
             modules: modules,
         }
     }
-    fn run(&mut self, program: Body) -> Result<Value, RuntimeError> {
+    pub fn run(&mut self, program: Body) -> Result<Value, RuntimeError> {
         let mut code = CodeStack::new(program);
         while code.has_code() {
             let mut returned = false;
@@ -473,7 +473,8 @@ mod test {
     use crate::class::{Class, Param};
 
     fn assert_ok(code: Vec<IR>, expected: Value) {
-        let result = program(code, ModuleLoader::new());
+        let mut modules = ModuleLoader::new();
+        let result = program(code, &mut modules);
         assert_eq!(result, Ok(expected));
     }
 

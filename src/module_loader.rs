@@ -1,11 +1,16 @@
 use std::collections::HashMap;
 
-use crate::{interpreter::SendEffect, ir::IR, runtime_error::RuntimeError, value::Value};
+use crate::{
+    interpreter::{program, SendEffect},
+    ir::IR,
+    runtime_error::RuntimeError,
+    value::Value,
+};
 
 #[derive(Debug, Clone)]
 enum ModuleLoadState {
     Init(Vec<IR>),
-    Loading(Vec<IR>),
+    Loading,
     Ready(Value),
 }
 
@@ -20,21 +25,32 @@ impl ModuleLoader {
             modules: HashMap::new(),
         }
     }
-    pub fn add_init(&mut self, name: String, ir: Vec<IR>) {
-        self.modules.insert(name, ModuleLoadState::Init(ir));
+    pub fn add_init(&mut self, name: &str, ir: Vec<IR>) {
+        self.modules
+            .insert(name.to_string(), ModuleLoadState::Init(ir));
     }
-    pub fn add_ready(&mut self, name: String, value: Value) {
-        self.modules.insert(name, ModuleLoadState::Ready(value));
+    pub fn add_ready(&mut self, name: &str, value: Value) {
+        self.modules
+            .insert(name.to_string(), ModuleLoadState::Ready(value));
     }
     pub fn load(&mut self, name: &str) -> SendEffect {
-        let module = self.modules.get(name);
-        match module {
-            Some(ModuleLoadState::Loading(_)) => {
+        match self.modules.get_mut(name) {
+            Some(ModuleLoadState::Loading) => {
                 todo!("error: loop in load module")
             }
             Some(ModuleLoadState::Ready(value)) => value.clone().eval(),
             Some(ModuleLoadState::Init(ir)) => {
-                todo!("run module to get exports")
+                let ir = std::mem::take(ir);
+                self.modules
+                    .insert(name.to_string(), ModuleLoadState::Loading);
+
+                match program(ir, self) {
+                    Ok(value) => {
+                        self.add_ready(name, value.clone());
+                        SendEffect::Value(value)
+                    }
+                    Err(err) => SendEffect::Error(err),
+                }
             }
             None => RuntimeError::unknown_module(&name),
         }
