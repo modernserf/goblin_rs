@@ -1,0 +1,41 @@
+import [_Assert_ _String_] := "core"
+
+# equality
+Assert{: "Hello" = "Hello"}
+Assert{: "Hello" != "Goodbye"}
+Assert{false: "1" = 1}
+Assert{: "1" != 1}
+
+# conversions
+Assert{: "foo"{to String} = "foo"}
+Assert{: 1{to String} = "1"}
+
+# concatenation
+Assert{: ("Hello" ++ "") = "Hello" }
+Assert{: ("Hello" ++ ", " ++ "world!") = "Hello, world!"}
+
+# concat with conversion
+Assert{: ("Hello " ++ 123) = "Hello 123"}
+Assert{panics: [{}
+  let obj := [
+    on {to String} 1
+  ]
+  "foo" ++ obj
+]}
+
+# codepoints
+Assert{: String{from char code: 65} = "A"}
+Assert{: "A"{code at: 0} = 65}
+Assert{: "ABC"{code at: -1} =  "ABC"{code at: 2}}
+Assert{panics: [{} ""{code at: 0}]}
+
+# indexing
+Assert{: "foo"{at: 0} = "f"}
+Assert{: "foo"{at: -1} = "o"}
+Assert{: ""{at:0} = ""}
+
+# slicing
+Assert{: "foobar"{from: 1 to: 1} = ""}
+Assert{: "foobar"{from: 1 to: 3} = "oo"}
+Assert{: "foobar"{from: 1} = "oobar"}
+Assert{: "foobar"{to: 4} = "foob"}

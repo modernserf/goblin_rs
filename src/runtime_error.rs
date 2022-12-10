@@ -7,6 +7,7 @@ pub enum RuntimeError {
     InvalidArg { expected: String, received: Value },
     AssertionError(String),
     UnknownModule(String),
+    IndexOutOfRange,
 }
 
 impl RuntimeError {
@@ -34,5 +35,9 @@ impl RuntimeError {
 
     pub fn unknown_module(name: &str) -> SendEffect {
         SendEffect::Error(RuntimeError::UnknownModule(name.to_string()))
+    }
+
+    pub fn index_out_of_range() -> SendEffect {
+        SendEffect::Error(RuntimeError::IndexOutOfRange)
     }
 }

@@ -362,6 +362,89 @@ fn build_float_class() -> RcClass {
 
 pub fn build_string_class() -> RcClass {
     let mut class = Class::new();
+    // equality
+    class.add_native("=:", vec![Param::Value], |target, args| match &args[0] {
+        Value::String(r) => Value::Bool(target.as_string() == r).eval(),
+        _ => Value::Bool(false).eval(),
+    });
+    class.add_native("!=:", vec![Param::Value], |target, args| match &args[0] {
+        Value::String(r) => Value::Bool(target.as_string() != r).eval(),
+        _ => Value::Bool(true).eval(),
+    });
+    // conversions
+    class.add_native("to String", vec![], |target, _| target.eval());
+    // chars
+    class.add_native("length", vec![], |target, _| {
+        Value::Integer(target.as_string().len() as i64).eval()
+    });
+    class.add_native("code at:", vec![Param::Value], |target, args| {
+        match &args[0] {
+            Value::Integer(idx) => {
+                let target = target.as_string();
+                if target.is_empty() {
+                    return RuntimeError::index_out_of_range();
+                }
+                let idx_ = (*idx).rem_euclid(target.len() as i64) as usize;
+                let ch = target.chars().nth(idx_).unwrap();
+                Value::Integer(ch as i64).eval()
+            }
+            _ => RuntimeError::primitive_type_error("integer", &args[0]),
+        }
+    });
+    class.add_native("at:", vec![Param::Value], |target, args| match &args[0] {
+        Value::Integer(idx) => {
+            let target = target.as_string();
+            if target.is_empty() {
+                return Value::string("").eval();
+            }
+            let idx_ = (*idx).rem_euclid(target.len() as i64) as usize;
+            let str = target[idx_..idx_ + 1].to_string();
+            Value::String(Rc::new(str)).eval()
+        }
+        _ => RuntimeError::primitive_type_error("integer", &args[0]),
+    });
+    // slicing
+    class.add_native(
+        "from:to:",
+        vec![Param::Value, Param::Value],
+        |target, args| match (&args[0], &args[1]) {
+            (Value::Integer(from), Value::Integer(to)) => {
+                let target = target.as_string();
+                if target.is_empty() {
+                    return Value::string("").eval();
+                }
+
+                // TODO: how, exactly, should slice work?
+                let from = (*from).rem_euclid(target.len() as i64) as usize;
+                let to = (*to) as usize; //.rem_euclid(target.len() as i64) as usize;
+                let str = target[from..to].to_string();
+                Value::String(Rc::new(str)).eval()
+            }
+            (_, _) => RuntimeError::primitive_type_error("integer", &args[0]),
+        },
+    );
+    class.add_handler(
+        "from:",
+        vec![Param::Value],
+        vec![
+            IR::IVar(0),
+            IR::Local(0),
+            IR::IVar(0),
+            IR::Send("length".to_string(), 0),
+            IR::Send("from:to:".to_string(), 2),
+        ],
+    );
+    class.add_handler(
+        "to:",
+        vec![Param::Value],
+        vec![
+            IR::IVar(0),
+            IR::Constant(Value::Integer(0)),
+            IR::Local(0),
+            IR::Send("from:to:".to_string(), 2),
+        ],
+    );
+    // concatenation
     class.add_handler(
         "++:",
         vec![Param::Value],
@@ -381,15 +464,6 @@ pub fn build_string_class() -> RcClass {
             ),
         ],
     );
-    class.add_native("to String", vec![], |target, _| target.eval());
-    class.add_native("=:", vec![Param::Value], |target, args| match &args[0] {
-        Value::String(r) => Value::Bool(target.as_string() == r).eval(),
-        _ => RuntimeError::primitive_type_error("string", &args[0]),
-    });
-    class.add_native("debug", vec![], |target, _| {
-        println!("{}", target.as_string());
-        Value::Unit.eval()
-    });
     class.rc()
 }
 
@@ -504,6 +578,31 @@ fn get_file_module() -> Value {
     Value::Object(Rc::new(obj))
 }
 
+fn get_string_module() -> Value {
+    let mut class = Class::new();
+    class.add_constant("newline", Value::String(Rc::new("\n".to_string())));
+    class.add_constant("tab", Value::String(Rc::new("\t".to_string())));
+    class.add_native(
+        "from char code:",
+        vec![Param::Value],
+        |_, args| match args[0] {
+            Value::Integer(d) => match char::from_u32(d as u32) {
+                Some(ch) => Value::String(Rc::new({
+                    let mut s = String::new();
+                    s.push(ch);
+                    s
+                }))
+                .eval(),
+                None => todo!("invalid char code"),
+            },
+            _ => RuntimeError::primitive_type_error("string", &args[0]),
+        },
+    );
+
+    let obj = Object::new(class.rc(), vec![Value::Unit]);
+    Value::Object(Rc::new(obj))
+}
+
 fn get_native_module() -> RcClass {
     let mut class = Class::new();
     class.add_constant("true", Value::Bool(true));
@@ -511,6 +610,7 @@ fn get_native_module() -> RcClass {
     class.add_constant("Cell", get_cell_module());
     class.add_constant("Assert", get_assert_module());
     class.add_constant("File", get_file_module());
+    class.add_constant("String", get_string_module());
 
     class.rc()
 }
