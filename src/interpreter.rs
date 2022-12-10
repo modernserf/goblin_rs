@@ -416,6 +416,17 @@ impl<'a> Interpreter<'a> {
                 let result = target.send(selector, args);
                 return Some(result);
             }
+            IR::Spawn => {
+                let target = self.values.pop();
+                let result = program(
+                    vec![IR::Constant(target), IR::Send("".to_string(), 0)],
+                    &mut self.modules,
+                );
+
+                // TODO: return Result<value, error>
+                let is_ok = Value::Bool(result.is_ok());
+                self.values.push(is_ok);
+            }
             IR::SendPrimitive(f, arity) => {
                 let args = self.values.pop_args(*arity);
                 let target = self.values.pop();

@@ -1,4 +1,4 @@
-use std::{cell::RefCell, ops::Deref, rc::Rc};
+use std::{cell::RefCell, ops::Deref, rc::Rc, vec};
 
 use crate::{
     class::{Class, Object, Param, RcClass},
@@ -461,6 +461,24 @@ fn get_assert_module() -> Value {
                 args[0], args[1]
             ));
         },
+    );
+    class.add_handler(
+        "panics:",
+        vec![Param::Value],
+        vec![
+            IR::Local(0),
+            IR::Spawn,
+            IR::SendPrimitive(
+                |_, args| {
+                    if args[0].as_bool() {
+                        return RuntimeError::assertion_error("expected handler to panic");
+                    } else {
+                        return Value::Unit.eval();
+                    }
+                },
+                1,
+            ),
+        ],
     );
 
     let obj = Object::new(class.rc(), vec![Value::Unit]);

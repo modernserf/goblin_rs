@@ -3,6 +3,7 @@ use crate::{class::RcClass, interpreter::SendEffect, value::Value};
 #[allow(unused)]
 #[derive(Debug, Clone, PartialEq)]
 pub enum IR {
+    Spawn,
     Drop,
     Return,
     Constant(Value),
