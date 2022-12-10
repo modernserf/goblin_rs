@@ -35,7 +35,6 @@ thread_local! {
     static STDLIB : module_loader::ModuleLoader = build_stdlib()
 }
 
-#[allow(unused)]
 fn run(code: &str) -> Result<value::Value, runtime_error::RuntimeError> {
     let lexer = lexer::Lexer::from_string(code);
     let mut parser = parser::Parser::new(lexer);
@@ -47,7 +46,20 @@ fn run(code: &str) -> Result<value::Value, runtime_error::RuntimeError> {
 }
 
 fn main() {
-    println!("Hello, world!");
+    let stdin = std::io::stdin();
+    let mut input = String::new();
+    loop {
+        match stdin.read_line(&mut input) {
+            Ok(0) => {
+                run(&input).unwrap();
+                return;
+            }
+            Ok(_) => {}
+            Err(err) => {
+                panic!("{:?}", err)
+            }
+        }
+    }
 }
 
 #[cfg(test)]
