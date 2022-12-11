@@ -46,13 +46,15 @@ Assert{: result = 3}
 
 # equality
 Assert{: [x] = [x]}
-# Assert{: [x] != [y]}
-# Assert{: [x] != [x: ()]}
-# Assert{: [x] != ()}
-# Assert{: [x: 1 y: 2] = [x: 1 y: 2]}
-# Assert{: [x: 1 y: 2] != [x: 1 y: 2 z: 3]}
-# Assert{: [x: 1 y: 2] != [x: 1]}
-# Assert{: [x: 1 y: 2] != [x: 1 y: 3]}
-# Assert{panics: [{}
-#   [x: ()] = [x: 1]
-# ]}
+Assert{: [x] != [y]}
+Assert{: [x] != [x: 1]}
+Assert{: [x] != ()}
+Assert{: [x: 1 y: 2] = [x: 1 y: 2]}
+Assert{: [x: 1 y: 2] != [x: 1 y: 2 z: 3]}
+Assert{: [x: 1 y: 2] != [x: 1]}
+Assert{: [x: 1 y: 2] != [x: 1 y: 3]}
+Assert{: [x: ()] != [x: 1]}
+# TODO: how could this not panic?
+Assert{panics: [{} 
+  [x: 1] != [x: ()]
+]}

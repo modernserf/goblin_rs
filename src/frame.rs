@@ -57,22 +57,7 @@ impl Frame {
                     "=:",
                     vec![Param::Value],
                     vec![
-                        // // arg
-                        // IR::Local { index: 0 },
-                        // // or else
-                        // IR::NewObject {
-                        //     class: {
-                        //         let mut class = Class::new();
-                        //         class.add_handler(
-                        //             "",
-                        //             vec![],
-                        //             vec![IR::Constant(Value::Bool(false))],
-                        //         );
-                        //         class.rc()
-                        //     },
-                        //     arity: 0,
-                        // },
-                        // target
+                        // pattern
                         IR::NewObject {
                             class: {
                                 let mut class = Class::new();
@@ -86,12 +71,25 @@ impl Frame {
                             },
                             arity: 0,
                         },
+                        // or else
+                        IR::NewObject {
+                            class: {
+                                let mut class = Class::new();
+                                class.add_handler(
+                                    "",
+                                    vec![],
+                                    vec![IR::Constant(Value::Bool(false))],
+                                );
+                                class.rc()
+                            },
+                            arity: 0,
+                        },
+                        // target
                         IR::Local { index: 0 },
-                        IR::send(":", 1),
-                        // IR::TrySend {
-                        //     selector: ":".to_string(),
-                        //     arity: 1,
-                        // },
+                        IR::TrySend {
+                            selector: ":".to_string(),
+                            arity: 1,
+                        },
                     ],
                 );
                 class.add_handler(
@@ -133,45 +131,51 @@ impl Frame {
                     body
                 });
                 // equality
-                // class.add_handler("=:", vec![Param::Value], {
-                //     let mut body = vec![];
-                //     body.push(IR::Local { index: 0 });
-                //     for i in 0..args.len() {
-                //         body.push(IR::IVar(i));
-                //     }
-                //     body.push(IR::Object(
-                //         {
-                //             let mut class = Class::new();
-                //             class.add_handler(
-                //                 &selector,
-                //                 args.iter().map(|_| Param::Value).collect(),
-                //                 {
-                //                     let mut body = vec![IR::Constant(Value::Bool(true))];
-                //                     for i in 0..args.len() {
-                //                         body.push(IR::IVar(i));
-                //                         body.push(IR::Local(i));
-                //                         body.push(IR::Send("=:".to_string(), 1));
-                //                         body.push(IR::Send("&&:".to_string(), 1));
-                //                     }
-                //                     body
-                //                 },
-                //             );
-                //             class.add_else(vec![IR::Constant(Value::Bool(false))]);
-                //             class.rc()
-                //         },
-                //         args.len(),
-                //     ));
-                //     body.push(IR::Object(
-                //         {
-                //             let mut class = Class::new();
-                //             class.add_handler("", vec![], vec![IR::Constant(Value::Bool(false))]);
-                //             class.rc()
-                //         },
-                //         0,
-                //     ));
-                //     body.push(IR::TrySend(":".to_string(), 1));
-                //     body
-                // });
+                class.add_handler("=:", vec![Param::Value], {
+                    let mut body = vec![];
+                    // pattern
+                    for i in 0..args.len() {
+                        body.push(IR::IVar { index: i });
+                    }
+                    body.push(IR::NewObject {
+                        class: {
+                            let mut class = Class::new();
+                            class.add_handler(
+                                &selector,
+                                args.iter().map(|_| Param::Value).collect(),
+                                {
+                                    let mut body = vec![IR::Constant(Value::Bool(true))];
+                                    for i in 0..args.len() {
+                                        body.push(IR::IVar { index: i });
+                                        body.push(IR::Local { index: i });
+                                        body.push(IR::send("=:", 1));
+                                        body.push(IR::send("&&:", 1));
+                                    }
+                                    body
+                                },
+                            );
+                            class.add_else(vec![IR::Constant(Value::Bool(false))]);
+                            class.rc()
+                        },
+                        arity: args.len(),
+                    });
+                    //  or else
+                    body.push(IR::NewObject {
+                        class: {
+                            let mut class = Class::new();
+                            class.add_handler("", vec![], vec![IR::Constant(Value::Bool(false))]);
+                            class.rc()
+                        },
+                        arity: 0,
+                    });
+                    // target
+                    body.push(IR::Local { index: 0 });
+                    body.push(IR::TrySend {
+                        selector: ":".to_string(),
+                        arity: 1,
+                    });
+                    body
+                });
                 class.add_handler(
                     "!=:",
                     vec![Param::Value],
