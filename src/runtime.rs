@@ -1,6 +1,6 @@
 use std::rc::Rc;
 
-use crate::class::{Body, Object, RcClass};
+use crate::class::{Body, Object, Param, RcClass};
 use crate::module_loader::ModuleLoader;
 use crate::value::{Handler, Value};
 
@@ -10,10 +10,7 @@ use crate::value::{Handler, Value};
 pub enum RuntimeError {
     DoesNotUnderstand(String),
     PrimitiveTypeError { expected: String, received: Value },
-    // InvalidArg {
-    //     expected: Param,
-    //     received: Option<Arg>,
-    // },
+    InvalidArg { expected: Param, received: Value },
     AssertionError(String),
     UnknownModule(String),
     ModuleLoadLoop(String),
@@ -118,6 +115,15 @@ impl Stack {
     }
     fn truncate(&mut self, next_length: usize) {
         self.stack.truncate(next_length)
+    }
+    fn check_type(&self, index: usize, param: &Param) -> Runtime<()> {
+        match (param, &self.stack[index]) {
+            (Param::Value, Value::DoObject(_)) => Err(RuntimeError::InvalidArg {
+                expected: param.clone(),
+                received: self.stack[index].clone(),
+            }),
+            _ => Ok(()),
+        }
     }
 }
 
@@ -266,47 +272,6 @@ impl CallStack {
     }
 }
 
-// #[derive(Debug, Clone, PartialEq)]
-// pub enum Arg {
-//     Var { index: usize },
-//     Do,
-// }
-
-// #[derive(Debug)]
-// struct Args {
-//     args: HashMap<usize, Arg>,
-// }
-
-// impl Args {
-//     fn new() -> Self {
-//         Self {
-//             args: HashMap::new(),
-//         }
-//     }
-//     fn var_arg(&mut self, current: usize, parent_index: usize) {
-//         self.args.insert(
-//             current,
-//             Arg::Var {
-//                 index: parent_index,
-//             },
-//         );
-//     }
-//     fn do_arg(&mut self, current: usize) {
-//         self.args.insert(current, Arg::Do);
-//     }
-//     fn check(&self, index: usize, expected: Param) -> Runtime<()> {
-//         let received = self.args.get(&index).cloned();
-//         match (&expected, &received) {
-//             (Param::Value, None) => {}
-//             (Param::Var, Some(Arg::Var { .. })) => {}
-//             (Param::Do, None) => {}
-//             (Param::Do, Some(Arg::Do)) => {}
-//             _ => return Err(RuntimeError::InvalidArg { expected, received }),
-//         }
-//         Ok(())
-//     }
-// }
-
 #[allow(unused)]
 #[derive(Debug)]
 struct Interpreter<'a> {
@@ -349,14 +314,14 @@ impl<'a> Interpreter<'a> {
             }
         }
     }
-    // fn check_args(&self, handler: &Handler) -> Runtime<()> {
-    //     let params = handler.params();
-    //     let stack_offset = self.stack.size() - params.len();
-    //     for (i, param) in params.iter().enumerate() {
-    //         self.args.check(i + stack_offset, param.clone())?;
-    //     }
-    //     Ok(())
-    // }
+    fn check_args(&self, handler: &Handler) -> Runtime<()> {
+        let params = handler.params();
+        let stack_offset = self.stack.size() - params.len();
+        for (i, param) in params.iter().enumerate() {
+            self.stack.check_type(i + stack_offset, &param)?;
+        }
+        Ok(())
+    }
     fn eval(&mut self, ir: IR) -> Runtime<()> {
         match ir {
             // put a value on the stack
@@ -393,7 +358,7 @@ impl<'a> Interpreter<'a> {
                 let target = self.stack.pop();
                 let next_offset = self.stack.size() - arity;
                 let handler = target.get_handler(&selector, arity)?;
-                // self.check_args(&handler)?;
+                self.check_args(&handler)?;
                 self.call_stack.call(selector, next_offset, handler);
             }
             IR::TrySend { selector, arity } => {
@@ -401,7 +366,7 @@ impl<'a> Interpreter<'a> {
                 let or_else = self.stack.pop();
                 let next_offset = self.stack.size() - arity;
                 if let Ok(handler) = target.get_handler(&selector, arity) {
-                    // self.check_args(&handler)?;
+                    self.check_args(&handler)?;
                     self.call_stack.call(selector, next_offset, handler);
                 } else {
                     // TODO: should this be handled in the or_else handler?

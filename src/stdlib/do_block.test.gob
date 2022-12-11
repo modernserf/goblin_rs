@@ -1,16 +1,19 @@
 import [_Assert_ _Log_] := "core"
 
+let obj := [
+  on {send: do f}
+    f{x}
+]
+
 let result := [{}
-  let f := [x]
-  f{: 
+  obj{send: 
     on {x} 1
   }
 ]{}
 Assert{: result = 1}
 
 let result := [{}
-  let f := [x]
-  f{:[
+  obj{send: [
     on {x} 
       return 1
   ]}
@@ -18,12 +21,21 @@ let result := [{}
 ]{}
 Assert{: result = 2}
 
-let result := [{test}
-  let f := [x]
-  f{: 
-    on {x} 
+let result := [{}
+  obj{send: 
+    on {x}
       return 1
   }
   2
-]{test}
+]{}
 Assert{: result = 1}
+
+Assert{panics: [{}
+  let obj := [
+    on {send: f}
+      f{x}
+  ]
+  obj{send: 
+    on {x} 1
+  }
+]}
