@@ -8,7 +8,12 @@ let result := f{:[
   on {x} 1
   else 2
 ]}
-Assert{:result = 1}
+Assert{: result = 1}
+let result := f{:[
+  on {y} 1
+  else 2 
+]}
+Assert{: result = 2}
 
 # fold
 Assert{
@@ -40,7 +45,7 @@ Assert{: result = 3}
 # utilities
 
 # equality
-# Assert{: [x] = [x]}
+Assert{: [x] = [x]}
 # Assert{: [x] != [y]}
 # Assert{: [x] != [x: ()]}
 # Assert{: [x] != ()}

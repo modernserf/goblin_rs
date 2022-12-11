@@ -363,7 +363,7 @@ impl<'a> Interpreter<'a> {
             IR::Send { selector, arity } => {
                 let target = self.stack.pop();
                 let next_offset = self.stack.size() - arity;
-                let handler = target.get_handler(&selector)?;
+                let handler = target.get_handler(&selector, arity)?;
                 // self.check_args(&handler)?;
                 self.call_stack.call(selector, next_offset, handler);
             }
@@ -371,12 +371,12 @@ impl<'a> Interpreter<'a> {
                 let target = self.stack.pop();
                 let or_else = self.stack.pop();
                 let next_offset = self.stack.size() - arity;
-                if let Ok(handler) = target.get_handler(&selector) {
+                if let Ok(handler) = target.get_handler(&selector, arity) {
                     // self.check_args(&handler)?;
                     self.call_stack.call(selector, next_offset, handler);
                 } else {
                     self.stack.pop_args(arity);
-                    let handler = or_else.get_handler("")?;
+                    let handler = or_else.get_handler("", 0)?;
                     let next_offset = self.stack.size();
                     self.call_stack.call("".to_string(), next_offset, handler);
                 }
@@ -530,6 +530,27 @@ mod test {
             ],
             RuntimeError::DoesNotUnderstand("+:".to_string())
                 .with_stack_trace(vec!["<root>".to_string(), "baz:".to_string()]),
+        )
+    }
+
+    #[test]
+    fn else_handler() {
+        let class = {
+            let mut class = Class::new();
+            class.add_else(vec![IR::int(1), IR::Local { index: 0 }]);
+            class.rc()
+        };
+
+        assert_ok(
+            vec![
+                IR::int(10),
+                IR::int(11),
+                IR::int(12),
+                IR::int(13),
+                IR::new_object(&class, 0),
+                IR::send("bar:baz:foo:quux:", 4),
+            ],
+            Value::Integer(1),
         )
     }
 }

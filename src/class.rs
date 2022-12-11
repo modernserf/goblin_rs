@@ -46,6 +46,9 @@ impl Class {
     pub fn get(&self, selector: &str) -> Option<&Handler> {
         self.handlers.get(selector)
     }
+    pub fn get_else(&self) -> Option<&Body> {
+        self.else_handler.as_ref()
+    }
     pub fn rc(self) -> RcClass {
         Rc::new(self)
     }

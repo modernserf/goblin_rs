@@ -1,8 +1,9 @@
+use std::ops::Deref;
 use std::{cell::RefCell, rc::Rc};
 
 use crate::class::{Body, Class, Object, Param, RcClass};
 use crate::primitive::{bool_class, cell_class, float_class, int_class, string_class};
-use crate::runtime::{Runtime, RuntimeError};
+use crate::runtime::{Runtime, RuntimeError, IR};
 
 #[allow(unused)]
 #[derive(Debug, Clone, PartialEq)]
@@ -73,10 +74,23 @@ impl Value {
         }
     }
 
-    pub fn get_handler(&self, selector: &str) -> Runtime<Handler> {
+    pub fn get_handler(&self, selector: &str, arity: usize) -> Runtime<Handler> {
         let class = self.class();
         if let Some(handler) = class.get(selector) {
             Ok(Handler::new(self.clone(), handler.params(), handler.body()))
+        } else if let Some(else_body) = class.get_else() {
+            let body = {
+                // drop args
+                let mut out = vec![];
+                for _ in 0..arity {
+                    out.push(IR::Drop);
+                }
+                let mut else_body = else_body.deref().clone();
+                out.append(&mut else_body);
+                Rc::new(out)
+            };
+
+            Ok(Handler::new(self.clone(), vec![], body))
         } else {
             Err(RuntimeError::DoesNotUnderstand(selector.to_string()))
         }

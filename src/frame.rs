@@ -8,6 +8,7 @@ use crate::{
     parser::Parse,
     runtime::IR,
     source::Source,
+    value::Value,
 };
 
 thread_local! {
@@ -51,39 +52,48 @@ impl Frame {
                     vec![Param::Value, Param::Value],
                     vec![IR::send(&format!("{}:", key), 1)],
                 );
-                // class.add_handler(
-                //     "=:",
-                //     vec![Param::Value],
-                //     vec![
-                //         IR::Local { index: 0 },
-                //         IR::NewObject {
-                //             class: {
-                //                 let mut class = Class::new();
-                //                 class.add_handler(
-                //                     &key,
-                //                     vec![],
-                //                     vec![IR::Constant(Value::Bool(true))],
-                //                 );
-                //                 class.add_else(vec![IR::Constant(Value::Bool(false))]);
-                //                 class.rc()
-                //             },
-                //             arity: 0,
-                //         },
-                //         IR::NewObject {
-                //             class: {
-                //                 let mut class = Class::new();
-                //                 class.add_handler(
-                //                     "",
-                //                     vec![],
-                //                     vec![IR::Constant(Value::Bool(false))],
-                //                 );
-                //                 class.rc()
-                //             },
-                //             arity: 0,
-                //         },
-                //         IR::try_send(":", 1),
-                //     ],
-                // );
+                // [x] = other -> other{: on {x} true else false } ? false
+                class.add_handler(
+                    "=:",
+                    vec![Param::Value],
+                    vec![
+                        // // arg
+                        // IR::Local { index: 0 },
+                        // // or else
+                        // IR::NewObject {
+                        //     class: {
+                        //         let mut class = Class::new();
+                        //         class.add_handler(
+                        //             "",
+                        //             vec![],
+                        //             vec![IR::Constant(Value::Bool(false))],
+                        //         );
+                        //         class.rc()
+                        //     },
+                        //     arity: 0,
+                        // },
+                        // target
+                        IR::NewObject {
+                            class: {
+                                let mut class = Class::new();
+                                class.add_handler(
+                                    &key,
+                                    vec![],
+                                    vec![IR::Constant(Value::Bool(true))],
+                                );
+                                class.add_else(vec![IR::Constant(Value::Bool(false))]);
+                                class.rc()
+                            },
+                            arity: 0,
+                        },
+                        IR::Local { index: 0 },
+                        IR::send(":", 1),
+                        // IR::TrySend {
+                        //     selector: ":".to_string(),
+                        //     arity: 1,
+                        // },
+                    ],
+                );
                 class.add_handler(
                     "!=:",
                     vec![Param::Value],
