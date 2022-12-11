@@ -55,29 +55,6 @@ impl ObjectBuilder {
             else_handler: None,
         }
     }
-    pub fn compile_do(self, compiler: &mut Compiler) -> Compile<(Vec<IR>, Vec<IR>)> {
-        unimplemented!();
-        // let mut class = Class::new();
-        // let mut do_instance = compiler.do_instance();
-
-        // for (selector, handler) in self.handlers {
-        //     compiler.do_handler(do_instance);
-
-        //     let ir_params = Self::compile_params(compiler, &handler);
-        //     let body = Compiler::body(handler.body, compiler)?;
-        //     class.add_handler(&selector, ir_params, body);
-
-        //     do_instance = compiler.end_do_handler();
-        // }
-
-        // let (own_offset, alloc) = compiler.end_do_instance(do_instance);
-        // let arg = vec![IR::DoBlock {
-        //     class: class.rc(),
-        //     own_offset,
-        // }];
-        // Ok((alloc, arg))
-    }
-
     pub fn compile(self, compiler: &mut Compiler, binding: Option<&Binding>) -> CompileIR {
         let mut class = Class::new();
         let mut instance = Instance::new();
@@ -130,9 +107,8 @@ impl ObjectBuilder {
                         Binding::Destructuring(_, _) => todo!("destructuring in params"),
                     }
                 }
-                Param::Var(key) => {
-                    ir_params.push(IRParam::Var);
-                    compiler.add_var(key.to_string());
+                Param::Var(_) => {
+                    unimplemented!();
                 }
                 Param::Do(key) => {
                     ir_params.push(IRParam::Do);

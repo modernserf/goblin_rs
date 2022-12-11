@@ -1,7 +1,6 @@
-use std::collections::HashMap;
 use std::rc::Rc;
 
-use crate::class::{Body, Object, Param, RcClass};
+use crate::class::{Body, Object, RcClass};
 use crate::module_loader::ModuleLoader;
 use crate::value::{Handler, Value};
 
@@ -10,25 +9,20 @@ use crate::value::{Handler, Value};
 
 pub enum RuntimeError {
     DoesNotUnderstand(String),
-    PrimitiveTypeError {
-        expected: String,
-        received: Value,
-    },
-    InvalidArg {
-        expected: Param,
-        received: Option<Arg>,
-    },
+    PrimitiveTypeError { expected: String, received: Value },
+    // InvalidArg {
+    //     expected: Param,
+    //     received: Option<Arg>,
+    // },
     AssertionError(String),
     UnknownModule(String),
     ModuleLoadLoop(String),
     IndexOutOfRange,
     Panic(Value),
+    WithStackTrace(Box<RuntimeError>, Vec<String>),
 }
 
 impl RuntimeError {
-    pub fn does_not_understand<T>(str: &str) -> Runtime<T> {
-        Err(RuntimeError::DoesNotUnderstand(str.to_string()))
-    }
     pub fn primitive_type_error<T>(expected: &str, received: &Value) -> Runtime<T> {
         Err(RuntimeError::PrimitiveTypeError {
             expected: expected.to_string(),
@@ -40,6 +34,9 @@ impl RuntimeError {
     }
     pub fn assertion_error<T>(message: &str) -> Runtime<T> {
         Err(RuntimeError::AssertionError(message.to_string()))
+    }
+    pub fn with_stack_trace(self, trace: Vec<String>) -> RuntimeError {
+        RuntimeError::WithStackTrace(Box::new(self), trace)
     }
 }
 pub type Runtime<T> = Result<T, RuntimeError>;
@@ -62,19 +59,14 @@ pub enum IR {
     NewObject { class: RcClass, arity: usize },
     NewSelf { arity: usize },
     Spawn,
-    // args
-    VarArg { index: usize },
-    DoArg,
     // control flow
     Return,
 }
 
 impl IR {
+    #[cfg(test)]
     pub fn int(value: i64) -> IR {
         IR::Constant(Value::Integer(value))
-    }
-    pub fn str(str: &str) -> IR {
-        IR::Constant(Value::String(Rc::new(str.to_string())))
     }
     pub fn send(selector: &str, arity: usize) -> IR {
         IR::Send {
@@ -85,12 +77,7 @@ impl IR {
     pub fn send_primitive(f: NativeHandlerFn, arity: usize) -> IR {
         IR::SendPrimitive { f, arity }
     }
-    pub fn try_send(selector: &str, arity: usize) -> IR {
-        IR::TrySend {
-            selector: selector.to_string(),
-            arity,
-        }
-    }
+    #[cfg(test)]
     pub fn new_object(class: &RcClass, arity: usize) -> IR {
         IR::NewObject {
             class: class.clone(),
@@ -242,55 +229,61 @@ impl CallStack {
         let instance = self.instance();
         instance.ivar(index)
     }
+    fn stack_trace(&self) -> Vec<String> {
+        self.stack
+            .iter()
+            .map(|frame| frame.selector.to_string())
+            .collect()
+    }
 }
 
-#[derive(Debug, Clone, PartialEq)]
-pub enum Arg {
-    Var { index: usize },
-    Do,
-}
+// #[derive(Debug, Clone, PartialEq)]
+// pub enum Arg {
+//     Var { index: usize },
+//     Do,
+// }
 
-#[derive(Debug)]
-struct Args {
-    args: HashMap<usize, Arg>,
-}
+// #[derive(Debug)]
+// struct Args {
+//     args: HashMap<usize, Arg>,
+// }
 
-impl Args {
-    fn new() -> Self {
-        Self {
-            args: HashMap::new(),
-        }
-    }
-    fn var_arg(&mut self, current: usize, parent_index: usize) {
-        self.args.insert(
-            current,
-            Arg::Var {
-                index: parent_index,
-            },
-        );
-    }
-    fn do_arg(&mut self, current: usize) {
-        self.args.insert(current, Arg::Do);
-    }
-    fn check(&self, index: usize, expected: Param) -> Runtime<()> {
-        let received = self.args.get(&index).cloned();
-        match (&expected, &received) {
-            (Param::Value, None) => {}
-            (Param::Var, Some(Arg::Var { .. })) => {}
-            (Param::Do, None) => {}
-            (Param::Do, Some(Arg::Do)) => {}
-            _ => return Err(RuntimeError::InvalidArg { expected, received }),
-        }
-        Ok(())
-    }
-}
+// impl Args {
+//     fn new() -> Self {
+//         Self {
+//             args: HashMap::new(),
+//         }
+//     }
+//     fn var_arg(&mut self, current: usize, parent_index: usize) {
+//         self.args.insert(
+//             current,
+//             Arg::Var {
+//                 index: parent_index,
+//             },
+//         );
+//     }
+//     fn do_arg(&mut self, current: usize) {
+//         self.args.insert(current, Arg::Do);
+//     }
+//     fn check(&self, index: usize, expected: Param) -> Runtime<()> {
+//         let received = self.args.get(&index).cloned();
+//         match (&expected, &received) {
+//             (Param::Value, None) => {}
+//             (Param::Var, Some(Arg::Var { .. })) => {}
+//             (Param::Do, None) => {}
+//             (Param::Do, Some(Arg::Do)) => {}
+//             _ => return Err(RuntimeError::InvalidArg { expected, received }),
+//         }
+//         Ok(())
+//     }
+// }
 
 #[allow(unused)]
 #[derive(Debug)]
 struct Interpreter<'a> {
     stack: Stack,
     call_stack: CallStack,
-    args: Args,
+    // args: Args,
     modules: &'a mut ModuleLoader,
 }
 
@@ -304,7 +297,7 @@ impl<'a> Interpreter<'a> {
         Interpreter {
             stack: Stack::new(),
             call_stack: CallStack::new(code),
-            args: Args::new(),
+            // args: Args::new(),
             modules,
         }
     }
@@ -313,7 +306,8 @@ impl<'a> Interpreter<'a> {
             let next = self.call_stack.next();
             match next {
                 NextResult::IR(ir) => {
-                    self.eval(ir)?;
+                    self.eval(ir)
+                        .map_err(|err| err.with_stack_trace(self.call_stack.stack_trace()))?;
                 }
                 NextResult::Return { offset } => {
                     let return_value = self.stack.pop();
@@ -326,14 +320,14 @@ impl<'a> Interpreter<'a> {
             }
         }
     }
-    fn check_args(&self, handler: &Handler) -> Runtime<()> {
-        let params = handler.params();
-        let stack_offset = self.stack.size() - params.len();
-        for (i, param) in params.iter().enumerate() {
-            self.args.check(i + stack_offset, param.clone())?;
-        }
-        Ok(())
-    }
+    // fn check_args(&self, handler: &Handler) -> Runtime<()> {
+    //     let params = handler.params();
+    //     let stack_offset = self.stack.size() - params.len();
+    //     for (i, param) in params.iter().enumerate() {
+    //         self.args.check(i + stack_offset, param.clone())?;
+    //     }
+    //     Ok(())
+    // }
     fn eval(&mut self, ir: IR) -> Runtime<()> {
         match ir {
             // put a value on the stack
@@ -370,7 +364,7 @@ impl<'a> Interpreter<'a> {
                 let target = self.stack.pop();
                 let next_offset = self.stack.size() - arity;
                 let handler = target.get_handler(&selector)?;
-                self.check_args(&handler)?;
+                // self.check_args(&handler)?;
                 self.call_stack.call(selector, next_offset, handler);
             }
             IR::TrySend { selector, arity } => {
@@ -378,7 +372,7 @@ impl<'a> Interpreter<'a> {
                 let or_else = self.stack.pop();
                 let next_offset = self.stack.size() - arity;
                 if let Ok(handler) = target.get_handler(&selector) {
-                    self.check_args(&handler)?;
+                    // self.check_args(&handler)?;
                     self.call_stack.call(selector, next_offset, handler);
                 } else {
                     self.stack.pop_args(arity);
@@ -420,15 +414,6 @@ impl<'a> Interpreter<'a> {
                 let is_ok = Value::Bool(result.is_ok());
                 self.stack.push(is_ok);
             }
-            // args
-            IR::VarArg { index } => {
-                unimplemented!();
-                self.args.var_arg(self.stack.size() - 1, index);
-            }
-            IR::DoArg => {
-                unimplemented!();
-                self.args.do_arg(self.stack.size() - 1);
-            }
 
             // control flow
             IR::Return => {
@@ -441,7 +426,7 @@ impl<'a> Interpreter<'a> {
 
 #[cfg(test)]
 mod test {
-    use crate::class::Class;
+    use crate::class::{Class, Param};
 
     use super::*;
 
@@ -469,7 +454,8 @@ mod test {
     fn does_not_understand() {
         assert_err(
             vec![IR::int(1), IR::send("foo", 0)],
-            RuntimeError::DoesNotUnderstand("foo".to_string()),
+            RuntimeError::DoesNotUnderstand("foo".to_string())
+                .with_stack_trace(vec!["<root>".to_string()]),
         )
     }
 
@@ -522,5 +508,28 @@ mod test {
             ],
             Value::Integer(5),
         );
+    }
+
+    #[test]
+    fn stack_trace() {
+        let class = {
+            let mut class = Class::new();
+            class.add_handler(
+                "baz:",
+                vec![Param::Value],
+                vec![IR::int(1), IR::Local { index: 0 }, IR::send("+:", 1)],
+            );
+
+            class.rc()
+        };
+        assert_err(
+            vec![
+                IR::Constant(Value::string("hello")),
+                IR::new_object(&class, 0),
+                IR::send("baz:", 1),
+            ],
+            RuntimeError::DoesNotUnderstand("+:".to_string())
+                .with_stack_trace(vec!["<root>".to_string(), "baz:".to_string()]),
+        )
     }
 }

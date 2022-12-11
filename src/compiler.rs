@@ -6,7 +6,6 @@ use crate::{object_builder::Exports, parse_stmt::Stmt, runtime::IR, value::Value
 pub enum CompileError {
     UnknownIdentifier(String),
     InvalidSelf,
-    InvalidVarBinding,
 }
 
 impl CompileError {
@@ -16,9 +15,6 @@ impl CompileError {
     pub fn invalid_self<T>() -> Compile<T> {
         Err(Self::InvalidSelf)
     }
-    pub fn invalid_var_binding<T>() -> Compile<T> {
-        Err(Self::InvalidVarBinding)
-    }
 }
 
 pub type CompileIR = Result<Vec<IR>, CompileError>;
@@ -27,7 +23,6 @@ pub type Compile<T> = Result<T, CompileError>;
 #[derive(Debug, PartialEq, Clone, Copy)]
 pub enum BindingType {
     Let,
-    Var,
 }
 #[derive(Debug, PartialEq, Clone, Copy)]
 pub struct BindingRecord {
@@ -48,15 +43,6 @@ impl Locals {
             map: HashMap::new(),
         }
     }
-    fn offset_from(index: usize) -> Self {
-        Self {
-            index,
-            map: HashMap::new(),
-        }
-    }
-    fn allocated_since(&self, parent: &Locals) -> usize {
-        self.index - parent.index
-    }
     fn get(&self, key: &str) -> Option<BindingRecord> {
         self.map.get(key).map(|r| r.to_owned())
     }
@@ -76,9 +62,6 @@ impl Locals {
         };
         self.index += 1;
         record
-    }
-    fn allocate(&mut self, size: usize) {
-        self.index += size;
     }
 }
 
@@ -121,31 +104,9 @@ impl Instance {
 }
 
 #[derive(Debug)]
-pub struct DoInstance {
-    own_offset: usize,
-    allocated: Vec<usize>,
-}
-
-impl DoInstance {
-    fn new(own_offset: usize) -> Self {
-        Self {
-            own_offset,
-            allocated: Vec::new(),
-        }
-    }
-    fn push_allocated(&mut self, size: usize) {
-        self.allocated.push(size)
-    }
-    fn max_allocated(&self) -> usize {
-        self.allocated.iter().max().cloned().unwrap_or(0)
-    }
-}
-
-#[derive(Debug)]
 enum Scope {
     Root,
     Handler(Instance),
-    DoHandler(DoInstance),
 }
 
 #[derive(Debug)]
@@ -165,12 +126,6 @@ impl CompilerFrame {
         Self {
             locals: Locals::root(),
             scope: Scope::Handler(instance),
-        }
-    }
-    fn do_handler(do_instance: DoInstance) -> Self {
-        Self {
-            locals: Locals::offset_from(do_instance.own_offset),
-            scope: Scope::DoHandler(do_instance),
         }
     }
     fn add(&mut self, key: String, typ: BindingType) -> BindingRecord {
@@ -252,9 +207,6 @@ impl Compiler {
     pub fn add_let(&mut self, key: String) -> BindingRecord {
         self.top_mut().add(key, BindingType::Let)
     }
-    pub fn add_var(&mut self, key: String) -> BindingRecord {
-        self.top_mut().add(key, BindingType::Var)
-    }
     fn top(&self) -> &CompilerFrame {
         self.stack.last().unwrap()
     }
@@ -291,28 +243,6 @@ impl Compiler {
             }
         }
         out
-    }
-    // TODO:  return Result<usize, CompileError>
-    pub fn get_var_index(&self, key: &str) -> Option<usize> {
-        for i in (0..self.stack.len()).rev() {
-            let frame = &self.stack[i];
-            if let Some(value) = frame.locals.get(key) {
-                match value.typ {
-                    BindingType::Var => {
-                        return Some(value.index);
-                    }
-                    _ => {
-                        panic!("not a var")
-                    }
-                }
-            }
-            match frame.scope {
-                Scope::DoHandler(_) => {}
-                _ => return None,
-            }
-        }
-
-        None
     }
 }
 
