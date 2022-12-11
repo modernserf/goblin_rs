@@ -57,6 +57,7 @@ pub enum IR {
     SendPrimitive { f: NativeHandlerFn, arity: usize },
     TrySend { selector: String, arity: usize },
     NewObject { class: RcClass, arity: usize },
+    NewDoObject { class: RcClass, arity: usize },
     NewSelf { arity: usize },
     Spawn,
     // control flow
@@ -124,7 +125,10 @@ impl Stack {
 enum CallFrameInstance {
     Root,
     Handler(Value),
-    Do,
+    Do {
+        instance: Value,
+        parent_depth: usize,
+    },
 }
 
 #[derive(Debug)]
@@ -171,10 +175,10 @@ impl CallStack {
     fn top(&self) -> &CallFrame {
         self.stack.last().unwrap()
     }
-    fn instance(&self) -> Value {
+    fn get_self(&self) -> Value {
         for frame in self.stack.iter().rev() {
             match &frame.instance {
-                CallFrameInstance::Do => {
+                CallFrameInstance::Do { .. } => {
                     continue;
                 }
                 CallFrameInstance::Handler(value) => return value.clone(),
@@ -185,13 +189,17 @@ impl CallStack {
     }
 
     fn call(&mut self, selector: String, offset: usize, handler: Handler) {
+        let depth = self.stack.len();
         self.stack.push(CallFrame {
             selector,
             stack_offset: offset,
             instruction_pointer: 0,
             body: handler.body(),
             instance: if handler.is_do_block() {
-                CallFrameInstance::Do
+                CallFrameInstance::Do {
+                    instance: handler.instance(),
+                    parent_depth: depth,
+                }
             } else {
                 CallFrameInstance::Handler(handler.instance())
             },
@@ -200,7 +208,25 @@ impl CallStack {
 
     fn next(&mut self) -> NextResult {
         if self.is_unwinding {
-            todo!("drop frames until you get to a handler frame, then set is_unwinding to false")
+            self.is_unwinding = false;
+            let current_depth = self.stack.len();
+            let mut frame = self.stack.pop().unwrap();
+            match &frame.instance {
+                CallFrameInstance::Root => return NextResult::End,
+                CallFrameInstance::Handler(_) => {
+                    return NextResult::Return {
+                        offset: frame.stack_offset,
+                    };
+                }
+                CallFrameInstance::Do { parent_depth, .. } => {
+                    for _ in *parent_depth..=current_depth {
+                        frame = self.stack.pop().unwrap();
+                    }
+                    return NextResult::Return {
+                        offset: frame.stack_offset,
+                    };
+                }
+            }
         }
 
         let top = self.stack.last_mut().unwrap();
@@ -226,8 +252,11 @@ impl CallStack {
         self.top().stack_offset
     }
     fn get_ivar(&self, index: usize) -> Value {
-        let instance = self.instance();
-        instance.ivar(index)
+        match &self.top().instance {
+            CallFrameInstance::Root => unreachable!(),
+            CallFrameInstance::Do { instance, .. } => instance.ivar(index).clone(),
+            CallFrameInstance::Handler(val) => val.ivar(index).clone(),
+        }
     }
     fn stack_trace(&self) -> Vec<String> {
         self.stack
@@ -332,7 +361,7 @@ impl<'a> Interpreter<'a> {
         match ir {
             // put a value on the stack
             IR::SelfRef => {
-                let instance = self.call_stack.instance();
+                let instance = self.call_stack.get_self();
                 self.stack.push(instance);
             }
             IR::Constant(value) => {
@@ -375,6 +404,7 @@ impl<'a> Interpreter<'a> {
                     // self.check_args(&handler)?;
                     self.call_stack.call(selector, next_offset, handler);
                 } else {
+                    // TODO: should this be handled in the or_else handler?
                     self.stack.pop_args(arity);
                     let handler = or_else.get_handler("", 0)?;
                     let next_offset = self.stack.size();
@@ -392,8 +422,13 @@ impl<'a> Interpreter<'a> {
                 self.stack
                     .push(Value::Object(Object::new(class, ivars).rc()));
             }
+            IR::NewDoObject { class, arity } => {
+                let ivars = self.stack.pop_args(arity);
+                self.stack
+                    .push(Value::DoObject(Object::new(class, ivars).rc()));
+            }
             IR::NewSelf { arity } => {
-                let instance = self.call_stack.instance();
+                let instance = self.call_stack.get_self();
                 let ivars = self.stack.pop_args(arity);
                 self.stack.push(instance.new_instance(ivars));
             }

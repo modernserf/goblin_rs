@@ -56,9 +56,32 @@ impl ObjectBuilder {
         }
     }
     pub fn compile_do(self, compiler: &mut Compiler) -> CompileIR {
-        self.compile(compiler, None)
+        let (class, instance) = self.compile_inner(compiler, None)?;
+
+        let mut out = instance.ivars();
+        let arity = out.len();
+        out.push(IR::NewDoObject {
+            class: class.rc(),
+            arity,
+        });
+        Ok(out)
     }
     pub fn compile(self, compiler: &mut Compiler, binding: Option<&Binding>) -> CompileIR {
+        let (class, instance) = self.compile_inner(compiler, binding)?;
+
+        let mut out = instance.ivars();
+        let arity = out.len();
+        out.push(IR::NewObject {
+            class: class.rc(),
+            arity,
+        });
+        Ok(out)
+    }
+    fn compile_inner(
+        self,
+        compiler: &mut Compiler,
+        binding: Option<&Binding>,
+    ) -> Compile<(Class, Instance)> {
         let mut class = Class::new();
         let mut instance = Instance::new();
 
@@ -88,13 +111,7 @@ impl ObjectBuilder {
             instance = compiler.end_handler()
         }
 
-        let mut out = instance.ivars();
-        let arity = out.len();
-        out.push(IR::NewObject {
-            class: class.rc(),
-            arity,
-        });
-        Ok(out)
+        Ok((class, instance))
     }
     fn compile_params(compiler: &mut Compiler, handler: &Handler) -> Vec<IRParam> {
         let mut ir_params = Vec::new();

@@ -15,7 +15,7 @@ pub enum Value {
     String(Rc<String>),
     Cell(Rc<RefCell<Value>>),
     Object(Rc<Object>),
-    // DoObject(Rc<Object>),
+    DoObject(Rc<Object>),
 }
 
 impl Default for Value {
@@ -70,14 +70,23 @@ impl Value {
             Self::String(..) => string_class(),
             Self::Cell(..) => cell_class(),
             Self::Object(obj) => obj.class(),
-            // Self::DoObject(obj) => obj.class(),
+            Self::DoObject(obj) => obj.class(),
         }
     }
 
     pub fn get_handler(&self, selector: &str, arity: usize) -> Runtime<Handler> {
         let class = self.class();
+        let is_do_block = match self {
+            Self::DoObject(_) => true,
+            _ => false,
+        };
         if let Some(handler) = class.get(selector) {
-            Ok(Handler::new(self.clone(), handler.params(), handler.body()))
+            Ok(Handler::new(
+                self.clone(),
+                handler.params(),
+                handler.body(),
+                is_do_block,
+            ))
         } else if let Some(else_body) = class.get_else() {
             let body = {
                 // drop args
@@ -90,7 +99,7 @@ impl Value {
                 Rc::new(out)
             };
 
-            Ok(Handler::new(self.clone(), vec![], body))
+            Ok(Handler::new(self.clone(), vec![], body, is_do_block))
         } else {
             Err(RuntimeError::DoesNotUnderstand(selector.to_string()))
         }
@@ -99,6 +108,7 @@ impl Value {
     pub fn ivar(&self, index: usize) -> Value {
         match self {
             Self::Object(obj) => obj.ivar(index).clone(),
+            Self::DoObject(obj) => obj.ivar(index).clone(),
             _ => unreachable!(),
         }
     }
@@ -117,14 +127,16 @@ pub struct Handler {
     value: Value,
     params: Vec<Param>,
     body: Body,
+    is_do_block: bool,
 }
 
 impl Handler {
-    fn new(value: Value, params: Vec<Param>, body: Body) -> Self {
+    fn new(value: Value, params: Vec<Param>, body: Body, is_do_block: bool) -> Self {
         Self {
             value,
             params,
             body,
+            is_do_block,
         }
     }
     pub fn params(&self) -> Vec<Param> {
@@ -134,8 +146,7 @@ impl Handler {
         self.body.clone()
     }
     pub fn is_do_block(&self) -> bool {
-        false
-        // unimplemented!()
+        self.is_do_block
     }
     pub fn instance(&self) -> Value {
         self.value.clone()

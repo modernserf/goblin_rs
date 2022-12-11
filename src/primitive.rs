@@ -444,7 +444,7 @@ fn get_cell_module() -> Value {
         let arg = std::mem::take(&mut args[0]);
         Ok(Value::Cell(Rc::new(RefCell::new(arg))))
     });
-    let obj = Object::new(class.rc(), vec![Value::Unit]);
+    let obj = Object::new(class.rc(), vec![]);
     Value::Object(Rc::new(obj))
 }
 
@@ -511,7 +511,7 @@ fn get_assert_module() -> Value {
         ],
     );
 
-    let obj = Object::new(class.rc(), vec![Value::Unit]);
+    let obj = Object::new(class.rc(), vec![]);
     Value::Object(Rc::new(obj))
 }
 
@@ -530,7 +530,7 @@ fn get_file_module() -> Value {
         },
     );
 
-    let obj = Object::new(class.rc(), vec![Value::Unit]);
+    let obj = Object::new(class.rc(), vec![]);
     Value::Object(Rc::new(obj))
 }
 
@@ -554,7 +554,7 @@ fn get_string_module() -> Value {
         },
     );
 
-    let obj = Object::new(class.rc(), vec![Value::Unit]);
+    let obj = Object::new(class.rc(), vec![]);
     Value::Object(Rc::new(obj))
 }
 
@@ -564,7 +564,28 @@ fn get_panic_module() -> Value {
         RuntimeError::panic(&args[0])
     });
 
-    let obj = Object::new(class.rc(), vec![Value::Unit]);
+    let obj = Object::new(class.rc(), vec![]);
+    Value::Object(Rc::new(obj))
+}
+
+fn get_log_module() -> Value {
+    let mut class = Class::new();
+    class.add_handler(
+        ":",
+        vec![Param::Value],
+        vec![
+            IR::send("to String", 0),
+            IR::send_primitive(
+                |target, _| {
+                    println!("{}", target.as_string());
+                    Ok(Value::Unit)
+                },
+                0,
+            ),
+        ],
+    );
+
+    let obj = Object::new(class.rc(), vec![]);
     Value::Object(Rc::new(obj))
 }
 
@@ -577,6 +598,7 @@ fn get_native_module() -> RcClass {
     class.add_constant("File", get_file_module());
     class.add_constant("String", get_string_module());
     class.add_constant("Panic", get_panic_module());
+    class.add_constant("Log", get_log_module());
 
     class.rc()
 }

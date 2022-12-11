@@ -1,0 +1,29 @@
+import [_Assert_ _Log_] := "core"
+
+let result := [{}
+  let f := [x]
+  f{: 
+    on {x} 1
+  }
+]{}
+Assert{: result = 1}
+
+let result := [{}
+  let f := [x]
+  f{:[
+    on {x} 
+      return 1
+  ]}
+  2
+]{}
+Assert{: result = 2}
+
+let result := [{test}
+  let f := [x]
+  f{: 
+    on {x} 
+      return 1
+  }
+  2
+]{test}
+Assert{: result = 1}

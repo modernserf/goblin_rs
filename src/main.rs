@@ -93,6 +93,11 @@ mod test {
         run(include_str!("./stdlib/frame.test.gob")).unwrap();
     }
 
+    #[test]
+    fn do_block() {
+        run(include_str!("./stdlib/do_block.test.gob")).unwrap();
+    }
+
     // #[test]
     // fn option() {
     //     run(include_str!("./stdlib/option.test.gob")).unwrap();
