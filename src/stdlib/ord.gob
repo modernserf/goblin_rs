@@ -4,6 +4,14 @@ import [_true_ _false_] := "native"
 # - operators (note: prefix!) can be used for quickly deriving relevant methods from {order: other}
 # - TODO: this should also have min:max: helpers
 export let Ord := [
+  on {from int: int}
+    (int > 0){
+      true: Ord{>} 
+      false: (int < 0){
+        true: Ord{<} 
+        false: Ord{==}
+      }
+    }
   on {<} [
     on {: do f} f{<}
     on {<} true
@@ -12,7 +20,6 @@ export let Ord := [
     on {<>} true
     on {>=} false
     on {>} false
-    on {to JS} -1
   ]
   on {==} [
     on {: do f} f{==}
@@ -22,7 +29,6 @@ export let Ord := [
     on {<>} false
     on {>=} true
     on {>} false
-    on {to JS} 0
   ]
   on {>} [
     on {: do f} f{>}
@@ -32,6 +38,5 @@ export let Ord := [
     on {<>} true
     on {>=} true
     on {>} true
-    on {to JS} 1
   ]
 ]

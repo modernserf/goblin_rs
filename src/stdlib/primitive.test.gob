@@ -1,4 +1,4 @@
-import [_Assert_ _true_ _false_] := "core"
+import [_Assert_ _true_ _false_ _Ord_] := "core"
 
 # bools
 Assert{true: true}
@@ -12,7 +12,7 @@ Assert{true: true != false}
 Assert{true: true != 1}
 Assert{false: true != true}
 
-# # operators
+# operators
 Assert{true: !false}
 Assert{false: !true}
 Assert{true: true && true}
@@ -91,11 +91,11 @@ Assert{: <>1{order: 2}}
 Assert{: ==1{order: 1}}
 Assert{: >=1{order: 0}}
 Assert{:  >1{order: 0}}
-let res := 1{order: 2}{:
+let res := 1{order: 2}{:[
   on {<} "<"
   on {==} "=="
   on {>} ">"
-}
+]}
 Assert{: res = "<"}
 
 Assert{panics: [{} 1 + "hello"]}

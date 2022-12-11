@@ -2,12 +2,12 @@ use std::rc::Rc;
 
 use crate::compiler::{CompileError, CompileIR, Compiler};
 use crate::frame::{Frame, FrameBuilder};
-use crate::ir::IR;
 use crate::object_builder::{ObjectBuilder, ParamsBuilder};
 use crate::parse_binding::Binding;
 use crate::parse_error::ParseError;
 use crate::parse_stmt::Stmt;
 use crate::parser::Parse;
+use crate::runtime::IR;
 use crate::send_builder::{Send, SendBuilder};
 use crate::source::Source;
 use crate::value::Value;

@@ -1,10 +1,10 @@
 use crate::class::{Class, Param as IRParam};
 use crate::compiler::{Compile, CompileIR, Compiler, Instance};
-use crate::ir::IR;
 use crate::parse_binding::Binding;
 use crate::parse_error::ParseError;
 use crate::parse_stmt::Stmt;
 use crate::parser::Parse;
+use crate::runtime::IR;
 use std::collections::HashMap;
 
 #[derive(Debug, Clone)]
@@ -31,10 +31,13 @@ impl Exports {
         let mut out = Vec::new();
         let mut class = Class::new();
         for (ivar, (key, local)) in entries.iter().enumerate() {
-            out.push(IR::Local(*local));
-            class.add_handler(&key, vec![], vec![IR::IVar(ivar)]);
+            out.push(IR::Local { index: *local });
+            class.add_handler(&key, vec![], vec![IR::IVar { index: ivar }]);
         }
-        out.push(IR::Object(class.rc(), entries.len()));
+        out.push(IR::NewObject {
+            class: class.rc(),
+            arity: entries.len(),
+        });
         Ok(out)
     }
 }
@@ -53,25 +56,26 @@ impl ObjectBuilder {
         }
     }
     pub fn compile_do(self, compiler: &mut Compiler) -> Compile<(Vec<IR>, Vec<IR>)> {
-        let mut class = Class::new();
-        let mut do_instance = compiler.do_instance();
+        unimplemented!();
+        // let mut class = Class::new();
+        // let mut do_instance = compiler.do_instance();
 
-        for (selector, handler) in self.handlers {
-            compiler.do_handler(do_instance);
+        // for (selector, handler) in self.handlers {
+        //     compiler.do_handler(do_instance);
 
-            let ir_params = Self::compile_params(compiler, &handler);
-            let body = Compiler::body(handler.body, compiler)?;
-            class.add_handler(&selector, ir_params, body);
+        //     let ir_params = Self::compile_params(compiler, &handler);
+        //     let body = Compiler::body(handler.body, compiler)?;
+        //     class.add_handler(&selector, ir_params, body);
 
-            do_instance = compiler.end_do_handler();
-        }
+        //     do_instance = compiler.end_do_handler();
+        // }
 
-        let (own_offset, alloc) = compiler.end_do_instance(do_instance);
-        let arg = vec![IR::DoBlock {
-            class: class.rc(),
-            own_offset,
-        }];
-        Ok((alloc, arg))
+        // let (own_offset, alloc) = compiler.end_do_instance(do_instance);
+        // let arg = vec![IR::DoBlock {
+        //     class: class.rc(),
+        //     own_offset,
+        // }];
+        // Ok((alloc, arg))
     }
 
     pub fn compile(self, compiler: &mut Compiler, binding: Option<&Binding>) -> CompileIR {
@@ -106,7 +110,10 @@ impl ObjectBuilder {
 
         let mut out = instance.ivars();
         let arity = out.len();
-        out.push(IR::Object(class.rc(), arity));
+        out.push(IR::NewObject {
+            class: class.rc(),
+            arity,
+        });
         Ok(out)
     }
     fn compile_params(compiler: &mut Compiler, handler: &Handler) -> Vec<IRParam> {
@@ -141,8 +148,7 @@ impl ObjectBuilder {
             match binding {
                 Binding::Identifier(key, _) => {
                     out.push(IR::SelfRef);
-                    let record = compiler.add_let(key.to_string());
-                    out.push(IR::Assign(record.index));
+                    compiler.add_let(key.to_string());
                 }
                 _ => {}
             }

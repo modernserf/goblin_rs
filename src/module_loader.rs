@@ -1,11 +1,7 @@
 use std::collections::HashMap;
 
-use crate::{
-    interpreter::{program, SendEffect},
-    ir::IR,
-    runtime_error::RuntimeError,
-    value::Value,
-};
+use crate::runtime::{eval_module, Runtime, RuntimeError, IR};
+use crate::value::Value;
 
 #[derive(Debug, Clone)]
 enum ModuleLoadState {
@@ -33,26 +29,24 @@ impl ModuleLoader {
         self.modules
             .insert(name.to_string(), ModuleLoadState::Ready(value));
     }
-    pub fn load(&mut self, name: &str) -> SendEffect {
+    pub fn load(&mut self, name: &str) -> Runtime<Value> {
         match self.modules.get_mut(name) {
-            Some(ModuleLoadState::Loading) => {
-                todo!("error: loop in load module")
-            }
-            Some(ModuleLoadState::Ready(value)) => value.clone().eval(),
+            Some(ModuleLoadState::Loading) => Err(RuntimeError::ModuleLoadLoop(name.to_string())),
+            Some(ModuleLoadState::Ready(value)) => Ok(value.clone()),
             Some(ModuleLoadState::Init(ir)) => {
                 let ir = std::mem::take(ir);
                 self.modules
                     .insert(name.to_string(), ModuleLoadState::Loading);
 
-                match program(ir, self) {
+                match eval_module(ir, self) {
                     Ok(value) => {
                         self.add_ready(name, value.clone());
-                        SendEffect::Value(value)
+                        Ok(value)
                     }
-                    Err(err) => SendEffect::Error(err),
+                    Err(err) => Err(err),
                 }
             }
-            None => RuntimeError::unknown_module(&name),
+            None => Err(RuntimeError::UnknownModule(name.to_string())),
         }
     }
 }

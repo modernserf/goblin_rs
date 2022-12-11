@@ -1,13 +1,12 @@
-use std::collections::{HashMap, VecDeque};
+use std::collections::HashMap;
 
 use crate::{
     compiler::{CompileIR, Compiler},
-    ir::IR,
-    object_builder::{ObjectBuilder, ParamsBuilder},
+    object_builder::ObjectBuilder,
     parse_error::ParseError,
     parse_expr::Expr,
-    parse_stmt::Stmt,
     parser::Parse,
+    runtime::IR,
     source::Source,
 };
 
@@ -22,64 +21,45 @@ impl Send {
         let arity = self.args.len();
         let selector = self.selector.to_string();
         let mut out = self.compile_base(compiler, target)?;
-        out.push(IR::Send(selector, arity));
+        out.push(IR::Send { selector, arity });
         Ok(out)
     }
     pub fn compile_try(self, compiler: &mut Compiler, target: Expr, or_else: Expr) -> CompileIR {
-        let arity = self.args.len();
-        let selector = self.selector.to_string();
-        let mut out = self.compile_base(compiler, target)?;
+        unimplemented!()
+        //     let arity = self.args.len();
+        //     let selector = self.selector.to_string();
+        //     let mut out = self.compile_base(compiler, target)?;
 
-        let mut do_block = ObjectBuilder::new();
-        do_block
-            .add_on(
-                ParamsBuilder::key("".to_string()),
-                vec![Stmt::Expr(or_else)],
-            )
-            .unwrap();
-        let mut ir = do_block.compile(compiler, None)?;
-        out.append(&mut ir);
-        out.push(IR::TrySend(selector, arity));
-        Ok(out)
+        //     let mut do_block = ObjectBuilder::new();
+        //     do_block
+        //         .add_on(
+        //             ParamsBuilder::key("".to_string()),
+        //             vec![Stmt::Expr(or_else)],
+        //         )
+        //         .unwrap();
+        //     let mut ir = do_block.compile(compiler, None)?;
+        //     out.append(&mut ir);
+        //     out.push(IR::TrySend(selector, arity));
+        //     Ok(out)
     }
     fn compile_base(mut self, compiler: &mut Compiler, target: Expr) -> CompileIR {
         let mut out = Vec::new();
-        // Do args must be processed in two separate phases -- the allocation & the class
-        let mut queue = VecDeque::new();
-        for arg in self.args.iter_mut() {
-            match arg {
-                SendArg::Do(builder) => {
-                    let builder = std::mem::replace(builder, ObjectBuilder::new());
-                    let (mut allocation, arg) = builder.compile_do(compiler)?;
-                    out.append(&mut allocation);
-                    queue.push_back(arg);
-                }
-                _ => {}
-            }
-        }
-
-        let mut tgt = target.compile(compiler)?;
-        out.append(&mut tgt);
         for arg in self.args {
             match arg {
                 SendArg::Value(value) => {
                     let mut result = value.compile(compiler)?;
                     out.append(&mut result);
                 }
-                SendArg::Var(key) => match compiler.get_var_index(&key) {
-                    Some(index) => {
-                        out.push(IR::VarArg(index));
-                    }
-                    None => {
-                        panic!("invalid var binding")
-                    }
-                },
+                SendArg::Var(key) => {
+                    unimplemented!();
+                }
                 SendArg::Do(_) => {
-                    let mut ir = queue.pop_front().unwrap();
-                    out.append(&mut ir);
+                    unimplemented!();
                 }
             }
         }
+        let mut tgt = target.compile(compiler)?;
+        out.append(&mut tgt);
         Ok(out)
     }
 }

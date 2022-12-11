@@ -1,11 +1,8 @@
 use std::{cell::RefCell, rc::Rc};
 
-use crate::{
-    class::{Object, RcClass},
-    interpreter::SendEffect,
-    primitive::{bool_class, cell_class, float_class, int_class, string_class},
-    runtime_error::RuntimeError,
-};
+use crate::class::{Body, Class, Object, Param, RcClass};
+use crate::primitive::{bool_class, cell_class, float_class, int_class, string_class};
+use crate::runtime::{Runtime, RuntimeError};
 
 #[allow(unused)]
 #[derive(Debug, Clone, PartialEq)]
@@ -17,12 +14,6 @@ pub enum Value {
     String(Rc<String>),
     Cell(Rc<RefCell<Value>>),
     Object(Rc<Object>),
-    Do {
-        class: RcClass,
-        own_offset: usize,
-        parent_index: usize,
-    },
-    Var(usize, Box<Value>),
 }
 
 impl Default for Value {
@@ -35,10 +26,6 @@ impl Value {
     #[allow(unused)]
     pub fn string(str: &str) -> Self {
         Self::String(Rc::new(str.to_string()))
-    }
-
-    pub fn eval(self) -> SendEffect {
-        SendEffect::Value(self)
     }
 
     pub fn as_bool(&self) -> bool {
@@ -72,21 +59,69 @@ impl Value {
         }
     }
 
-    pub fn send(&self, selector: &str, args: Vec<Value>) -> SendEffect {
+    fn class(&self) -> RcClass {
         match self {
-            Self::Bool(_) => Object::send_native(bool_class(), self.clone(), selector, args),
-            Self::Integer(_) => Object::send_native(int_class(), self.clone(), selector, args),
-            Self::Float(_) => Object::send_native(float_class(), self.clone(), selector, args),
-            Self::String(_) => Object::send_native(string_class(), self.clone(), selector, args),
-            Self::Cell(_) => Object::send_native(cell_class(), self.clone(), selector, args),
-            Self::Object(obj) => Object::send(obj, selector, args),
-            Self::Var(_, parent) => parent.send(selector, args),
-            Self::Do {
-                class,
-                own_offset,
-                parent_index,
-            } => Object::send_do_block(class, *own_offset, *parent_index, selector, args),
-            _ => RuntimeError::does_not_understand(selector),
+            Self::Unit => Class::new().rc(),
+            Self::Bool(..) => bool_class(),
+            Self::Integer(..) => int_class(),
+            Self::Float(..) => float_class(),
+            Self::String(..) => string_class(),
+            Self::Cell(..) => cell_class(),
+            Self::Object(obj) => obj.class(),
         }
+    }
+
+    pub fn get_handler(&self, selector: &str) -> Runtime<Handler> {
+        let class = self.class();
+        if let Some(handler) = class.get(selector) {
+            Ok(Handler::new(self.clone(), handler.params(), handler.body()))
+        } else {
+            Err(RuntimeError::DoesNotUnderstand(selector.to_string()))
+        }
+    }
+
+    pub fn ivar(&self, index: usize) -> Value {
+        match self {
+            Self::Object(obj) => obj.ivar(index).clone(),
+            _ => unreachable!(),
+        }
+    }
+
+    // TODO: this is only used for constructing frames, can it be eliminated?
+    pub fn new_instance(&self, ivars: Vec<Value>) -> Value {
+        match self {
+            Value::Object(obj) => Value::Object(Object::new(obj.class(), ivars).rc()),
+            _ => unreachable!(),
+        }
+    }
+}
+
+#[derive(Debug, Clone)]
+pub struct Handler {
+    value: Value,
+    params: Vec<Param>,
+    body: Body,
+}
+
+impl Handler {
+    fn new(value: Value, params: Vec<Param>, body: Body) -> Self {
+        Self {
+            value,
+            params,
+            body,
+        }
+    }
+    pub fn params(&self) -> Vec<Param> {
+        self.params.clone()
+    }
+    pub fn body(&self) -> Body {
+        self.body.clone()
+    }
+    pub fn is_do_block(&self) -> bool {
+        false
+        // unimplemented!()
+    }
+    pub fn instance(&self) -> Value {
+        self.value.clone()
     }
 }

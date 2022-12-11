@@ -2,7 +2,7 @@ use std::collections::HashMap;
 
 use crate::{
     compiler::{CompileIR, Compiler},
-    ir::IR,
+    runtime::IR,
     source::Source,
 };
 
@@ -22,7 +22,7 @@ impl Binding {
                 if is_export {
                     compiler.export(&name, record)?;
                 }
-                return Ok(vec![IR::Assign(record.index)]);
+                Ok(vec![])
             }
             Binding::Placeholder(_) => {
                 return Ok(vec![IR::Drop]);
@@ -30,10 +30,14 @@ impl Binding {
             Binding::Destructuring(map, _) => {
                 let mut out = vec![];
                 let root_record = compiler.add_anon();
-                out.push(IR::Assign(root_record.index));
                 for (key, binding) in map {
-                    out.push(IR::Local(root_record.index));
-                    out.push(IR::Send(key, 0));
+                    out.push(IR::Local {
+                        index: root_record.index,
+                    });
+                    out.push(IR::Send {
+                        selector: key,
+                        arity: 0,
+                    });
                     let mut child = binding.compile_let(compiler, is_export)?;
                     out.append(&mut child);
                 }

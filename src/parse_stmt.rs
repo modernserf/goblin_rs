@@ -1,8 +1,8 @@
 use crate::{
-    compiler::{CompileError, CompileIR, Compiler},
-    ir::IR,
+    compiler::{CompileIR, Compiler},
     parse_binding::Binding,
     parse_expr::Expr,
+    runtime::IR,
     value::Value,
 };
 
@@ -41,30 +41,32 @@ impl Stmt {
                 Ok(value)
             }
             Stmt::Var(binding, expr) => {
-                let mut value = expr.compile(compiler)?;
-                match binding {
-                    Binding::Identifier(name, _) => {
-                        let record = compiler.add_var(name.to_string());
-                        value.push(IR::Assign(record.index));
-                        return Ok(value);
-                    }
-                    Binding::Placeholder(_) => CompileError::invalid_var_binding(),
-                    Binding::Destructuring(_, _) => CompileError::invalid_var_binding(),
-                }
+                unimplemented!();
+                // let mut value = expr.compile(compiler)?;
+                // match binding {
+                //     Binding::Identifier(name, _) => {
+                //         let record = compiler.add_var(name.to_string());
+                //         value.push(IR::Assign(record.index));
+                //         return Ok(value);
+                //     }
+                //     Binding::Placeholder(_) => CompileError::invalid_var_binding(),
+                //     Binding::Destructuring(_, _) => CompileError::invalid_var_binding(),
+                // }
             }
             Stmt::Set(binding, expr) => {
-                let mut value = expr.compile(compiler)?;
-                match binding {
-                    Binding::Identifier(name, _) => {
-                        if let Some(index) = compiler.get_var_index(&name) {
-                            value.push(IR::Assign(index));
-                            return Ok(value);
-                        }
-                        CompileError::invalid_var_binding()
-                    }
-                    Binding::Placeholder(_) => CompileError::invalid_var_binding(),
-                    Binding::Destructuring(_, _) => CompileError::invalid_var_binding(),
-                }
+                unimplemented!();
+                // let mut value = expr.compile(compiler)?;
+                // match binding {
+                //     Binding::Identifier(name, _) => {
+                //         if let Some(index) = compiler.get_var_index(&name) {
+                //             value.push(IR::Assign(index));
+                //             return Ok(value);
+                //         }
+                //         CompileError::invalid_var_binding()
+                //     }
+                //     Binding::Placeholder(_) => CompileError::invalid_var_binding(),
+                //     Binding::Destructuring(_, _) => CompileError::invalid_var_binding(),
+                // }
             }
             Stmt::Return(opt_expr) => {
                 if let Some(expr) = opt_expr {
