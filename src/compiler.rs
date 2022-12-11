@@ -6,15 +6,7 @@ use crate::{object_builder::Exports, parse_stmt::Stmt, runtime::IR, value::Value
 pub enum CompileError {
     UnknownIdentifier(String),
     InvalidSelf,
-}
-
-impl CompileError {
-    pub fn unknown_identifier<T>(key: &str) -> Compile<T> {
-        Err(Self::UnknownIdentifier(key.to_string()))
-    }
-    pub fn invalid_self<T>() -> Compile<T> {
-        Err(Self::InvalidSelf)
-    }
+    InvalidVarBinding,
 }
 
 pub type CompileIR = Result<Vec<IR>, CompileError>;
@@ -23,6 +15,7 @@ pub type Compile<T> = Result<T, CompileError>;
 #[derive(Debug, PartialEq, Clone, Copy)]
 pub enum BindingType {
     Let,
+    Var,
 }
 #[derive(Debug, PartialEq, Clone, Copy)]
 pub struct BindingRecord {
@@ -207,6 +200,9 @@ impl Compiler {
     pub fn add_let(&mut self, key: String) -> BindingRecord {
         self.top_mut().add(key, BindingType::Let)
     }
+    pub fn add_var(&mut self, key: String) -> BindingRecord {
+        self.top_mut().add(key, BindingType::Var)
+    }
     fn top(&self) -> &CompilerFrame {
         self.stack.last().unwrap()
     }
@@ -215,26 +211,48 @@ impl Compiler {
     }
     pub fn get_self(&self) -> CompileIR {
         match self.top().scope {
-            Scope::Root => CompileError::invalid_self(),
+            Scope::Root => Err(CompileError::InvalidSelf),
             _ => Ok(vec![IR::SelfRef]),
         }
     }
-    // TODO: return Result<IR, CompileError>
-    pub fn get(&mut self, key: &str) -> Option<IR> {
-        for i in (0..self.stack.len()).rev() {
-            let frame = &mut self.stack[i];
-            if let Scope::Handler(instance) = &frame.scope {
-                if let Some(ir) = instance.get(key) {
-                    return Some(self.get_found(ir, key, i));
-                }
-            }
-            if let Some(value) = frame.locals.get(key) {
-                let ir = IR::Local { index: value.index };
-                return Some(self.get_found(ir, key, i));
+    pub fn get(&mut self, key: &str) -> CompileIR {
+        let frame = self.top();
+        if let Some(value) = frame.locals.get(key) {
+            return Ok(vec![IR::Local { index: value.index }]);
+        }
+        if let Scope::Handler(instance) = &frame.scope {
+            if let Some(ir) = instance.get(key) {
+                return Ok(vec![ir]);
             }
         }
-        None
+
+        let next_depth = self.stack.len() - 2;
+        self.get_parent(key, next_depth)
     }
+
+    pub fn get_parent(&mut self, key: &str, depth: usize) -> CompileIR {
+        let frame = &mut self.stack[depth];
+
+        if let Scope::Handler(instance) = &frame.scope {
+            if let Some(ir) = instance.get(key) {
+                return Ok(vec![self.get_found(ir, key, depth)]);
+            }
+        }
+        if let Some(value) = frame.locals.get(key) {
+            match value.typ {
+                BindingType::Let => {
+                    let ir = IR::Local { index: value.index };
+                    return Ok(vec![self.get_found(ir, key, depth)]);
+                }
+                BindingType::Var => return Err(CompileError::InvalidVarBinding),
+            }
+        }
+        if depth == 0 {
+            return Err(CompileError::UnknownIdentifier(key.to_string()));
+        }
+        self.get_parent(key, depth - 1)
+    }
+
     fn get_found(&mut self, ir: IR, key: &str, index: usize) -> IR {
         let mut out = ir;
         for i in (index + 1)..self.stack.len() {
@@ -243,6 +261,15 @@ impl Compiler {
             }
         }
         out
+    }
+    pub fn get_var_index(&self, key: &str) -> Option<usize> {
+        self.top()
+            .locals
+            .get(key)
+            .and_then(|record| match record.typ {
+                BindingType::Let => None,
+                BindingType::Var => Some(record.index),
+            })
     }
 }
 
@@ -253,96 +280,33 @@ mod test {
     //     value::Value,
     // };
 
-    // use super::*;
+    use super::*;
 
-    // fn compile(code: &str) -> CompileIR {
-    //     let lexer = crate::lexer::Lexer::from_string(code);
-    //     let mut parser = crate::parser::Parser::new(lexer);
-    //     let program = parser.program().unwrap();
-    //     Compiler::program(program)
-    // }
+    fn compile(code: &str) -> CompileIR {
+        let lexer = crate::lexer::Lexer::from_string(code);
+        let mut parser = crate::parser::Parser::new(lexer);
+        let program = parser.program().unwrap();
+        Compiler::program(program)
+    }
 
     // fn assert_ok(code: &str, expected: Vec<IR>) {
     //     assert_eq!(compile(code), Ok(expected));
     // }
 
-    // #[test]
-    // fn basics() {
-    //     assert_ok("", vec![IR::Constant(Value::Unit)]);
-    //     assert_ok("1", vec![IR::Constant(Value::Integer(1))]);
-    //     assert_ok(
-    //         "1 2",
-    //         vec![
-    //             IR::Constant(Value::Integer(1)),
-    //             IR::Drop,
-    //             IR::Constant(Value::Integer(2)),
-    //         ],
-    //     );
-    //     assert_ok(
-    //         "-1",
-    //         vec![
-    //             IR::Constant(Value::Integer(1)),
-    //             IR::Send("-".to_string(), 0),
-    //         ],
-    //     );
-    //     assert_ok(
-    //         "1 + 2",
-    //         vec![
-    //             IR::Constant(Value::Integer(1)),
-    //             IR::Constant(Value::Integer(2)),
-    //             IR::Send("+:".to_string(), 1),
-    //         ],
-    //     );
-    //     assert_ok(
-    //         "let x := 1",
-    //         vec![
-    //             IR::Constant(Value::Integer(1)),
-    //             IR::Assign(0),
-    //             IR::Constant(Value::Unit),
-    //         ],
-    //     );
-    //     assert_ok(
-    //         "
-    //         let x := 1
-    //         x",
-    //         vec![IR::Constant(Value::Integer(1)), IR::Assign(0), IR::Local(0)],
-    //     );
-    //     assert_ok(
-    //         "[on {}]",
-    //         vec![IR::Object(
-    //             {
-    //                 let mut class = Class::new();
-    //                 class.add_handler("", vec![], vec![IR::Constant(Value::Unit)]);
-    //                 class.rc()
-    //             },
-    //             0,
-    //         )],
-    //     );
-    //     assert_ok(
-    //         "[on {} 1]",
-    //         vec![IR::Object(
-    //             {
-    //                 let mut class = Class::new();
-    //                 class.add_handler("", vec![], vec![IR::Constant(Value::Integer(1))]);
-    //                 class.rc()
-    //             },
-    //             0,
-    //         )],
-    //     );
-    // }
+    fn assert_err(code: &str, err: CompileError) {
+        assert_eq!(compile(code), Err(err));
+    }
 
-    // #[test]
-    // fn params() {
-    //     assert_ok(
-    //         "[on {: x} x]",
-    //         vec![IR::Object(
-    //             {
-    //                 let mut class = Class::new();
-    //                 class.add_handler(":", vec![Param::Value], vec![IR::Local(0)]);
-    //                 class.rc()
-    //             },
-    //             0,
-    //         )],
-    //     );
-    // }
+    #[test]
+    fn vars() {
+        assert_err(
+            "
+            var x := 1
+            let obj := [
+                on {x} x
+            ]
+        ",
+            CompileError::InvalidVarBinding,
+        )
+    }
 }

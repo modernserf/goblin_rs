@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 
 use crate::{
-    compiler::{CompileIR, Compiler},
+    compiler::{CompileError, CompileIR, Compiler},
     object_builder::ObjectBuilder,
     parse_error::ParseError,
     parse_expr::Expr,
@@ -50,9 +50,10 @@ impl Send {
                     let mut result = value.compile(compiler)?;
                     out.append(&mut result);
                 }
-                SendArg::Var(_) => {
-                    unimplemented!();
-                }
+                SendArg::Var(key) => match compiler.get_var_index(&key) {
+                    Some(index) => out.push(IR::VarArg { index }),
+                    None => return Err(CompileError::InvalidVarBinding),
+                },
                 SendArg::Do(builder) => {
                     let mut result = builder.compile_do(compiler)?;
                     out.append(&mut result);

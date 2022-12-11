@@ -127,8 +127,9 @@ impl ObjectBuilder {
                         Binding::Destructuring(_, _) => todo!("destructuring in params"),
                     }
                 }
-                Param::Var(_) => {
-                    unimplemented!();
+                Param::Var(key) => {
+                    ir_params.push(IRParam::Var);
+                    compiler.add_var(key.to_string());
                 }
                 Param::Do(key) => {
                     ir_params.push(IRParam::Do);

@@ -1,6 +1,6 @@
 use std::rc::Rc;
 
-use crate::compiler::{CompileError, CompileIR, Compiler};
+use crate::compiler::{CompileIR, Compiler};
 use crate::frame::{Frame, FrameBuilder};
 use crate::object_builder::{ObjectBuilder, ParamsBuilder};
 use crate::parse_binding::Binding;
@@ -72,10 +72,7 @@ impl Expr {
                 let val = Value::String(Rc::new(value));
                 Ok(vec![IR::Constant(val)])
             }
-            Expr::Identifier(key, _) => match compiler.get(&key) {
-                Some(ir) => Ok(vec![ir]),
-                None => CompileError::unknown_identifier(&key),
-            },
+            Expr::Identifier(key, _) => compiler.get(&key),
             Expr::Paren(mut body, source) => {
                 if body.len() == 0 {
                     return Ok(vec![IR::Constant(Value::Unit)]);

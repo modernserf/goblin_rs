@@ -107,4 +107,9 @@ mod test {
     fn result() {
         run(include_str!("./stdlib/result.test.gob")).unwrap();
     }
+
+    #[test]
+    fn var() {
+        run(include_str!("./stdlib/var.test.gob")).unwrap();
+    }
 }

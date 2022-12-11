@@ -47,6 +47,7 @@ pub enum IR {
     Module(String),
     Local { index: usize },
     IVar { index: usize },
+    VarArg { index: usize },
     // consume stack values
     Drop,
     SetLocal { index: usize },
@@ -272,12 +273,35 @@ impl CallStack {
     }
 }
 
-#[allow(unused)]
+#[derive(Debug)]
+struct Vars {
+    // current -> parent index
+    vars: Vec<(usize, usize)>,
+}
+
+impl Vars {
+    fn new() -> Self {
+        Vars { vars: Vec::new() }
+    }
+    fn add(&mut self, current: usize, parent: usize) {
+        self.vars.push((current, parent));
+    }
+    fn resolve(&mut self, offset: usize, stack: &mut Stack) {
+        while let Some((current, parent)) = self.vars.pop() {
+            if current < offset {
+                self.vars.push((current, offset));
+                return;
+            }
+            stack.set(parent, stack.get(current))
+        }
+    }
+}
+
 #[derive(Debug)]
 struct Interpreter<'a> {
     stack: Stack,
     call_stack: CallStack,
-    // args: Args,
+    vars: Vars,
     modules: &'a mut ModuleLoader,
 }
 
@@ -291,7 +315,7 @@ impl<'a> Interpreter<'a> {
         Interpreter {
             stack: Stack::new(),
             call_stack: CallStack::new(code),
-            // args: Args::new(),
+            vars: Vars::new(),
             modules,
         }
     }
@@ -305,6 +329,7 @@ impl<'a> Interpreter<'a> {
                 }
                 NextResult::Return { offset } => {
                     let return_value = self.stack.pop();
+                    self.vars.resolve(offset, &mut self.stack);
                     self.stack.truncate(offset);
                     self.stack.push(return_value);
                 }
@@ -343,6 +368,13 @@ impl<'a> Interpreter<'a> {
             }
             IR::IVar { index } => {
                 let value = self.call_stack.get_ivar(index);
+                self.stack.push(value);
+            }
+            IR::VarArg { index } => {
+                let current_idx = self.stack.size();
+                self.vars.add(current_idx, index);
+                let offset = self.call_stack.offset();
+                let value = self.stack.get(index + offset);
                 self.stack.push(value);
             }
             // consume stack values

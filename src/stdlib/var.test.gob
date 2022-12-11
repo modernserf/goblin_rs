@@ -1,0 +1,32 @@
+import [_Assert_] := "core"
+
+var x := 1
+Assert{: x = 1}
+
+let y := x
+set x := 2
+Assert{: x = 2}
+Assert{: y = 1}
+
+var p := [x: 1 y: 2]
+set p{x: 2}
+Assert{received: p expected: [x: 2 y: 2]}
+
+let obj := [
+  on {handler: var arg}
+    set arg := 3
+]
+var x := 1
+obj{handler: var x}
+Assert{: x = 3}
+
+let obj := [
+  on {handler: do f}
+    f{}
+]
+
+# var x := 1
+# obj{handler: {}
+#   set x := 2
+# }
+# Assert{: x = 2}
