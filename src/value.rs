@@ -14,6 +14,7 @@ pub enum Value {
     String(Rc<String>),
     Cell(Rc<RefCell<Value>>),
     Object(Rc<Object>),
+    // DoObject(Rc<Object>),
 }
 
 impl Default for Value {
@@ -68,6 +69,7 @@ impl Value {
             Self::String(..) => string_class(),
             Self::Cell(..) => cell_class(),
             Self::Object(obj) => obj.class(),
+            // Self::DoObject(obj) => obj.class(),
         }
     }
 

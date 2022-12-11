@@ -91,11 +91,11 @@ Assert{: <>1{order: 2}}
 Assert{: ==1{order: 1}}
 Assert{: >=1{order: 0}}
 Assert{:  >1{order: 0}}
-let res := 1{order: 2}{:[
+let res := 1{order: 2}{:
   on {<} "<"
   on {==} "=="
   on {>} ">"
-]}
+}
 Assert{: res = "<"}
 
 Assert{panics: [{} 1 + "hello"]}

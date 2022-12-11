@@ -55,6 +55,9 @@ impl ObjectBuilder {
             else_handler: None,
         }
     }
+    pub fn compile_do(self, compiler: &mut Compiler) -> CompileIR {
+        self.compile(compiler, None)
+    }
     pub fn compile(self, compiler: &mut Compiler, binding: Option<&Binding>) -> CompileIR {
         let mut class = Class::new();
         let mut instance = Instance::new();

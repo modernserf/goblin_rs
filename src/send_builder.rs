@@ -24,7 +24,7 @@ impl Send {
         out.push(IR::Send { selector, arity });
         Ok(out)
     }
-    pub fn compile_try(self, compiler: &mut Compiler, target: Expr, or_else: Expr) -> CompileIR {
+    pub fn compile_try(self, _: &mut Compiler, _: Expr, _: Expr) -> CompileIR {
         unimplemented!()
         //     let arity = self.args.len();
         //     let selector = self.selector.to_string();
@@ -42,7 +42,7 @@ impl Send {
         //     out.push(IR::TrySend(selector, arity));
         //     Ok(out)
     }
-    fn compile_base(mut self, compiler: &mut Compiler, target: Expr) -> CompileIR {
+    fn compile_base(self, compiler: &mut Compiler, target: Expr) -> CompileIR {
         let mut out = Vec::new();
         for arg in self.args {
             match arg {
@@ -50,11 +50,12 @@ impl Send {
                     let mut result = value.compile(compiler)?;
                     out.append(&mut result);
                 }
-                SendArg::Var(key) => {
+                SendArg::Var(_) => {
                     unimplemented!();
                 }
-                SendArg::Do(_) => {
-                    unimplemented!();
+                SendArg::Do(builder) => {
+                    let mut result = builder.compile_do(compiler)?;
+                    out.append(&mut result);
                 }
             }
         }
