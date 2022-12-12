@@ -40,7 +40,7 @@ impl Send {
                 vec![Stmt::Expr(or_else)],
             )
             .unwrap();
-        let mut ir = do_block.compile(compiler, None)?;
+        let mut ir = do_block.compile_do(compiler)?;
         out.append(&mut ir);
 
         let mut tgt = target.compile(compiler)?;

@@ -1,4 +1,4 @@
-import [_true_ _false_ _Assert_] := "native"
+import [_true_ _false_ _Assert_ _Log_ _loop_] := "native"
 import [_Control_] := "core/control"
 
 let result := [{}
@@ -19,7 +19,8 @@ Assert{: sum = 3}
 var sum := 0
 var should_continue := true
 Control{:
-  on {while} should_continue
+  on {while} 
+    should_continue
   on {do} 
     set sum{+: 1}
     if sum = 5 then
@@ -28,14 +29,14 @@ Control{:
 }
 Assert{: sum = 5}
 
-# import [_Option_] := "core/option"
-# var should_continue := Option{some: 1}
-# Control{:
-#   on {while} should_continue
-#   on {do: value} 
-#     set should_continue{map: [+: 1]}
-#     if value = 5 then
-#       set should_continue := Option{none}
-#     end
-# }
-# Assert{: should_continue = Option{none}}
+import [_Option_] := "core/option"
+var should_continue := Option{some: 1}
+Control{:
+  on {while} should_continue
+  on {do: value} 
+    set should_continue{map: [+: 1]}
+    if value = 5 then
+      set should_continue := Option{none}
+    end
+}
+Assert{: should_continue = Option{none}}

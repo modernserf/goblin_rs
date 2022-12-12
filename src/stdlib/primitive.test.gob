@@ -30,6 +30,17 @@ Assert{
   expected: "bar"
 }
 
+# pattern matching
+let res := true{:
+  on {true}
+    let x := 1
+    x + 2
+  on {false}
+    let y := 2
+    y + 3
+}
+Assert{: res = 3}
+
 # integers
 Assert{received: 1 + 1    expected: 2}
 let n := 1

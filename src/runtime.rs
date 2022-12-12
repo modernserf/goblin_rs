@@ -257,13 +257,13 @@ impl CallStack {
         let top = self.stack.last_mut().unwrap();
         top.instruction_pointer = 0;
     }
-    fn offset(&self) -> usize {
+    fn local_offset(&self) -> usize {
         self.top().stack_offset
     }
     fn parent_offset(&self) -> usize {
         match &self.top().instance {
             CallFrameInstance::Do { parent_offset, .. } => *parent_offset,
-            _ => self.offset(),
+            _ => self.local_offset(),
         }
     }
     fn parent_frame_index(&self) -> usize {
@@ -379,7 +379,7 @@ impl<'a> Interpreter<'a> {
                 self.stack.push(result);
             }
             IR::Local { index } => {
-                let offset = self.call_stack.offset();
+                let offset = self.call_stack.local_offset();
                 let value = self.stack.get(index + offset);
                 self.stack.push(value);
             }
@@ -395,7 +395,7 @@ impl<'a> Interpreter<'a> {
             IR::VarArg { index } => {
                 let current_idx = self.stack.size();
                 self.vars.add(current_idx, index);
-                let offset = self.call_stack.offset();
+                let offset = self.call_stack.local_offset();
                 let value = self.stack.get(index + offset);
                 self.stack.push(value);
             }
@@ -405,7 +405,7 @@ impl<'a> Interpreter<'a> {
             }
             IR::SetLocal { index } => {
                 let value = self.stack.pop();
-                let offset = self.call_stack.offset();
+                let offset = self.call_stack.local_offset();
                 self.stack.set(index + offset, value);
             }
             IR::SetParent { index } => {
@@ -433,7 +433,7 @@ impl<'a> Interpreter<'a> {
                     let handler = or_else.get_handler("", 0)?;
                     let next_offset = self.stack.size();
                     self.call_stack
-                        .call("".to_string(), next_offset, target, handler);
+                        .call("".to_string(), next_offset, or_else, handler);
                 }
             }
             IR::SendPrimitive { f, arity } => {
@@ -664,5 +664,48 @@ mod test {
             ],
             Value::Integer(2),
         );
+    }
+
+    #[test]
+    fn try_send() {
+        // let obj := [
+        //   on {foo} 1
+        // ]
+        // obj{bar: 1} ? obj{foo}
+        assert_ok(
+            vec![
+                // let obj := ...
+                IR::NewObject {
+                    class: {
+                        let mut class = Class::new();
+                        class.add_handler("foo", vec![], vec![IR::int(1)]);
+                        class.rc()
+                    },
+                    arity: 0,
+                },
+                // arg
+                IR::int(1),
+                // ? obj{foo}
+                IR::NewDoObject {
+                    class: {
+                        let mut class = Class::new();
+                        class.add_handler(
+                            "",
+                            vec![],
+                            vec![IR::Parent { index: 0 }, IR::send("foo", 0)],
+                        );
+
+                        class.rc()
+                    },
+                },
+                // target
+                IR::Local { index: 0 },
+                IR::TrySend {
+                    selector: "bar".to_string(),
+                    arity: 1,
+                },
+            ],
+            Value::Integer(1),
+        )
     }
 }

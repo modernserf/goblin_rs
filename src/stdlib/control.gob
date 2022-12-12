@@ -14,7 +14,7 @@ export let Control := [
   on {: do f}
     loop{: {}
       f{while}{:
-        on {true} f{do: ()} ? f{do}
+        on {true} 1{do: ()} ? f{do}
         on {false} return ()
         on {some: value} f{do: value} ? f{do}
         on {none} return ()
