@@ -1,6 +1,7 @@
 mod class;
 mod compiler;
 mod frame;
+mod ir;
 mod lexer;
 mod module_loader;
 mod object_builder;
@@ -15,7 +16,7 @@ mod send_builder;
 mod source;
 mod value;
 
-fn compile_module(code: &str) -> Vec<runtime::IR> {
+fn compile_module(code: &str) -> Vec<ir::IR> {
     let lexer = lexer::Lexer::from_string(code);
     let mut parser = parser::Parser::new(lexer);
     let module = parser.program().unwrap();

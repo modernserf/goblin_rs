@@ -1,7 +1,8 @@
 use std::{cell::RefCell, ops::Deref, rc::Rc, vec};
 
 use crate::class::{Class, Object, Param, RcClass};
-use crate::runtime::{RuntimeError, IR};
+use crate::ir::IR;
+use crate::runtime::RuntimeError;
 use crate::value::Value;
 
 fn build_true_class() -> RcClass {

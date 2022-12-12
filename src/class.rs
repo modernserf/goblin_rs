@@ -1,7 +1,6 @@
-use std::{collections::HashMap, rc::Rc};
-
-use crate::runtime::{NativeHandlerFn, IR};
+use crate::ir::{NativeHandlerFn, IR};
 use crate::value::Value;
+use std::{collections::HashMap, rc::Rc};
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct Class {

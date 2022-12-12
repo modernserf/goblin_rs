@@ -2,10 +2,10 @@ use std::ops::Deref;
 use std::{cell::RefCell, rc::Rc};
 
 use crate::class::{Body, Class, Object, Param, RcClass};
+use crate::ir::IR;
 use crate::primitive::{cell_class, false_class, float_class, int_class, string_class, true_class};
-use crate::runtime::{Runtime, RuntimeError, IR};
+use crate::runtime::{Runtime, RuntimeError};
 
-#[allow(unused)]
 #[derive(Debug, Clone, PartialEq)]
 pub enum Value {
     Unit,
@@ -30,7 +30,6 @@ impl Default for Value {
 }
 
 impl Value {
-    #[allow(unused)]
     pub fn string(str: &str) -> Self {
         Self::String(Rc::new(str.to_string()))
     }

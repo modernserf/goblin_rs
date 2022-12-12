@@ -1,6 +1,7 @@
 use std::collections::HashMap;
 
-use crate::runtime::{eval_module, Runtime, RuntimeError, IR};
+use crate::ir::IR;
+use crate::runtime::{eval_module, Runtime, RuntimeError};
 use crate::value::Value;
 
 #[derive(Debug, Clone)]

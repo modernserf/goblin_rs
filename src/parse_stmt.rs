@@ -1,8 +1,8 @@
 use crate::{
     compiler::{CompileError, CompileIR, Compiler},
+    ir::IR,
     parse_binding::Binding,
     parse_expr::Expr,
-    runtime::IR,
     value::Value,
 };
 

@@ -1,5 +1,6 @@
 use std::collections::HashMap;
 
+use crate::ir::IR;
 use crate::{
     compiler::{CompileError, CompileIR, Compiler},
     object_builder::{ObjectBuilder, ParamsBuilder},
@@ -7,7 +8,6 @@ use crate::{
     parse_expr::Expr,
     parse_stmt::Stmt,
     parser::Parse,
-    runtime::IR,
     source::Source,
 };
 

@@ -2,7 +2,7 @@ use std::collections::HashMap;
 
 use crate::{
     compiler::{CompileIR, Compiler},
-    runtime::IR,
+    ir::IR,
     source::Source,
 };
 

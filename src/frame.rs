@@ -3,10 +3,10 @@ use std::{cell::RefCell, collections::HashMap};
 use crate::{
     class::{Class, Param, RcClass},
     compiler::{CompileIR, Compiler},
+    ir::IR,
     parse_error::ParseError,
     parse_expr::Expr,
     parser::Parse,
-    runtime::IR,
     source::Source,
     value::Value,
 };
