@@ -1,8 +1,8 @@
 use crate::{
+    binding::Binding,
     compiler::{CompileError, CompileIR, Compiler},
+    expr::Expr,
     ir::IR,
-    parse_binding::Binding,
-    parse_expr::Expr,
 };
 
 #[derive(Debug, Clone)]

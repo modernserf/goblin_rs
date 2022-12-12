@@ -1,13 +1,13 @@
 use crate::frame::FrameBuilder;
-use crate::object_builder::{ObjectBuilder, PairParamsBuilder, ParamsBuilder};
+use crate::object::{ObjectBuilder, PairParamsBuilder, ParamsBuilder};
 use crate::parse_error::ParseError;
-use crate::send_builder::SendBuilder;
+use crate::send::SendBuilder;
 use crate::{
+    binding::Binding,
+    expr::Expr,
     lexer::{Lexer, Token},
-    parse_binding::Binding,
-    parse_expr::Expr,
-    parse_stmt::Stmt,
     source::Source,
+    stmt::Stmt,
 };
 use std::mem;
 

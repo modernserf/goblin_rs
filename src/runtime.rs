@@ -2,7 +2,7 @@ use std::rc::Rc;
 
 use crate::class::{Body, Param};
 use crate::ir::IR;
-use crate::module_loader::ModuleLoader;
+use crate::module::ModuleLoader;
 use crate::primitive::Primitive;
 use crate::value::{Handler, Value};
 
@@ -326,7 +326,10 @@ impl<'a> Interpreter<'a> {
             IR::True => self.stack.push(Value::Primitive(Primitive::True)),
             IR::Integer(val) => self.stack.push(Value::Primitive(Primitive::Integer(val))),
             IR::Float(val) => self.stack.push(Value::Primitive(Primitive::Float(val))),
-            IR::Constant(value) => {
+            IR::String(str) => self
+                .stack
+                .push(Value::Primitive(Primitive::String(Rc::new(str)))),
+            IR::SpawnValue(value) => {
                 self.stack.push(value);
             }
             IR::Module(name) => {
@@ -423,7 +426,7 @@ impl<'a> Interpreter<'a> {
                 let target = self.stack.pop();
                 let result = eval_module(
                     vec![
-                        IR::Constant(target),
+                        IR::SpawnValue(target),
                         IR::Send {
                             selector: "".to_string(),
                             arity: 0,
@@ -557,7 +560,7 @@ mod test {
         };
         assert_err(
             vec![
-                IR::Constant(Value::string("hello")),
+                IR::String("hello".to_string()),
                 IR::new_object(&class, 0),
                 IR::send("baz:", 1),
             ],

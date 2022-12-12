@@ -1,10 +1,10 @@
+use crate::binding::Binding;
 use crate::class::{Class, Param as IRParam};
 use crate::compiler::{Compile, CompileIR, Compiler, Instance};
 use crate::ir::IR;
-use crate::parse_binding::Binding;
 use crate::parse_error::ParseError;
-use crate::parse_stmt::Stmt;
 use crate::parser::Parse;
+use crate::stmt::Stmt;
 use std::collections::HashMap;
 
 #[derive(Debug, Clone)]

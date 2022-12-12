@@ -1,19 +1,19 @@
+mod binding;
 mod class;
 mod compiler;
+mod expr;
 mod frame;
 mod ir;
 mod lexer;
-mod module_loader;
-mod object_builder;
-mod parse_binding;
+mod module;
+mod object;
 mod parse_error;
-mod parse_expr;
-mod parse_stmt;
 mod parser;
 mod primitive;
 mod runtime;
-mod send_builder;
+mod send;
 mod source;
+mod stmt;
 mod value;
 
 fn compile_module(code: &str) -> Vec<ir::IR> {
@@ -23,8 +23,8 @@ fn compile_module(code: &str) -> Vec<ir::IR> {
     compiler::Compiler::module(module).unwrap()
 }
 
-fn build_stdlib() -> module_loader::ModuleLoader {
-    let mut modules = module_loader::ModuleLoader::new();
+fn build_stdlib() -> module::ModuleLoader {
+    let mut modules = module::ModuleLoader::new();
     modules.add_ready("native", primitive::native_module());
     modules.add_init("core", compile_module(include_str!("./stdlib/core.gob")));
     modules.add_init(
@@ -48,7 +48,7 @@ fn build_stdlib() -> module_loader::ModuleLoader {
 }
 
 thread_local! {
-    static STDLIB : module_loader::ModuleLoader = build_stdlib()
+    static STDLIB : module::ModuleLoader = build_stdlib()
 }
 
 fn run(code: &str) -> Result<value::Value, runtime::RuntimeError> {

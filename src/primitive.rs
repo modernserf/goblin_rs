@@ -568,8 +568,8 @@ fn get_file_module() -> RcClass {
 
 fn get_string_module() -> RcClass {
     let mut class = Class::new();
-    class.add_handler("newline", vec![], vec![IR::Constant(Value::string("\n"))]);
-    class.add_handler("tab", vec![], vec![IR::Constant(Value::string("\t"))]);
+    class.add_handler("newline", vec![], vec![IR::String("\n".to_string())]);
+    class.add_handler("tab", vec![], vec![IR::String("\t".to_string())]);
     class.add_native(
         "from char code:",
         vec![Param::Value],

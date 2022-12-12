@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 
-use crate::{ir::IR, object_builder::Exports, parse_stmt::Stmt};
+use crate::{ir::IR, object::Exports, stmt::Stmt};
 
 #[derive(Debug, PartialEq, Clone)]
 pub enum CompileError {

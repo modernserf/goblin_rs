@@ -1,14 +1,13 @@
+use crate::binding::Binding;
 use crate::compiler::{CompileIR, Compiler};
 use crate::frame::{Frame, FrameBuilder};
 use crate::ir::IR;
-use crate::object_builder::{ObjectBuilder, ParamsBuilder};
-use crate::parse_binding::Binding;
+use crate::object::{ObjectBuilder, ParamsBuilder};
 use crate::parse_error::ParseError;
-use crate::parse_stmt::Stmt;
 use crate::parser::Parse;
-use crate::send_builder::{Send, SendBuilder};
+use crate::send::{Send, SendBuilder};
 use crate::source::Source;
-use crate::value::Value;
+use crate::stmt::Stmt;
 
 #[derive(Debug, Clone)]
 pub enum Expr {
@@ -60,10 +59,7 @@ impl Expr {
         match self {
             Expr::Integer(value, _) => Ok(vec![IR::Integer(value as i64)]),
             Expr::Float(value, _) => Ok(vec![IR::Float(value)]),
-            Expr::String(value, _) => {
-                let val = Value::string(&value);
-                Ok(vec![IR::Constant(val)])
-            }
+            Expr::String(value, _) => Ok(vec![IR::String(value)]),
             Expr::Identifier(key, _) => compiler.get(&key),
             Expr::Paren(mut body, source) => {
                 if body.len() == 0 {

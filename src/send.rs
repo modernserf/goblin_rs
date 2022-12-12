@@ -3,12 +3,12 @@ use std::collections::HashMap;
 use crate::ir::IR;
 use crate::{
     compiler::{CompileError, CompileIR, Compiler},
-    object_builder::{ObjectBuilder, ParamsBuilder},
+    expr::Expr,
+    object::{ObjectBuilder, ParamsBuilder},
     parse_error::ParseError,
-    parse_expr::Expr,
-    parse_stmt::Stmt,
     parser::Parse,
     source::Source,
+    stmt::Stmt,
 };
 
 #[derive(Debug, Clone)]
