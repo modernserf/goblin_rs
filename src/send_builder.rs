@@ -2,9 +2,10 @@ use std::collections::HashMap;
 
 use crate::{
     compiler::{CompileError, CompileIR, Compiler},
-    object_builder::ObjectBuilder,
+    object_builder::{ObjectBuilder, ParamsBuilder},
     parse_error::ParseError,
     parse_expr::Expr,
+    parse_stmt::Stmt,
     parser::Parse,
     runtime::IR,
     source::Source,
@@ -20,29 +21,35 @@ impl Send {
     pub fn compile(self, compiler: &mut Compiler, target: Expr) -> CompileIR {
         let arity = self.args.len();
         let selector = self.selector.to_string();
-        let mut out = self.compile_base(compiler, target)?;
+        let mut out = self.compile_args(compiler)?;
+        let mut tgt = target.compile(compiler)?;
+        out.append(&mut tgt);
+
         out.push(IR::Send { selector, arity });
         Ok(out)
     }
-    pub fn compile_try(self, _: &mut Compiler, _: Expr, _: Expr) -> CompileIR {
-        unimplemented!()
-        //     let arity = self.args.len();
-        //     let selector = self.selector.to_string();
-        //     let mut out = self.compile_base(compiler, target)?;
+    pub fn compile_try(self, compiler: &mut Compiler, target: Expr, or_else: Expr) -> CompileIR {
+        let arity = self.args.len();
+        let selector = self.selector.to_string();
+        let mut out = self.compile_args(compiler)?;
 
-        //     let mut do_block = ObjectBuilder::new();
-        //     do_block
-        //         .add_on(
-        //             ParamsBuilder::key("".to_string()),
-        //             vec![Stmt::Expr(or_else)],
-        //         )
-        //         .unwrap();
-        //     let mut ir = do_block.compile(compiler, None)?;
-        //     out.append(&mut ir);
-        //     out.push(IR::TrySend(selector, arity));
-        //     Ok(out)
+        let mut do_block = ObjectBuilder::new();
+        do_block
+            .add_on(
+                ParamsBuilder::key("".to_string()),
+                vec![Stmt::Expr(or_else)],
+            )
+            .unwrap();
+        let mut ir = do_block.compile(compiler, None)?;
+        out.append(&mut ir);
+
+        let mut tgt = target.compile(compiler)?;
+        out.append(&mut tgt);
+
+        out.push(IR::TrySend { selector, arity });
+        Ok(out)
     }
-    fn compile_base(self, compiler: &mut Compiler, target: Expr) -> CompileIR {
+    fn compile_args(self, compiler: &mut Compiler) -> CompileIR {
         let mut out = Vec::new();
         for arg in self.args {
             match arg {
@@ -60,8 +67,6 @@ impl Send {
                 }
             }
         }
-        let mut tgt = target.compile(compiler)?;
-        out.append(&mut tgt);
         Ok(out)
     }
 }

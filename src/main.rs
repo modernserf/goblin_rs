@@ -35,6 +35,10 @@ fn build_stdlib() -> module_loader::ModuleLoader {
         "core/result",
         compile_module(include_str!("./stdlib/result.gob")),
     );
+    modules.add_init(
+        "core/control",
+        compile_module(include_str!("./stdlib/control.gob")),
+    );
     modules
 }
 
@@ -111,5 +115,10 @@ mod test {
     #[test]
     fn var() {
         run(include_str!("./stdlib/var.test.gob")).unwrap();
+    }
+
+    #[test]
+    fn control() {
+        run(include_str!("./stdlib/control.test.gob")).unwrap();
     }
 }

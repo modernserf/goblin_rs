@@ -30,6 +30,19 @@ let result := [{}
 ]{}
 Assert{: result = 1}
 
+let result := [{}
+  obj{send: 
+    on {x}
+      if 1 = 1 then 
+        return 1 
+      end
+  }
+  2
+]{}
+Assert{: result = 1}
+
+
+
 Assert{panics: [{}
   let obj := [
     on {send: f}

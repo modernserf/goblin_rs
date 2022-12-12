@@ -62,6 +62,7 @@ pub enum IR {
     Spawn,
     // control flow
     Return,
+    Loop,
 }
 
 impl IR {
@@ -252,6 +253,10 @@ impl CallStack {
     fn do_return(&mut self) {
         self.is_unwinding = true;
     }
+    fn do_loop(&mut self) {
+        let top = self.stack.last_mut().unwrap();
+        top.instruction_pointer = 0;
+    }
     fn offset(&self) -> usize {
         self.top().stack_offset
     }
@@ -261,18 +266,20 @@ impl CallStack {
             _ => self.offset(),
         }
     }
-    fn get_self(&self) -> Value {
+    fn parent_frame_index(&self) -> usize {
         match &self.top().instance {
-            CallFrameInstance::Handler(val) => return val.clone(),
             CallFrameInstance::Do {
                 parent_frame_index, ..
-            } => {
-                if let CallFrameInstance::Handler(val) = &self.stack[*parent_frame_index].instance {
-                    return val.clone();
-                }
-            }
-            _ => {}
+            } => *parent_frame_index,
+            _ => self.stack.len() - 1,
         }
+    }
+    fn get_self(&self) -> Value {
+        let parent_frame = &self.stack[self.parent_frame_index()];
+        if let CallFrameInstance::Handler(val) = &parent_frame.instance {
+            return val.clone();
+        }
+
         unreachable!()
     }
     fn stack_trace(&self) -> Vec<String> {
@@ -442,7 +449,7 @@ impl<'a> Interpreter<'a> {
             }
             IR::NewDoObject { class } => {
                 let parent_offset = self.call_stack.parent_offset();
-                let parent_frame_index = self.call_stack.stack.len() - 1;
+                let parent_frame_index = self.call_stack.parent_frame_index();
                 self.stack.push(Value::DoObject {
                     class,
                     parent_offset,
@@ -475,6 +482,9 @@ impl<'a> Interpreter<'a> {
             // control flow
             IR::Return => {
                 self.call_stack.do_return();
+            }
+            IR::Loop => {
+                self.call_stack.do_loop();
             }
         }
         Ok(())

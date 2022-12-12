@@ -5,13 +5,9 @@ import [_true_ _false_] := "native"
 # - TODO: this should also have min:max: helpers
 export let Ord := [
   on {from int: int}
-    (int > 0){
-      true: Ord{>} 
-      false: (int < 0){
-        true: Ord{<} 
-        false: Ord{==}
-      }
-    }
+    if int > 0 then return Ord{>} end
+    if int < 0 then return Ord{<} end
+    return Ord{==}
   on {<} [
     on {: do f} f{<}
     on {<} true

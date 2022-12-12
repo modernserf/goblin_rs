@@ -6,5 +6,6 @@ export let Bool := [
 ]
 
 export import [_Ord_] := "core/ord"
-# export import [_Option_] := "core/option"
-# export import [_Result_] := "core/result"
+export import [_Option_] := "core/option"
+export import [_Result_] := "core/result"
+export import [_Control_] := "core/control"

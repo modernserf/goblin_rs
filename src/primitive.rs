@@ -607,6 +607,18 @@ fn get_log_module() -> Value {
     Value::Object(Rc::new(obj))
 }
 
+fn get_loop_module() -> Value {
+    let mut class = Class::new();
+    class.add_handler(
+        ":",
+        vec![Param::Do],
+        vec![IR::Local { index: 0 }, IR::send("", 0), IR::Loop],
+    );
+
+    let obj = Object::new(class.rc(), vec![]);
+    Value::Object(Rc::new(obj))
+}
+
 fn get_native_module() -> RcClass {
     let mut class = Class::new();
     class.add_constant("true", Value::True);
@@ -617,6 +629,7 @@ fn get_native_module() -> RcClass {
     class.add_constant("String", get_string_module());
     class.add_constant("Panic", get_panic_module());
     class.add_constant("Log", get_log_module());
+    class.add_constant("loop", get_loop_module());
 
     class.rc()
 }

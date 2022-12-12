@@ -20,6 +20,16 @@ Assert{false: true && false}
 Assert{true: true || false}
 Assert{false: false || false}
 
+# conditionals 
+Assert{
+  received: if true then "foo" else "bar" end
+  expected: "foo"
+}
+Assert{
+  received: if false then "foo" else "bar" end
+  expected: "bar"
+}
+
 # integers
 Assert{received: 1 + 1    expected: 2}
 let n := 1
