@@ -1,10 +1,7 @@
-use std::ops::Deref;
 use std::rc::Rc;
 
-use crate::class::{Class, Handler, RcClass};
-use crate::ir::IR;
+use crate::class::{Class, RcClass};
 use crate::primitive::Primitive;
-use crate::runtime::{Runtime, RuntimeError};
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum Value {
@@ -52,33 +49,11 @@ impl Value {
         Self::Object(Object::new(class, ivars).rc())
     }
 
-    fn class(&self) -> RcClass {
+    pub fn class(&self) -> RcClass {
         match self {
             Self::Primitive(p) => p.class(),
             Self::Object(obj) => obj.class(),
             Self::DoObject { class, .. } => class.clone(),
-        }
-    }
-
-    pub fn get_handler(&self, selector: &str, arity: usize) -> Runtime<Handler> {
-        let class = self.class();
-        if let Some(handler) = class.get(selector) {
-            Ok(handler.clone())
-        } else if let Some(else_body) = class.get_else() {
-            let body = {
-                // drop args
-                let mut out = vec![];
-                for _ in 0..arity {
-                    out.push(IR::Drop);
-                }
-                let mut else_body = else_body.deref().clone();
-                out.append(&mut else_body);
-                Rc::new(out)
-            };
-
-            Ok(Handler::new(vec![], body))
-        } else {
-            Err(RuntimeError::DoesNotUnderstand(selector.to_string()))
         }
     }
 

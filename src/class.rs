@@ -1,5 +1,8 @@
-use crate::ir::{NativeHandlerFn, IR};
-use std::{collections::HashMap, rc::Rc};
+use crate::{
+    ir::{NativeHandlerFn, IR},
+    runtime::{Runtime, RuntimeError},
+};
+use std::{collections::HashMap, ops::Deref, rc::Rc};
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct Class {
@@ -34,12 +37,28 @@ impl Class {
     pub fn add_else(&mut self, body: Vec<IR>) {
         self.else_handler = Some(Rc::new(body));
     }
-    pub fn get(&self, selector: &str) -> Option<&Handler> {
-        self.handlers.get(selector)
+
+    pub fn get_handler(&self, selector: &str, arity: usize) -> Runtime<Handler> {
+        if let Some(handler) = self.handlers.get(selector) {
+            Ok(handler.clone())
+        } else if let Some(else_body) = &self.else_handler {
+            let body = {
+                // drop args
+                let mut out = vec![];
+                for _ in 0..arity {
+                    out.push(IR::Drop);
+                }
+                let mut else_body = else_body.deref().clone();
+                out.append(&mut else_body);
+                Rc::new(out)
+            };
+
+            Ok(Handler::new(vec![], body))
+        } else {
+            Err(RuntimeError::DoesNotUnderstand(selector.to_string()))
+        }
     }
-    pub fn get_else(&self) -> Option<&Body> {
-        self.else_handler.as_ref()
-    }
+
     pub fn rc(self) -> RcClass {
         Rc::new(self)
     }

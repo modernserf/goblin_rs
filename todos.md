@@ -13,5 +13,3 @@ otherwise   -> error
 ```
 
 frame - object - do block continuum of data-focused vs behavior-focused
-
-organize into phases (lex, parse, compile, run) and concepts (binding, object, message)

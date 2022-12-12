@@ -373,7 +373,7 @@ impl<'a> Interpreter<'a> {
             IR::Send { selector, arity } => {
                 let target = self.stack.pop();
                 let next_offset = self.stack.size() - arity;
-                let handler = target.get_handler(&selector, arity)?;
+                let handler = target.class().get_handler(&selector, arity)?;
                 self.check_args(&handler)?;
                 self.call_stack.call(selector, next_offset, target, handler);
             }
@@ -381,13 +381,13 @@ impl<'a> Interpreter<'a> {
                 let target = self.stack.pop();
                 let or_else = self.stack.pop();
                 let next_offset = self.stack.size() - arity;
-                if let Ok(handler) = target.get_handler(&selector, arity) {
+                if let Ok(handler) = target.class().get_handler(&selector, arity) {
                     self.check_args(&handler)?;
                     self.call_stack.call(selector, next_offset, target, handler);
                 } else {
                     // TODO: should this be handled in the or_else handler?
                     self.stack.pop_args(arity);
-                    let handler = or_else.get_handler("", 0)?;
+                    let handler = or_else.class().get_handler("", 0)?;
                     let next_offset = self.stack.size();
                     self.call_stack
                         .call("".to_string(), next_offset, or_else, handler);

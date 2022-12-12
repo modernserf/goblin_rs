@@ -14,7 +14,7 @@ pub enum Binding {
 }
 
 impl Binding {
-    // value being bound is on top of IR stack
+    // value being bound is on top of stack
     pub fn compile_let(self, compiler: &mut Compiler, is_export: bool) -> CompileIR {
         match self {
             Binding::Identifier(name, _) => {
@@ -43,6 +43,8 @@ impl Binding {
             }
         }
     }
+
+    // binding params done in two phases -- first, allocate all bindings, then compile destructured bindings
     pub fn bind_param(self, compiler: &mut Compiler) -> BindParamResult {
         match self {
             Binding::Identifier(key, _) => {
