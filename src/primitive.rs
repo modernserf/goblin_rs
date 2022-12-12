@@ -568,8 +568,8 @@ fn get_file_module() -> RcClass {
 
 fn get_string_module() -> RcClass {
     let mut class = Class::new();
-    class.add_constant("newline", Value::string("\n"));
-    class.add_constant("tab", Value::string("\t"));
+    class.add_handler("newline", vec![], vec![IR::Constant(Value::string("\n"))]);
+    class.add_handler("tab", vec![], vec![IR::Constant(Value::string("\t"))]);
     class.add_native(
         "from char code:",
         vec![Param::Value],
@@ -629,17 +629,28 @@ fn get_loop_module() -> RcClass {
     class.rc()
 }
 
+fn add_module(class: &mut Class, selector: &str, module: RcClass) {
+    class.add_handler(
+        selector,
+        vec![],
+        vec![IR::NewObject {
+            class: module,
+            arity: 0,
+        }],
+    )
+}
+
 fn get_native_module() -> RcClass {
     let mut class = Class::new();
-    class.add_constant("true", Value::bool(true));
-    class.add_constant("false", Value::bool(false));
-    class.add_constant("Cell", Value::object(get_cell_module(), vec![]));
-    class.add_constant("Assert", Value::object(get_assert_module(), vec![]));
-    class.add_constant("File", Value::object(get_file_module(), vec![]));
-    class.add_constant("String", Value::object(get_string_module(), vec![]));
-    class.add_constant("Panic", Value::object(get_panic_module(), vec![]));
-    class.add_constant("Log", Value::object(get_log_module(), vec![]));
-    class.add_constant("loop", Value::object(get_loop_module(), vec![]));
+    class.add_handler("true", vec![], vec![IR::Constant(Value::bool(true))]);
+    class.add_handler("false", vec![], vec![IR::Constant(Value::bool(false))]);
+    add_module(&mut class, "Cell", get_cell_module());
+    add_module(&mut class, "Assert", get_assert_module());
+    add_module(&mut class, "String", get_string_module());
+    add_module(&mut class, "File", get_file_module());
+    add_module(&mut class, "Panic", get_panic_module());
+    add_module(&mut class, "Log", get_log_module());
+    add_module(&mut class, "loop", get_loop_module());
 
     class.rc()
 }

@@ -1,5 +1,4 @@
 use crate::ir::{NativeHandlerFn, IR};
-use crate::value::Value;
 use std::{collections::HashMap, rc::Rc};
 
 #[derive(Debug, Clone, PartialEq)]
@@ -21,12 +20,6 @@ impl Class {
     pub fn add_handler(&mut self, key: &str, params: Vec<Param>, body: Vec<IR>) {
         self.handlers
             .insert(key.to_string(), Handler(params, Rc::new(body)));
-    }
-    pub fn add_constant(&mut self, key: &str, value: Value) {
-        self.handlers.insert(
-            key.to_string(),
-            Handler(vec![], Rc::new(vec![IR::Constant(value)])),
-        );
     }
     pub fn add_native(&mut self, key: &str, params: Vec<Param>, f: NativeHandlerFn) {
         let len = params.len();
