@@ -6,6 +6,8 @@ pub enum IR {
     // put a value on the stack
     SelfRef,
     Unit,
+    False,
+    True,
     Constant(Value),
     Module(String),
     Local { index: usize },

@@ -8,7 +8,6 @@ use crate::{
     parse_expr::Expr,
     parser::Parse,
     source::Source,
-    value::Value,
 };
 
 thread_local! {
@@ -61,12 +60,8 @@ impl Frame {
                         IR::NewObject {
                             class: {
                                 let mut class = Class::new();
-                                class.add_handler(
-                                    &key,
-                                    vec![],
-                                    vec![IR::Constant(Value::bool(true))],
-                                );
-                                class.add_else(vec![IR::Constant(Value::bool(false))]);
+                                class.add_handler(&key, vec![], vec![IR::True]);
+                                class.add_else(vec![IR::False]);
                                 class.rc()
                             },
                             arity: 0,
@@ -75,11 +70,7 @@ impl Frame {
                         IR::NewObject {
                             class: {
                                 let mut class = Class::new();
-                                class.add_handler(
-                                    "",
-                                    vec![],
-                                    vec![IR::Constant(Value::bool(false))],
-                                );
+                                class.add_handler("", vec![], vec![IR::False]);
                                 class.rc()
                             },
                             arity: 0,
@@ -144,7 +135,7 @@ impl Frame {
                                 &selector,
                                 args.iter().map(|_| Param::Value).collect(),
                                 {
-                                    let mut body = vec![IR::Constant(Value::bool(true))];
+                                    let mut body = vec![IR::True];
                                     for i in 0..args.len() {
                                         body.push(IR::IVar { index: i });
                                         body.push(IR::Local { index: i });
@@ -154,7 +145,7 @@ impl Frame {
                                     body
                                 },
                             );
-                            class.add_else(vec![IR::Constant(Value::bool(false))]);
+                            class.add_else(vec![IR::False]);
                             class.rc()
                         },
                         arity: args.len(),
@@ -163,7 +154,7 @@ impl Frame {
                     body.push(IR::NewObject {
                         class: {
                             let mut class = Class::new();
-                            class.add_handler("", vec![], vec![IR::Constant(Value::bool(false))]);
+                            class.add_handler("", vec![], vec![IR::False]);
                             class.rc()
                         },
                         arity: 0,

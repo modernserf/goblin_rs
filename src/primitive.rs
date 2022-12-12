@@ -642,8 +642,8 @@ fn add_module(class: &mut Class, selector: &str, module: RcClass) {
 
 fn get_native_module() -> RcClass {
     let mut class = Class::new();
-    class.add_handler("true", vec![], vec![IR::Constant(Value::bool(true))]);
-    class.add_handler("false", vec![], vec![IR::Constant(Value::bool(false))]);
+    class.add_handler("true", vec![], vec![IR::True]);
+    class.add_handler("false", vec![], vec![IR::False]);
     add_module(&mut class, "Cell", get_cell_module());
     add_module(&mut class, "Assert", get_assert_module());
     add_module(&mut class, "String", get_string_module());

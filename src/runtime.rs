@@ -322,6 +322,8 @@ impl<'a> Interpreter<'a> {
                 self.stack.push(instance);
             }
             IR::Unit => self.stack.push(Value::Primitive(Primitive::Unit)),
+            IR::False => self.stack.push(Value::Primitive(Primitive::False)),
+            IR::True => self.stack.push(Value::Primitive(Primitive::True)),
             IR::Constant(value) => {
                 self.stack.push(value);
             }
