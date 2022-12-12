@@ -7,41 +7,6 @@ use crate::stmt::Stmt;
 use std::collections::HashMap;
 
 #[derive(Debug, Clone)]
-pub struct Exports {
-    exports: HashMap<String, usize>,
-}
-
-impl Exports {
-    pub fn new() -> Self {
-        Exports {
-            exports: HashMap::new(),
-        }
-    }
-    pub fn add(&mut self, key: &str, index: usize) -> Compile<()> {
-        if self.exports.insert(key.to_string(), index).is_some() {
-            todo!("error: duplicate export")
-        }
-        Ok(())
-    }
-
-    pub fn compile(self) -> CompileIR {
-        let mut entries = self.exports.into_iter().collect::<Vec<_>>();
-        entries.sort_by(|(a, _), (b, _)| a.cmp(b));
-        let mut out = Vec::new();
-        let mut class = Class::new();
-        for (ivar, (key, local)) in entries.iter().enumerate() {
-            out.push(IR::Local { index: *local });
-            class.add_handler(&key, vec![], vec![IR::IVar { index: ivar }]);
-        }
-        out.push(IR::NewObject {
-            class: class.rc(),
-            arity: entries.len(),
-        });
-        Ok(out)
-    }
-}
-
-#[derive(Debug, Clone)]
 pub struct ObjectBuilder {
     handlers: HashMap<String, Handler>,
     else_handler: Option<ElseHandler>,

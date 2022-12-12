@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 
-use crate::{ir::IR, object::Exports, stmt::Stmt};
+use crate::{class::Class, ir::IR, stmt::Stmt};
 
 #[derive(Debug, PartialEq, Clone)]
 pub enum CompileError {
@@ -11,6 +11,41 @@ pub enum CompileError {
 
 pub type CompileIR = Result<Vec<IR>, CompileError>;
 pub type Compile<T> = Result<T, CompileError>;
+
+#[derive(Debug, Clone)]
+pub struct Exports {
+    exports: HashMap<String, usize>,
+}
+
+impl Exports {
+    pub fn new() -> Self {
+        Exports {
+            exports: HashMap::new(),
+        }
+    }
+    pub fn add(&mut self, key: &str, index: usize) -> Compile<()> {
+        if self.exports.insert(key.to_string(), index).is_some() {
+            todo!("error: duplicate export")
+        }
+        Ok(())
+    }
+
+    pub fn compile(self) -> CompileIR {
+        let mut entries = self.exports.into_iter().collect::<Vec<_>>();
+        entries.sort_by(|(a, _), (b, _)| a.cmp(b));
+        let mut out = Vec::new();
+        let mut class = Class::new();
+        for (ivar, (key, local)) in entries.iter().enumerate() {
+            out.push(IR::Local { index: *local });
+            class.add_handler(&key, vec![], vec![IR::IVar { index: ivar }]);
+        }
+        out.push(IR::NewObject {
+            class: class.rc(),
+            arity: entries.len(),
+        });
+        Ok(out)
+    }
+}
 
 #[derive(Debug, PartialEq, Clone, Copy)]
 enum BindingType {
