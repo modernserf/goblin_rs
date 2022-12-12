@@ -8,35 +8,25 @@ pub enum Value {
     Primitive(Primitive),
     Object(Rc<Object>),
     DoObject {
-        class: Rc<Class>,
+        class: RcClass,
         parent_offset: usize,
         parent_frame_index: usize,
     },
-}
-
-impl Default for Value {
-    fn default() -> Self {
-        Self::Primitive(Primitive::Unit)
-    }
 }
 
 impl Value {
     pub fn unit() -> Self {
         Self::Primitive(Primitive::Unit)
     }
-
     pub fn string(str: &str) -> Self {
         Self::Primitive(Primitive::String(Rc::new(str.to_string())))
     }
-
     pub fn int(value: i64) -> Self {
         Self::Primitive(Primitive::Integer(value))
     }
-
     pub fn float(value: f64) -> Self {
         Self::Primitive(Primitive::Float(value))
     }
-
     pub fn bool(value: bool) -> Self {
         if value {
             Self::Primitive(Primitive::True)
@@ -44,7 +34,6 @@ impl Value {
             Self::Primitive(Primitive::False)
         }
     }
-
     pub fn object(class: RcClass, ivars: Vec<Value>) -> Self {
         Self::Object(Object::new(class, ivars).rc())
     }
@@ -56,7 +45,6 @@ impl Value {
             Self::DoObject { class, .. } => class.clone(),
         }
     }
-
     pub fn ivar(&self, index: usize) -> Value {
         match self {
             Self::Object(obj) => obj.ivar(index).clone(),
@@ -67,7 +55,7 @@ impl Value {
     // TODO: this is only used for constructing frames, can it be eliminated?
     pub fn new_instance(&self, ivars: Vec<Value>) -> Value {
         match self {
-            Value::Object(obj) => Value::Object(Object::new(obj.class(), ivars).rc()),
+            Value::Object(obj) => Value::object(obj.class(), ivars),
             _ => unreachable!(),
         }
     }

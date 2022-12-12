@@ -472,7 +472,7 @@ pub fn build_cell_class() -> RcClass {
         Ok(target.as_cell().borrow().clone())
     });
     class.add_native(":", vec![Param::Value], |target, mut args| {
-        let arg = std::mem::take(&mut args[0]);
+        let arg = args.pop().unwrap();
         let mut tgt = target.as_cell().borrow_mut();
         *tgt = arg;
         Ok(Value::unit())
@@ -483,7 +483,7 @@ pub fn build_cell_class() -> RcClass {
 fn get_cell_module() -> RcClass {
     let mut class = Class::new();
     class.add_native(":", vec![Param::Value], |_, mut args| {
-        let arg = std::mem::take(&mut args[0]);
+        let arg = args.pop().unwrap();
         Ok(Value::Primitive(Primitive::Cell(Rc::new(RefCell::new(
             arg,
         )))))
