@@ -1,6 +1,5 @@
 use crate::frame::FrameBuilder;
 use crate::object::{ObjectBuilder, PairParamsBuilder, ParamsBuilder};
-use crate::parse_error::ParseError;
 use crate::send::SendBuilder;
 use crate::{
     binding::Binding,
@@ -11,10 +10,33 @@ use crate::{
 };
 use std::mem;
 
+#[derive(Debug, Clone, PartialEq)]
+pub enum ParseError {
+    ExpectedEndOfInput,
+    Expected(String),
+    ExpectedPairGotKey(String),
+    DuplicateKey(String),
+    DuplicateHandler(String),
+    DuplicateElseHandler,
+    InvalidSetBinding,
+    InvalidSetInPlace,
+    WithSource(Box<ParseError>, Source),
+}
+
+impl ParseError {
+    pub fn with_source(self, source: Source) -> Self {
+        ParseError::WithSource(Box::new(self), source)
+    }
+}
+
+fn expected<T>(str: &str) -> Parse<T> {
+    Err(ParseError::Expected(str.to_string()))
+}
+
 fn expect<T>(value: ParseOpt<T>, error_msg: &str) -> Parse<T> {
     match value? {
         Some(x) => Ok(x),
-        None => ParseError::expected(error_msg),
+        None => expected(error_msg),
     }
 }
 
@@ -67,7 +89,7 @@ impl<'a> Parser<'a> {
             (Token::End(_), "end") => {
                 self.advance();
             }
-            (_, _) => return ParseError::expected(expected),
+            (_, _) => return Err(ParseError::Expected(expected.to_string())),
         }
         Ok(())
     }
@@ -159,7 +181,7 @@ impl<'a> Parser<'a> {
                 self.advance();
                 Ok(key)
             }
-            _ => ParseError::expected("identifier"),
+            _ => expected("identifier"),
         }
     }
 
@@ -295,7 +317,7 @@ impl<'a> Parser<'a> {
                 self.expect_token("end")?;
                 Ok(Expr::If(Box::new(cond), if_true, if_false, source))
             }
-            _ => ParseError::expected("else / end"),
+            _ => expected("else / end"),
         }
     }
 
@@ -524,7 +546,7 @@ impl<'a> Parser<'a> {
 
                         Ok(Some(Stmt::Import(binding, expr, true)))
                     }
-                    _ => ParseError::expected("let | import"),
+                    _ => expected("let | import"),
                 }
             }
             Token::Let(_) => {
@@ -585,7 +607,7 @@ impl<'a> Parser<'a> {
         if self.advance() == Token::EndOfInput {
             return Ok(out);
         }
-        ParseError::expected_end_of_input()
+        Err(ParseError::ExpectedEndOfInput)
     }
 }
 

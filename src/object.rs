@@ -2,8 +2,7 @@ use crate::binding::Binding;
 use crate::class::{Class, Param as IRParam};
 use crate::compiler::{Compile, CompileIR, Compiler, Instance};
 use crate::ir::IR;
-use crate::parse_error::ParseError;
-use crate::parser::Parse;
+use crate::parser::{Parse, ParseError};
 use crate::stmt::Stmt;
 use std::collections::HashMap;
 
@@ -169,14 +168,14 @@ impl ObjectBuilder {
     }
     fn add_handler(&mut self, handler: Handler) -> Parse<()> {
         if self.handlers.contains_key(&handler.selector) {
-            return ParseError::duplicate_handler(&handler.selector);
+            return Err(ParseError::DuplicateHandler(handler.selector));
         }
         self.handlers.insert(handler.selector.clone(), handler);
         Ok(())
     }
     pub fn add_else(&mut self, body: Vec<Stmt>) -> Parse<()> {
         if self.else_handler.is_some() {
-            return ParseError::duplicate_else_handler();
+            return Err(ParseError::DuplicateElseHandler);
         }
         self.else_handler = Some(ElseHandler { body });
         Ok(())
@@ -273,7 +272,7 @@ impl PairParamsBuilder {
     }
     fn add(&mut self, key: String, param: ParseParam) -> Parse<()> {
         if self.params.contains_key(&key) {
-            return ParseError::duplicate_key(&key);
+            return Err(ParseError::DuplicateKey(key));
         }
         self.params.insert(key, param);
         Ok(())

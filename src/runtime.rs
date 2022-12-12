@@ -6,7 +6,6 @@ use crate::module::ModuleLoader;
 use crate::primitive::Primitive;
 use crate::value::Value;
 
-#[allow(unused)]
 #[derive(Debug, Clone, PartialEq)]
 
 pub enum RuntimeError {

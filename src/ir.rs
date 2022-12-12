@@ -1,6 +1,5 @@
 use crate::{class::RcClass, primitive::Primitive, runtime::Runtime, value::Value};
 
-#[allow(unused)]
 #[derive(Debug, Clone, PartialEq)]
 pub enum IR {
     // put a value on the stack

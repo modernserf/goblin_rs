@@ -5,8 +5,7 @@ use crate::{
     compiler::{CompileIR, Compiler},
     expr::Expr,
     ir::IR,
-    parse_error::ParseError,
-    parser::Parse,
+    parser::{Parse, ParseError},
     source::Source,
 };
 
@@ -233,13 +232,13 @@ impl FrameBuilder {
     }
     pub fn build_key(self, key: String, source: Source) -> Parse<Expr> {
         if self.args.len() > 0 {
-            return ParseError::expected_pair_got_key(&key).map_err(|e| e.with_source(source));
+            return Err(ParseError::ExpectedPairGotKey(key).with_source(source));
         }
         return Ok(Expr::Frame(Frame::Key(key), source));
     }
     pub fn add_pair(&mut self, key: String, value: Expr) -> Parse<()> {
         if self.args.contains_key(&key) {
-            return ParseError::duplicate_key(&key);
+            return Err(ParseError::DuplicateKey(key));
         }
         self.args.insert(key, value);
         Ok(())

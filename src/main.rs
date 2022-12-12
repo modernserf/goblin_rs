@@ -7,7 +7,6 @@ mod ir;
 mod lexer;
 mod module;
 mod object;
-mod parse_error;
 mod parser;
 mod primitive;
 mod runtime;

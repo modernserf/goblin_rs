@@ -1,11 +1,11 @@
 use std::collections::HashMap;
 
 use crate::ir::IR;
+use crate::parser::ParseError;
 use crate::{
     compiler::{CompileError, CompileIR, Compiler},
     expr::Expr,
     object::{ObjectBuilder, ParamsBuilder},
-    parse_error::ParseError,
     parser::Parse,
     source::Source,
     stmt::Stmt,
@@ -112,7 +112,7 @@ impl SendBuilder {
 
     pub fn build_key(self, key: String, target: Expr, source: Source) -> Parse<Expr> {
         if self.args.len() > 0 {
-            return ParseError::expected_pair_got_key(&key);
+            return Err(ParseError::ExpectedPairGotKey(key).with_source(source));
         }
         Ok(Expr::Send(
             Box::new(target),
@@ -134,7 +134,7 @@ impl SendBuilder {
     }
     fn add(&mut self, key: String, value: SendArg) -> Parse<()> {
         if self.args.contains_key(&key) {
-            return ParseError::duplicate_key(&key);
+            return Err(ParseError::DuplicateKey(key));
         }
         self.args.insert(key, value);
         Ok(())

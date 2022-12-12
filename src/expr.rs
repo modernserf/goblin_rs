@@ -3,8 +3,7 @@ use crate::compiler::{CompileIR, Compiler};
 use crate::frame::{Frame, FrameBuilder};
 use crate::ir::IR;
 use crate::object::{ObjectBuilder, ParamsBuilder};
-use crate::parse_error::ParseError;
-use crate::parser::Parse;
+use crate::parser::{Parse, ParseError};
 use crate::send::{Send, SendBuilder};
 use crate::source::Source;
 use crate::stmt::Stmt;
@@ -28,7 +27,7 @@ impl Expr {
     pub fn as_binding(self) -> Parse<Binding> {
         match self {
             Expr::Identifier(key, source) => Ok(Binding::Identifier(key, source)),
-            _ => ParseError::invalid_set_binding(),
+            _ => Err(ParseError::InvalidSetBinding),
         }
     }
     pub fn as_set_in_place(self) -> Parse<Stmt> {
@@ -37,14 +36,14 @@ impl Expr {
                 let binding = target.root_target_binding()?;
                 Ok(Stmt::Set(binding, Expr::Send(target, sender, source)))
             }
-            _ => ParseError::invalid_set_in_place(),
+            _ => Err(ParseError::InvalidSetInPlace),
         }
     }
     fn root_target_binding(&self) -> Parse<Binding> {
         match self {
             Expr::Send(target, _, _) => target.root_target_binding(),
             Expr::Identifier(key, source) => Ok(Binding::Identifier(key.to_string(), *source)),
-            _ => ParseError::invalid_set_in_place(),
+            _ => Err(ParseError::InvalidSetInPlace),
         }
     }
 
