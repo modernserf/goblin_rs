@@ -39,6 +39,10 @@ fn build_stdlib() -> module_loader::ModuleLoader {
         "core/control",
         compile_module(include_str!("./stdlib/control.gob")),
     );
+    modules.add_init(
+        "core/iter",
+        compile_module(include_str!("./stdlib/iter.gob")),
+    );
     modules
 }
 

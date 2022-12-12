@@ -61,9 +61,12 @@ impl ObjectBuilder {
         for (selector, handler) in self.handlers.into_iter() {
             compiler.do_handler();
 
-            let ir_params = Self::compile_params(compiler, &handler);
-            let body = Compiler::body(handler.body, compiler)?;
-            class.add_handler(&selector, ir_params, body);
+            let (mut out, ir_params) = Self::compile_params(compiler, &handler)?;
+
+            let mut body = Compiler::body(handler.body, compiler)?;
+            out.append(&mut body);
+
+            class.add_handler(&selector, ir_params, out);
 
             compiler.end_do_handler();
         }
@@ -83,9 +86,11 @@ impl ObjectBuilder {
         for (selector, handler) in self.handlers.into_iter() {
             compiler.handler(instance);
 
-            let ir_params = Self::compile_params(compiler, &handler);
+            let (mut out, ir_params) = Self::compile_params(compiler, &handler)?;
 
-            let mut out = Self::compile_self_binding(compiler, binding);
+            let mut self_binding = Self::compile_self_binding(compiler, binding);
+            out.append(&mut self_binding);
+
             let mut body = Compiler::body(handler.body, compiler)?;
             out.append(&mut body);
 
@@ -115,19 +120,18 @@ impl ObjectBuilder {
         });
         Ok(out)
     }
-    fn compile_params(compiler: &mut Compiler, handler: &Handler) -> Vec<IRParam> {
+    fn compile_params(
+        compiler: &mut Compiler,
+        handler: &Handler,
+    ) -> Compile<(Vec<IR>, Vec<IRParam>)> {
         let mut ir_params = Vec::new();
+        let mut to_compile = Vec::new();
         for param in handler.params.iter() {
             match param {
                 Param::Value(binding) => {
                     ir_params.push(IRParam::Value);
-                    match binding {
-                        Binding::Identifier(key, _) => {
-                            compiler.add_let(key.to_string());
-                        }
-                        Binding::Placeholder(_) => {}
-                        Binding::Destructuring(_, _) => todo!("destructuring in params"),
-                    }
+                    let res = binding.clone().bind_param(compiler);
+                    to_compile.push(res);
                 }
                 Param::Var(key) => {
                     ir_params.push(IRParam::Var);
@@ -139,7 +143,12 @@ impl ObjectBuilder {
                 }
             };
         }
-        ir_params
+        let mut out = Vec::new();
+        for item in to_compile {
+            let mut res = item.compile(compiler)?;
+            out.append(&mut res);
+        }
+        Ok((out, ir_params))
     }
     fn compile_self_binding(compiler: &mut Compiler, binding: Option<&Binding>) -> Vec<IR> {
         let mut out = Vec::new();
