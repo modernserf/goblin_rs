@@ -321,6 +321,7 @@ impl<'a> Interpreter<'a> {
                 let instance = self.call_stack.get_self();
                 self.stack.push(instance);
             }
+            IR::Unit => self.stack.push(Value::Primitive(Primitive::Unit)),
             IR::Constant(value) => {
                 self.stack.push(value);
             }
@@ -601,11 +602,7 @@ mod test {
                         class.add_handler(
                             "",
                             vec![],
-                            vec![
-                                IR::int(2),
-                                IR::SetParent { index: 0 },
-                                IR::Constant(Value::unit()),
-                            ],
+                            vec![IR::int(2), IR::SetParent { index: 0 }, IR::Unit],
                         );
                         class.rc()
                     },

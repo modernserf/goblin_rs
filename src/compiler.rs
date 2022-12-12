@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 
-use crate::{ir::IR, object_builder::Exports, parse_stmt::Stmt, value::Value};
+use crate::{ir::IR, object_builder::Exports, parse_stmt::Stmt};
 
 #[derive(Debug, PartialEq, Clone)]
 pub enum CompileError {
@@ -218,12 +218,12 @@ impl Compiler {
                 stmt => {
                     let mut res = stmt.compile(compiler)?;
                     out.append(&mut res);
-                    out.push(IR::Constant(Value::unit()));
+                    out.push(IR::Unit);
                 }
             }
             Ok(out)
         } else {
-            Ok(vec![IR::Constant(Value::unit())])
+            Ok(vec![IR::Unit])
         }
     }
 

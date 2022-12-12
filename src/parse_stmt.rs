@@ -3,7 +3,6 @@ use crate::{
     ir::IR,
     parse_binding::Binding,
     parse_expr::Expr,
-    value::Value,
 };
 
 #[derive(Debug, Clone)]
@@ -69,7 +68,7 @@ impl Stmt {
                     ir.push(IR::Return);
                     return Ok(ir);
                 } else {
-                    let ir = vec![IR::Constant(Value::unit()), IR::Return];
+                    let ir = vec![IR::Unit, IR::Return];
                     return Ok(ir);
                 }
             }

@@ -5,6 +5,7 @@ use crate::{class::RcClass, primitive::Primitive, runtime::Runtime, value::Value
 pub enum IR {
     // put a value on the stack
     SelfRef,
+    Unit,
     Constant(Value),
     Module(String),
     Local { index: usize },

@@ -73,7 +73,7 @@ impl Expr {
             Expr::Identifier(key, _) => compiler.get(&key),
             Expr::Paren(mut body, source) => {
                 if body.len() == 0 {
-                    return Ok(vec![IR::Constant(Value::unit())]);
+                    return Ok(vec![IR::Unit]);
                 }
                 if body.len() == 1 {
                     let stmt = body.pop().unwrap();
