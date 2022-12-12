@@ -48,6 +48,9 @@ impl Class {
 #[derive(Debug, Clone, PartialEq)]
 pub struct Handler(Vec<Param>, Body);
 impl Handler {
+    pub fn new(params: Vec<Param>, body: Body) -> Self {
+        Handler(params, body)
+    }
     pub fn params(&self) -> Vec<Param> {
         self.0.clone()
     }

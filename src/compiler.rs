@@ -13,12 +13,12 @@ pub type CompileIR = Result<Vec<IR>, CompileError>;
 pub type Compile<T> = Result<T, CompileError>;
 
 #[derive(Debug, PartialEq, Clone, Copy)]
-pub enum BindingType {
+enum BindingType {
     Let,
     Var,
 }
 #[derive(Debug, PartialEq, Clone, Copy)]
-pub struct BindingRecord {
+struct BindingRecord {
     pub index: usize,
     pub typ: BindingType,
 }
@@ -227,8 +227,8 @@ impl Compiler {
         }
     }
 
-    pub fn export(&mut self, name: &str, record: BindingRecord) -> Compile<()> {
-        self.exports.add(name, record.index)
+    pub fn export(&mut self, name: &str, index: usize) -> Compile<()> {
+        self.exports.add(name, index)
     }
 
     pub fn handler(&mut self, instance: Instance) {
@@ -254,14 +254,14 @@ impl Compiler {
         }
     }
 
-    pub fn add_anon(&mut self) -> BindingRecord {
-        self.top_mut().add_anon(BindingType::Let)
+    pub fn add_anon(&mut self) -> usize {
+        self.top_mut().add_anon(BindingType::Let).index
     }
-    pub fn add_let(&mut self, key: String) -> BindingRecord {
-        self.top_mut().add(key, BindingType::Let)
+    pub fn add_let(&mut self, key: String) -> usize {
+        self.top_mut().add(key, BindingType::Let).index
     }
-    pub fn add_var(&mut self, key: String) -> BindingRecord {
-        self.top_mut().add(key, BindingType::Var)
+    pub fn add_var(&mut self, key: String) -> usize {
+        self.top_mut().add(key, BindingType::Var).index
     }
     fn top(&self) -> &CompilerFrame {
         self.stack.last().unwrap()

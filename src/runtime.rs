@@ -1,10 +1,10 @@
 use std::rc::Rc;
 
-use crate::class::{Body, Param};
+use crate::class::{Body, Handler, Param};
 use crate::ir::IR;
 use crate::module::ModuleLoader;
 use crate::primitive::Primitive;
-use crate::value::{Handler, Value};
+use crate::value::Value;
 
 #[allow(unused)]
 #[derive(Debug, Clone, PartialEq)]

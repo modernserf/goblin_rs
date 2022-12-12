@@ -18,9 +18,9 @@ impl Binding {
     pub fn compile_let(self, compiler: &mut Compiler, is_export: bool) -> CompileIR {
         match self {
             Binding::Identifier(name, _) => {
-                let record = compiler.add_let(name.to_string());
+                let index = compiler.add_let(name.to_string());
                 if is_export {
-                    compiler.export(&name, record)?;
+                    compiler.export(&name, index)?;
                 }
                 Ok(vec![])
             }
@@ -29,11 +29,9 @@ impl Binding {
             }
             Binding::Destructuring(map, _) => {
                 let mut out = vec![];
-                let root_record = compiler.add_anon();
+                let index = compiler.add_anon();
                 for (key, binding) in map {
-                    out.push(IR::Local {
-                        index: root_record.index,
-                    });
+                    out.push(IR::Local { index });
                     out.push(IR::Send {
                         selector: key,
                         arity: 0,
@@ -56,7 +54,7 @@ impl Binding {
                 BindParamResult::None
             }
             Binding::Destructuring(map, _) => {
-                let index = compiler.add_anon().index;
+                let index = compiler.add_anon();
                 BindParamResult::Destructuring(map, index)
             }
         }

@@ -1,7 +1,7 @@
 use std::ops::Deref;
 use std::rc::Rc;
 
-use crate::class::{Body, Class, Param, RcClass};
+use crate::class::{Class, Handler, RcClass};
 use crate::ir::IR;
 use crate::primitive::Primitive;
 use crate::runtime::{Runtime, RuntimeError};
@@ -63,7 +63,7 @@ impl Value {
     pub fn get_handler(&self, selector: &str, arity: usize) -> Runtime<Handler> {
         let class = self.class();
         if let Some(handler) = class.get(selector) {
-            Ok(Handler::new(handler.params(), handler.body()))
+            Ok(handler.clone())
         } else if let Some(else_body) = class.get_else() {
             let body = {
                 // drop args
@@ -95,24 +95,6 @@ impl Value {
             Value::Object(obj) => Value::Object(Object::new(obj.class(), ivars).rc()),
             _ => unreachable!(),
         }
-    }
-}
-
-#[derive(Debug, Clone)]
-pub struct Handler {
-    params: Vec<Param>,
-    body: Body,
-}
-
-impl Handler {
-    fn new(params: Vec<Param>, body: Body) -> Self {
-        Self { params, body }
-    }
-    pub fn params(&self) -> Vec<Param> {
-        self.params.clone()
-    }
-    pub fn body(&self) -> Body {
-        self.body.clone()
     }
 }
 
