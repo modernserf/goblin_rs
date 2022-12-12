@@ -2,14 +2,15 @@ use std::ops::Deref;
 use std::{cell::RefCell, rc::Rc};
 
 use crate::class::{Body, Class, Object, Param, RcClass};
-use crate::primitive::{bool_class, cell_class, float_class, int_class, string_class};
+use crate::primitive::{cell_class, false_class, float_class, int_class, string_class, true_class};
 use crate::runtime::{Runtime, RuntimeError, IR};
 
 #[allow(unused)]
 #[derive(Debug, Clone, PartialEq)]
 pub enum Value {
     Unit,
-    Bool(bool),
+    True,
+    False,
     Integer(i64),
     Float(f64),
     String(Rc<String>),
@@ -34,12 +35,22 @@ impl Value {
         Self::String(Rc::new(str.to_string()))
     }
 
+    pub fn bool(value: bool) -> Self {
+        if value {
+            Value::True
+        } else {
+            Value::False
+        }
+    }
+
     pub fn as_bool(&self) -> bool {
         match self {
-            Value::Bool(val) => *val,
+            Value::True => true,
+            Value::False => false,
             _ => panic!("expected bool"),
         }
     }
+
     pub fn as_integer(&self) -> i64 {
         match self {
             Value::Integer(val) => *val,
@@ -68,7 +79,8 @@ impl Value {
     fn class(&self) -> RcClass {
         match self {
             Self::Unit => Class::new().rc(),
-            Self::Bool(..) => bool_class(),
+            Self::True => true_class(),
+            Self::False => false_class(),
             Self::Integer(..) => int_class(),
             Self::Float(..) => float_class(),
             Self::String(..) => string_class(),

@@ -4,42 +4,75 @@ use crate::class::{Class, Object, Param, RcClass};
 use crate::runtime::{RuntimeError, IR};
 use crate::value::Value;
 
-fn build_bool_class() -> RcClass {
+fn build_true_class() -> RcClass {
     let mut class = Class::new();
     // match
-    // class.add_native(":", vec![Param::Do], |target, args| {
-    //     let selector = if target.as_bool() { "true" } else { "false" };
-    //     args[0].send(selector, vec![])
-    // });
+    class.add_handler(":", vec![Param::Do], vec![IR::send("true", 0)]);
+
     // equality
-    class.add_native("=:", vec![Param::Value], |target, args| match &args[0] {
-        Value::Bool(other) => Ok(Value::Bool(target.as_bool() == *other)),
-        _ => Ok(Value::Bool(false)),
+    class.add_native("=:", vec![Param::Value], |_, args| match &args[0] {
+        Value::True => Ok(Value::True),
+        Value::False => Ok(Value::False),
+        _ => Ok(Value::False),
     });
-    class.add_native("!=:", vec![Param::Value], |target, args| match &args[0] {
-        Value::Bool(other) => Ok(Value::Bool(target.as_bool() != *other)),
-        _ => Ok(Value::Bool(true)),
+    class.add_native("!=:", vec![Param::Value], |_, args| match &args[0] {
+        Value::True => Ok(Value::False),
+        Value::False => Ok(Value::True),
+        _ => Ok(Value::True),
     });
     // logical operators
-    class.add_native("!", vec![], |target, _| Ok(Value::Bool(!target.as_bool())));
-    class.add_native("&&:", vec![Param::Value], |target, args| match &args[0] {
-        Value::Bool(other) => Ok(Value::Bool(target.as_bool() && *other)),
+    class.add_native("!", vec![], |_, _| Ok(Value::False));
+    class.add_native("&&:", vec![Param::Value], |_, args| match &args[0] {
+        Value::True => Ok(Value::True),
+        Value::False => Ok(Value::False),
         _ => RuntimeError::primitive_type_error("bool", &args[0]),
     });
-    class.add_native("||:", vec![Param::Value], |target, args| match &args[0] {
-        Value::Bool(other) => Ok(Value::Bool(target.as_bool() || *other)),
+    class.add_native("||:", vec![Param::Value], |_, args| match &args[0] {
+        Value::True => Ok(Value::True),
+        Value::False => Ok(Value::True),
         _ => RuntimeError::primitive_type_error("bool", &args[0]),
     });
     class.add_native(
         "false:true:",
         vec![Param::Value, Param::Value],
-        |target, args| {
-            if target.as_bool() {
-                Ok(args[1].clone())
-            } else {
-                Ok(args[0].clone())
-            }
-        },
+        |_, args| Ok(args[1].clone()),
+    );
+
+    class.rc()
+}
+
+fn build_false_class() -> RcClass {
+    let mut class = Class::new();
+    // match
+    class.add_handler(":", vec![Param::Do], vec![IR::send("false", 0)]);
+
+    // equality
+    class.add_native("=:", vec![Param::Value], |_, args| match &args[0] {
+        Value::True => Ok(Value::False),
+        Value::False => Ok(Value::True),
+        _ => Ok(Value::False),
+    });
+    class.add_native("!=:", vec![Param::Value], |_, args| match &args[0] {
+        Value::True => Ok(Value::True),
+        Value::False => Ok(Value::False),
+        _ => Ok(Value::True),
+    });
+    // logical operators
+    class.add_native("!", vec![], |_, _| Ok(Value::True));
+    class.add_native("&&:", vec![Param::Value], |_, args| match &args[0] {
+        Value::True => Ok(Value::False),
+        Value::False => Ok(Value::False),
+        _ => RuntimeError::primitive_type_error("bool", &args[0]),
+    });
+    class.add_native("||:", vec![Param::Value], |_, args| match &args[0] {
+        Value::True => Ok(Value::True),
+        Value::False => Ok(Value::False),
+        _ => RuntimeError::primitive_type_error("bool", &args[0]),
+    });
+    class.add_native(
+        "false:true:",
+        vec![Param::Value, Param::Value],
+        |_, args| Ok(args[0].clone()),
     );
 
     class.rc()
@@ -49,12 +82,12 @@ fn build_int_class() -> RcClass {
     let mut class = Class::new();
     // equality
     class.add_native("=:", vec![Param::Value], |target, args| match args[0] {
-        Value::Integer(r) => Ok(Value::Bool(target.as_integer() == r)),
-        _ => Ok(Value::Bool(false)),
+        Value::Integer(r) => Ok(Value::bool(target.as_integer() == r)),
+        _ => Ok(Value::False),
     });
     class.add_native("!=:", vec![Param::Value], |target, args| match args[0] {
-        Value::Integer(r) => Ok(Value::Bool(target.as_integer() != r)),
-        _ => Ok(Value::Bool(true)),
+        Value::Integer(r) => Ok(Value::bool(target.as_integer() != r)),
+        _ => Ok(Value::True),
     });
     // conversions
     class.add_native("to String", vec![], |target, _| {
@@ -169,48 +202,48 @@ fn build_int_class() -> RcClass {
     class.add_native("<:", vec![Param::Value], |target, args| {
         let target = target.as_integer();
         match args[0] {
-            Value::Integer(r) => Ok(Value::Bool(target < r)),
-            Value::Float(f) => Ok(Value::Bool((target as f64) < f)),
+            Value::Integer(r) => Ok(Value::bool(target < r)),
+            Value::Float(f) => Ok(Value::bool((target as f64) < f)),
             _ => RuntimeError::primitive_type_error("number", &args[0]),
         }
     });
     class.add_native("<=:", vec![Param::Value], |target, args| {
         let target = target.as_integer();
         match args[0] {
-            Value::Integer(r) => Ok(Value::Bool(target <= r)),
-            Value::Float(f) => Ok(Value::Bool((target as f64) <= f)),
+            Value::Integer(r) => Ok(Value::bool(target <= r)),
+            Value::Float(f) => Ok(Value::bool((target as f64) <= f)),
             _ => RuntimeError::primitive_type_error("number", &args[0]),
         }
     });
     class.add_native("==:", vec![Param::Value], |target, args| {
         let target = target.as_integer();
         match args[0] {
-            Value::Integer(r) => Ok(Value::Bool(target == r)),
-            Value::Float(f) => Ok(Value::Bool((target as f64) == f)),
+            Value::Integer(r) => Ok(Value::bool(target == r)),
+            Value::Float(f) => Ok(Value::bool((target as f64) == f)),
             _ => RuntimeError::primitive_type_error("number", &args[0]),
         }
     });
     class.add_native("<>:", vec![Param::Value], |target, args| {
         let target = target.as_integer();
         match args[0] {
-            Value::Integer(r) => Ok(Value::Bool(target != r)),
-            Value::Float(f) => Ok(Value::Bool((target as f64) != f)),
+            Value::Integer(r) => Ok(Value::bool(target != r)),
+            Value::Float(f) => Ok(Value::bool((target as f64) != f)),
             _ => RuntimeError::primitive_type_error("number", &args[0]),
         }
     });
     class.add_native(">=:", vec![Param::Value], |target, args| {
         let target = target.as_integer();
         match args[0] {
-            Value::Integer(r) => Ok(Value::Bool(target >= r)),
-            Value::Float(f) => Ok(Value::Bool((target as f64) >= f)),
+            Value::Integer(r) => Ok(Value::bool(target >= r)),
+            Value::Float(f) => Ok(Value::bool((target as f64) >= f)),
             _ => RuntimeError::primitive_type_error("number", &args[0]),
         }
     });
     class.add_native(">:", vec![Param::Value], |target, args| {
         let target = target.as_integer();
         match args[0] {
-            Value::Integer(r) => Ok(Value::Bool(target > r)),
-            Value::Float(f) => Ok(Value::Bool((target as f64) > f)),
+            Value::Integer(r) => Ok(Value::bool(target > r)),
+            Value::Float(f) => Ok(Value::bool((target as f64) > f)),
             _ => RuntimeError::primitive_type_error("number", &args[0]),
         }
     });
@@ -233,12 +266,12 @@ fn build_float_class() -> RcClass {
     let mut class = Class::new();
     // equality
     class.add_native("=:", vec![Param::Value], |target, args| match args[0] {
-        Value::Float(r) => Ok(Value::Bool(target.as_float() == r)),
-        _ => Ok(Value::Bool(false)),
+        Value::Float(r) => Ok(Value::bool(target.as_float() == r)),
+        _ => Ok(Value::False),
     });
     class.add_native("!=:", vec![Param::Value], |target, args| match args[0] {
-        Value::Float(r) => Ok(Value::Bool(target.as_float() != r)),
-        _ => Ok(Value::Bool(true)),
+        Value::Float(r) => Ok(Value::bool(target.as_float() != r)),
+        _ => Ok(Value::True),
     });
     // conversions
     class.add_native("to String", vec![], |target, _| {
@@ -271,48 +304,48 @@ fn build_float_class() -> RcClass {
     class.add_native("<:", vec![Param::Value], |target, args| {
         let target = target.as_float();
         match args[0] {
-            Value::Float(f) => Ok(Value::Bool(target < f)),
-            Value::Integer(r) => Ok(Value::Bool(target < (r as f64))),
+            Value::Float(f) => Ok(Value::bool(target < f)),
+            Value::Integer(r) => Ok(Value::bool(target < (r as f64))),
             _ => RuntimeError::primitive_type_error("number", &args[0]),
         }
     });
     class.add_native("<=:", vec![Param::Value], |target, args| {
         let target = target.as_float();
         match args[0] {
-            Value::Float(f) => Ok(Value::Bool(target <= f)),
-            Value::Integer(r) => Ok(Value::Bool(target <= (r as f64))),
+            Value::Float(f) => Ok(Value::bool(target <= f)),
+            Value::Integer(r) => Ok(Value::bool(target <= (r as f64))),
             _ => RuntimeError::primitive_type_error("number", &args[0]),
         }
     });
     class.add_native("==:", vec![Param::Value], |target, args| {
         let target = target.as_float();
         match args[0] {
-            Value::Float(f) => Ok(Value::Bool(target == f)),
-            Value::Integer(r) => Ok(Value::Bool(target == (r as f64))),
+            Value::Float(f) => Ok(Value::bool(target == f)),
+            Value::Integer(r) => Ok(Value::bool(target == (r as f64))),
             _ => RuntimeError::primitive_type_error("number", &args[0]),
         }
     });
     class.add_native("<>:", vec![Param::Value], |target, args| {
         let target = target.as_float();
         match args[0] {
-            Value::Float(f) => Ok(Value::Bool(target != f)),
-            Value::Integer(r) => Ok(Value::Bool(target != (r as f64))),
+            Value::Float(f) => Ok(Value::bool(target != f)),
+            Value::Integer(r) => Ok(Value::bool(target != (r as f64))),
             _ => RuntimeError::primitive_type_error("number", &args[0]),
         }
     });
     class.add_native(">=:", vec![Param::Value], |target, args| {
         let target = target.as_float();
         match args[0] {
-            Value::Float(f) => Ok(Value::Bool(target >= f)),
-            Value::Integer(r) => Ok(Value::Bool(target >= (r as f64))),
+            Value::Float(f) => Ok(Value::bool(target >= f)),
+            Value::Integer(r) => Ok(Value::bool(target >= (r as f64))),
             _ => RuntimeError::primitive_type_error("number", &args[0]),
         }
     });
     class.add_native(">:", vec![Param::Value], |target, args| {
         let target = target.as_float();
         match args[0] {
-            Value::Float(f) => Ok(Value::Bool(target > f)),
-            Value::Integer(r) => Ok(Value::Bool(target > (r as f64))),
+            Value::Float(f) => Ok(Value::bool(target > f)),
+            Value::Integer(r) => Ok(Value::bool(target > (r as f64))),
             _ => RuntimeError::primitive_type_error("number", &args[0]),
         }
     });
@@ -323,12 +356,12 @@ pub fn build_string_class() -> RcClass {
     let mut class = Class::new();
     // equality
     class.add_native("=:", vec![Param::Value], |target, args| match &args[0] {
-        Value::String(r) => Ok(Value::Bool(target.as_string() == r)),
-        _ => Ok(Value::Bool(false)),
+        Value::String(r) => Ok(Value::bool(target.as_string() == r)),
+        _ => Ok(Value::False),
     });
     class.add_native("!=:", vec![Param::Value], |target, args| match &args[0] {
-        Value::String(r) => Ok(Value::Bool(target.as_string() != r)),
-        _ => Ok(Value::Bool(true)),
+        Value::String(r) => Ok(Value::bool(target.as_string() != r)),
+        _ => Ok(Value::True),
     });
     // conversions
     class.add_native("to String", vec![], |target, _| Ok(target));
@@ -451,33 +484,18 @@ fn get_cell_module() -> Value {
 fn get_assert_module() -> Value {
     let mut class = Class::new();
     class.add_native(":", vec![Param::Value], |_, args| match &args[0] {
-        Value::Bool(value) => {
-            if *value {
-                Ok(Value::Unit)
-            } else {
-                RuntimeError::assertion_error("expected false to be true")
-            }
-        }
+        Value::True => Ok(Value::Unit),
+        Value::False => RuntimeError::assertion_error("expected false to be true"),
         _ => RuntimeError::primitive_type_error("bool", &args[0].clone()),
     });
     class.add_native("true:", vec![Param::Value], |_, args| match &args[0] {
-        Value::Bool(value) => {
-            if *value {
-                Ok(Value::Unit)
-            } else {
-                RuntimeError::assertion_error("expected false to be true")
-            }
-        }
+        Value::True => Ok(Value::Unit),
+        Value::False => RuntimeError::assertion_error("expected false to be true"),
         _ => RuntimeError::primitive_type_error("bool", &args[0].clone()),
     });
     class.add_native("false:", vec![Param::Value], |_, args| match &args[0] {
-        Value::Bool(value) => {
-            if !value {
-                Ok(Value::Unit)
-            } else {
-                RuntimeError::assertion_error("expected false to be true")
-            }
-        }
+        Value::True => RuntimeError::assertion_error("expected true to be false"),
+        Value::False => Ok(Value::Unit),
         _ => RuntimeError::primitive_type_error("bool", &args[0]),
     });
     class.add_native(
@@ -591,8 +609,8 @@ fn get_log_module() -> Value {
 
 fn get_native_module() -> RcClass {
     let mut class = Class::new();
-    class.add_constant("true", Value::Bool(true));
-    class.add_constant("false", Value::Bool(false));
+    class.add_constant("true", Value::True);
+    class.add_constant("false", Value::False);
     class.add_constant("Cell", get_cell_module());
     class.add_constant("Assert", get_assert_module());
     class.add_constant("File", get_file_module());
@@ -604,7 +622,8 @@ fn get_native_module() -> RcClass {
 }
 
 thread_local! {
-    static BOOL_CLASS : RcClass = build_bool_class();
+    static TRUE_CLASS : RcClass = build_true_class();
+    static FALSE_CLASS : RcClass = build_false_class();
     static INT_CLASS : RcClass = build_int_class();
     static FLOAT_CLASS : RcClass = build_float_class();
     static STRING_CLASS : RcClass = build_string_class();
@@ -612,8 +631,11 @@ thread_local! {
 
     static NATIVE_MODULE : RcClass = get_native_module()
 }
-pub fn bool_class() -> RcClass {
-    BOOL_CLASS.with(|c| c.clone())
+pub fn true_class() -> RcClass {
+    TRUE_CLASS.with(|c| c.clone())
+}
+pub fn false_class() -> RcClass {
+    FALSE_CLASS.with(|c| c.clone())
 }
 pub fn int_class() -> RcClass {
     INT_CLASS.with(|c| c.clone())

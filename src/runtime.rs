@@ -468,7 +468,7 @@ impl<'a> Interpreter<'a> {
                 );
 
                 // TODO: return Result<value, error>
-                let is_ok = Value::Bool(result.is_ok());
+                let is_ok = Value::bool(result.is_ok());
                 self.stack.push(is_ok);
             }
 
