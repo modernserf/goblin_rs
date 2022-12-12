@@ -229,16 +229,26 @@ impl<'a> Parser<'a> {
         Ok(ParamsBuilder::PairBuilder(builder))
     }
 
+    fn params_group(&mut self) -> Parse<Vec<ParamsBuilder>> {
+        let mut heads = vec![];
+        while let Ok(_) = self.expect_token("{") {
+            let head = self.params()?;
+            heads.push(head);
+            self.expect_token("}")?;
+        }
+        Ok(heads)
+    }
+
     fn object(&mut self) -> Parse<ObjectBuilder> {
         let mut builder = ObjectBuilder::new();
         match self.peek() {
             Token::OpenBrace(_) => {
-                self.advance();
-                let params = self.params()?;
-                self.expect_token("}")?;
+                let heads = self.params_group()?;
                 let body = self.body()?;
                 let _ = self.expect_token("end");
-                builder.add_on(params, body)?;
+                for head in heads {
+                    builder.add_on(head, body.clone())?;
+                }
                 return Ok(builder);
             }
             _ => {}
@@ -248,12 +258,12 @@ impl<'a> Parser<'a> {
             match self.peek() {
                 Token::On(_) => {
                     self.advance();
-                    self.expect_token("{")?;
-                    let params = self.params()?;
-                    self.expect_token("}")?;
+                    let heads = self.params_group()?;
                     let body = self.body()?;
                     let _ = self.expect_token("end");
-                    builder.add_on(params, body)?;
+                    for head in heads {
+                        builder.add_on(head, body.clone())?;
+                    }
                 }
                 Token::Else(_) => {
                     self.advance();

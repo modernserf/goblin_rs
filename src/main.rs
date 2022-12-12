@@ -50,14 +50,22 @@ thread_local! {
     static STDLIB : module::ModuleLoader = build_stdlib()
 }
 
-fn run(code: &str) -> Result<value::Value, runtime::RuntimeError> {
+fn run(code: &str) {
     let lexer = lexer::Lexer::from_string(code);
     let mut parser = parser::Parser::new(lexer);
     let program = parser.program().unwrap();
     let ir = compiler::Compiler::program(program).unwrap();
     let mut modules = STDLIB.with(|m| m.clone());
     let result = runtime::eval_module(ir, &mut modules);
-    result
+    match result {
+        Ok(value) => {
+            println!("{:?}", value);
+        }
+        Err(error) => {
+            println!("Error: {:#?}", error);
+            panic!("error");
+        }
+    }
 }
 
 fn main() {
@@ -66,7 +74,7 @@ fn main() {
     loop {
         match stdin.read_line(&mut input) {
             Ok(0) => {
-                run(&input).unwrap();
+                run(&input);
                 return;
             }
             Ok(_) => {}
@@ -83,46 +91,51 @@ mod test {
 
     #[test]
     fn empty_program() {
-        run("").unwrap();
+        run("")
     }
 
     #[test]
     fn primitives() {
-        run(include_str!("./stdlib/primitive.test.gob")).unwrap();
+        run(include_str!("./stdlib/primitive.test.gob"));
     }
 
     #[test]
     fn strings() {
-        run(include_str!("./stdlib/string.test.gob")).unwrap();
+        run(include_str!("./stdlib/string.test.gob"));
     }
 
     #[test]
     fn frames() {
-        run(include_str!("./stdlib/frame.test.gob")).unwrap();
+        run(include_str!("./stdlib/frame.test.gob"));
     }
 
     #[test]
     fn do_block() {
-        run(include_str!("./stdlib/do_block.test.gob")).unwrap();
+        run(include_str!("./stdlib/do_block.test.gob"));
     }
 
     #[test]
     fn option() {
-        run(include_str!("./stdlib/option.test.gob")).unwrap();
+        run(include_str!("./stdlib/option.test.gob"));
     }
 
     #[test]
     fn result() {
-        run(include_str!("./stdlib/result.test.gob")).unwrap();
+        run(include_str!("./stdlib/result.test.gob"));
     }
 
     #[test]
     fn var() {
-        run(include_str!("./stdlib/var.test.gob")).unwrap();
+        run(include_str!("./stdlib/var.test.gob"));
     }
 
     #[test]
     fn control() {
-        run(include_str!("./stdlib/control.test.gob")).unwrap();
+        run(include_str!("./stdlib/control.test.gob"));
+    }
+
+    #[test]
+    fn iter() {
+        run(include_str!("./stdlib/iter.test.gob"));
     }
 }

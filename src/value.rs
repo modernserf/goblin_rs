@@ -3,7 +3,7 @@ use std::rc::Rc;
 use crate::class::{Class, RcClass};
 use crate::primitive::Primitive;
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Clone, PartialEq)]
 pub enum Value {
     Primitive(Primitive),
     Object(Rc<Object>),
@@ -57,6 +57,16 @@ impl Value {
         match self {
             Value::Object(obj) => Value::object(obj.class(), ivars),
             _ => unreachable!(),
+        }
+    }
+}
+
+impl std::fmt::Debug for Value {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::Primitive(p) => p.fmt(f),
+            Self::Object(_) => f.write_str("<Object>"),
+            Self::DoObject { .. } => f.write_str("<Do Object>"),
         }
     }
 }

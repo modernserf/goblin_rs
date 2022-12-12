@@ -1,4 +1,4 @@
-import [_true_ _false_ _Panic_] := "native"
+import [_true_ _false_ _Panic_ _Log_] := "native"
 import [_Option_] := "core/option"
 import [_Control_] := "core/control"
 
@@ -61,7 +61,9 @@ export let Iter := [
     on {nth: start_index}
       var index := 0
       self{each: {: value}
-        if index = start_index then return Option{some: value} end
+        if index = start_index then 
+          return Option{some: value} 
+        end
         set index{+: 1}
       }
       return Option{none}
@@ -127,24 +129,24 @@ export let Iter := [
           }
         }
     ]}
-    # on {,: item} {push: item} Iter{:[
-    #   on {next}
-    #     iterable{next}{:
-    #       on {value: value next: next}
-    #         [value: value next: next{push: item}]
-    #       on {done}
-    #         [value: item next: Iter{}]
-    #     }
-    # ]}
-    # on {++: other} {append: other} Iter{:[
-    #   on {next}
-    #     iterable{next}{:
-    #       on {value: value next: next}
-    #         [value: value next: next{append: other}]
-    #       on {done}
-    #         other{next}
-    #     }
-    # ]}
+    on {,: item} {push: item} Iter{:[
+      on {next}
+        iterable{next}{:
+          on {value: value next: next}
+            [value: value next: next{push: item}]
+          on {done}
+            [value: item next: Iter{}]
+        }
+    ]}
+    on {++: other} {append: other} Iter{:[
+      on {next}
+        iterable{next}{:
+          on {value: value next: next}
+            [value: value next: next{append: other}]
+          on {done}
+            other{next}
+        }
+    ]}
     on {chain: f} Iter{:[
       on {next}
         iterable{next}{:
