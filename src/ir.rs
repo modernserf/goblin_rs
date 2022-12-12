@@ -8,6 +8,8 @@ pub enum IR {
     Unit,
     False,
     True,
+    Integer(i64),
+    Float(f64),
     Constant(Value),
     Module(String),
     Local { index: usize },
@@ -31,10 +33,6 @@ pub enum IR {
 }
 
 impl IR {
-    #[cfg(test)]
-    pub fn int(value: i64) -> IR {
-        IR::Constant(Value::int(value))
-    }
     pub fn send(selector: &str, arity: usize) -> IR {
         IR::Send {
             selector: selector.to_string(),

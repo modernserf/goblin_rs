@@ -58,14 +58,8 @@ impl Expr {
 
     pub fn compile(self, compiler: &mut Compiler) -> CompileIR {
         match self {
-            Expr::Integer(value, _) => {
-                let val = Value::int(value as i64);
-                Ok(vec![IR::Constant(val)])
-            }
-            Expr::Float(value, _) => {
-                let val = Value::float(value);
-                Ok(vec![IR::Constant(val)])
-            }
+            Expr::Integer(value, _) => Ok(vec![IR::Integer(value as i64)]),
+            Expr::Float(value, _) => Ok(vec![IR::Float(value)]),
             Expr::String(value, _) => {
                 let val = Value::string(&value);
                 Ok(vec![IR::Constant(val)])

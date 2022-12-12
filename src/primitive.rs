@@ -438,7 +438,7 @@ pub fn build_string_class() -> RcClass {
         "to:",
         vec![Param::Value],
         vec![
-            IR::Constant(Value::int(0)),
+            IR::Integer(0),
             IR::Local { index: 0 },
             IR::SelfRef,
             IR::send("from:to:", 2),

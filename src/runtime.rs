@@ -324,6 +324,8 @@ impl<'a> Interpreter<'a> {
             IR::Unit => self.stack.push(Value::Primitive(Primitive::Unit)),
             IR::False => self.stack.push(Value::Primitive(Primitive::False)),
             IR::True => self.stack.push(Value::Primitive(Primitive::True)),
+            IR::Integer(val) => self.stack.push(Value::Primitive(Primitive::Integer(val))),
+            IR::Float(val) => self.stack.push(Value::Primitive(Primitive::Float(val))),
             IR::Constant(value) => {
                 self.stack.push(value);
             }
@@ -468,7 +470,7 @@ mod test {
     #[test]
     fn addition() {
         assert_ok(
-            vec![IR::int(1), IR::int(2), IR::send("+:", 1)],
+            vec![IR::Integer(1), IR::Integer(2), IR::send("+:", 1)],
             Value::int(3),
         )
     }
@@ -476,7 +478,7 @@ mod test {
     #[test]
     fn does_not_understand() {
         assert_err(
-            vec![IR::int(1), IR::send("foo", 0)],
+            vec![IR::Integer(1), IR::send("foo", 0)],
             RuntimeError::DoesNotUnderstand("foo".to_string())
                 .with_stack_trace(vec!["<root>".to_string()]),
         )
@@ -486,7 +488,7 @@ mod test {
     fn locals() {
         assert_ok(
             vec![
-                IR::int(1),
+                IR::Integer(1),
                 IR::Local { index: 0 },
                 IR::Local { index: 0 },
                 IR::send("+:", 1),
@@ -499,7 +501,7 @@ mod test {
     fn objects() {
         let class = {
             let mut class = Class::new();
-            class.add_handler("foo", vec![], vec![IR::int(1)]);
+            class.add_handler("foo", vec![], vec![IR::Integer(1)]);
             class.add_handler("bar", vec![], vec![IR::IVar { index: 0 }]);
             class.add_handler(
                 "baz:",
@@ -515,17 +517,25 @@ mod test {
         };
 
         assert_ok(
-            vec![IR::int(2), IR::new_object(&class, 1), IR::send("foo", 0)],
+            vec![
+                IR::Integer(2),
+                IR::new_object(&class, 1),
+                IR::send("foo", 0),
+            ],
             Value::int(1),
         );
         assert_ok(
-            vec![IR::int(2), IR::new_object(&class, 1), IR::send("bar", 0)],
+            vec![
+                IR::Integer(2),
+                IR::new_object(&class, 1),
+                IR::send("bar", 0),
+            ],
             Value::int(2),
         );
         assert_ok(
             vec![
-                IR::int(3),
-                IR::int(2),
+                IR::Integer(3),
+                IR::Integer(2),
                 IR::new_object(&class, 1),
                 IR::send("baz:", 1),
             ],
@@ -540,7 +550,7 @@ mod test {
             class.add_handler(
                 "baz:",
                 vec![Param::Value],
-                vec![IR::int(1), IR::Local { index: 0 }, IR::send("+:", 1)],
+                vec![IR::Integer(1), IR::Local { index: 0 }, IR::send("+:", 1)],
             );
 
             class.rc()
@@ -560,16 +570,16 @@ mod test {
     fn else_handler() {
         let class = {
             let mut class = Class::new();
-            class.add_else(vec![IR::int(1), IR::Local { index: 0 }]);
+            class.add_else(vec![IR::Integer(1), IR::Local { index: 0 }]);
             class.rc()
         };
 
         assert_ok(
             vec![
-                IR::int(10),
-                IR::int(11),
-                IR::int(12),
-                IR::int(13),
+                IR::Integer(10),
+                IR::Integer(11),
+                IR::Integer(12),
+                IR::Integer(13),
                 IR::new_object(&class, 0),
                 IR::send("bar:baz:foo:quux:", 4),
             ],
@@ -581,7 +591,7 @@ mod test {
     fn parent_scope() {
         assert_ok(
             vec![
-                IR::int(1), // var x := 1
+                IR::Integer(1), // var x := 1
                 IR::new_object(
                     {
                         let mut class = Class::new();
@@ -604,7 +614,7 @@ mod test {
                         class.add_handler(
                             "",
                             vec![],
-                            vec![IR::int(2), IR::SetParent { index: 0 }, IR::Unit],
+                            vec![IR::Integer(2), IR::SetParent { index: 0 }, IR::Unit],
                         );
                         class.rc()
                     },
@@ -630,13 +640,13 @@ mod test {
                 IR::NewObject {
                     class: {
                         let mut class = Class::new();
-                        class.add_handler("foo", vec![], vec![IR::int(1)]);
+                        class.add_handler("foo", vec![], vec![IR::Integer(1)]);
                         class.rc()
                     },
                     arity: 0,
                 },
                 // arg
-                IR::int(1),
+                IR::Integer(1),
                 // ? obj{foo}
                 IR::NewDoObject {
                     class: {
