@@ -1,7 +1,7 @@
 use std::ops::Deref;
 use std::{cell::RefCell, rc::Rc, vec};
 
-use crate::class::{Class, Object, Param, RcClass};
+use crate::class::{Class, Param, RcClass};
 use crate::ir::IR;
 use crate::runtime::RuntimeError;
 use crate::value::Value;
@@ -480,7 +480,7 @@ pub fn build_cell_class() -> RcClass {
     class.rc()
 }
 
-fn get_cell_module() -> Value {
+fn get_cell_module() -> RcClass {
     let mut class = Class::new();
     class.add_native(":", vec![Param::Value], |_, mut args| {
         let arg = std::mem::take(&mut args[0]);
@@ -488,11 +488,10 @@ fn get_cell_module() -> Value {
             arg,
         )))))
     });
-    let obj = Object::new(class.rc(), vec![]);
-    Value::Object(Rc::new(obj))
+    class.rc()
 }
 
-fn get_assert_module() -> Value {
+fn get_assert_module() -> RcClass {
     let mut class = Class::new();
     class.add_native(":", vec![Param::Value], |_, args| match &args[0] {
         Value::Primitive(Primitive::True) => Ok(Value::unit()),
@@ -546,11 +545,10 @@ fn get_assert_module() -> Value {
         ],
     );
 
-    let obj = Object::new(class.rc(), vec![]);
-    Value::Object(Rc::new(obj))
+    class.rc()
 }
 
-fn get_file_module() -> Value {
+fn get_file_module() -> RcClass {
     use std::fs;
     let mut class = Class::new();
     class.add_native(
@@ -565,11 +563,10 @@ fn get_file_module() -> Value {
         },
     );
 
-    let obj = Object::new(class.rc(), vec![]);
-    Value::Object(Rc::new(obj))
+    class.rc()
 }
 
-fn get_string_module() -> Value {
+fn get_string_module() -> RcClass {
     let mut class = Class::new();
     class.add_constant("newline", Value::string("\n"));
     class.add_constant("tab", Value::string("\t"));
@@ -589,21 +586,19 @@ fn get_string_module() -> Value {
         },
     );
 
-    let obj = Object::new(class.rc(), vec![]);
-    Value::Object(Rc::new(obj))
+    class.rc()
 }
 
-fn get_panic_module() -> Value {
+fn get_panic_module() -> RcClass {
     let mut class = Class::new();
     class.add_native(":", vec![Param::Value], |_, args| {
         RuntimeError::panic(&args[0])
     });
 
-    let obj = Object::new(class.rc(), vec![]);
-    Value::Object(Rc::new(obj))
+    class.rc()
 }
 
-fn get_log_module() -> Value {
+fn get_log_module() -> RcClass {
     let mut class = Class::new();
     class.add_handler(
         ":",
@@ -620,11 +615,10 @@ fn get_log_module() -> Value {
         ],
     );
 
-    let obj = Object::new(class.rc(), vec![]);
-    Value::Object(Rc::new(obj))
+    class.rc()
 }
 
-fn get_loop_module() -> Value {
+fn get_loop_module() -> RcClass {
     let mut class = Class::new();
     class.add_handler(
         ":",
@@ -632,21 +626,20 @@ fn get_loop_module() -> Value {
         vec![IR::Local { index: 0 }, IR::send("", 0), IR::Loop],
     );
 
-    let obj = Object::new(class.rc(), vec![]);
-    Value::Object(Rc::new(obj))
+    class.rc()
 }
 
 fn get_native_module() -> RcClass {
     let mut class = Class::new();
     class.add_constant("true", Value::bool(true));
     class.add_constant("false", Value::bool(false));
-    class.add_constant("Cell", get_cell_module());
-    class.add_constant("Assert", get_assert_module());
-    class.add_constant("File", get_file_module());
-    class.add_constant("String", get_string_module());
-    class.add_constant("Panic", get_panic_module());
-    class.add_constant("Log", get_log_module());
-    class.add_constant("loop", get_loop_module());
+    class.add_constant("Cell", Value::object(get_cell_module(), vec![]));
+    class.add_constant("Assert", Value::object(get_assert_module(), vec![]));
+    class.add_constant("File", Value::object(get_file_module(), vec![]));
+    class.add_constant("String", Value::object(get_string_module(), vec![]));
+    class.add_constant("Panic", Value::object(get_panic_module(), vec![]));
+    class.add_constant("Log", Value::object(get_log_module(), vec![]));
+    class.add_constant("loop", Value::object(get_loop_module(), vec![]));
 
     class.rc()
 }
@@ -663,7 +656,7 @@ thread_local! {
 }
 
 pub fn native_module() -> Value {
-    NATIVE_MODULE.with(|x| Value::Object(Rc::new(Object::new(x.clone(), vec![]))))
+    NATIVE_MODULE.with(|x| Value::object(x.clone(), vec![]))
 }
 
 #[derive(Debug, Clone, PartialEq)]

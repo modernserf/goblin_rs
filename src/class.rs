@@ -9,7 +9,6 @@ pub struct Class {
 }
 
 pub type RcClass = Rc<Class>;
-pub type RcObject = Rc<Object>;
 
 impl Class {
     pub fn new() -> Self {
@@ -72,28 +71,4 @@ pub enum Param {
     Value,
     Do,
     Var,
-}
-
-#[derive(Debug, Clone, PartialEq)]
-pub struct Object {
-    class: Rc<Class>,
-    ivars: Vec<Value>,
-}
-
-impl Object {
-    pub fn new(class: Rc<Class>, ivars: Vec<Value>) -> Self {
-        Self { class, ivars }
-    }
-
-    pub fn ivar(&self, index: usize) -> Value {
-        self.ivars[index].clone()
-    }
-
-    pub fn class(&self) -> Rc<Class> {
-        self.class.clone()
-    }
-
-    pub fn rc(self) -> RcObject {
-        Rc::new(self)
-    }
 }

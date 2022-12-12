@@ -1,7 +1,7 @@
 use std::ops::Deref;
 use std::rc::Rc;
 
-use crate::class::{Body, Class, Object, Param, RcClass};
+use crate::class::{Body, Class, Param, RcClass};
 use crate::ir::IR;
 use crate::primitive::Primitive;
 use crate::runtime::{Runtime, RuntimeError};
@@ -46,6 +46,10 @@ impl Value {
         } else {
             Self::Primitive(Primitive::False)
         }
+    }
+
+    pub fn object(class: RcClass, ivars: Vec<Value>) -> Self {
+        Self::Object(Object::new(class, ivars).rc())
     }
 
     fn class(&self) -> RcClass {
@@ -109,5 +113,29 @@ impl Handler {
     }
     pub fn body(&self) -> Body {
         self.body.clone()
+    }
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct Object {
+    class: Rc<Class>,
+    ivars: Vec<Value>,
+}
+
+impl Object {
+    fn new(class: Rc<Class>, ivars: Vec<Value>) -> Self {
+        Self { class, ivars }
+    }
+
+    fn ivar(&self, index: usize) -> Value {
+        self.ivars[index].clone()
+    }
+
+    fn class(&self) -> Rc<Class> {
+        self.class.clone()
+    }
+
+    fn rc(self) -> Rc<Object> {
+        Rc::new(self)
     }
 }

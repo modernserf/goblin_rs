@@ -1,6 +1,6 @@
 use std::rc::Rc;
 
-use crate::class::{Body, Object, Param};
+use crate::class::{Body, Param};
 use crate::ir::IR;
 use crate::module_loader::ModuleLoader;
 use crate::primitive::Primitive;
@@ -398,8 +398,7 @@ impl<'a> Interpreter<'a> {
             }
             IR::NewObject { class, arity } => {
                 let ivars = self.stack.pop_args(arity);
-                self.stack
-                    .push(Value::Object(Object::new(class, ivars).rc()));
+                self.stack.push(Value::object(class, ivars));
             }
             IR::NewDoObject { class } => {
                 let parent_offset = self.call_stack.parent_offset();
