@@ -13,3 +13,5 @@ given collection of length N:
 -N < at < 0 -> collection[length - at]
 otherwise   -> error
 ```
+
+frame - object - do block continuum of data-focused vs behavior-focused

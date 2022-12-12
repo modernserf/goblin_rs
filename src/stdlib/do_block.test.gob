@@ -39,3 +39,22 @@ Assert{panics: [{}
     on {x} 1
   }
 ]}
+
+import [_true_ _false_] := "core"
+
+let obj := [
+  on {some: value} [
+    on {some!} value
+    on {: do f} f{some: value}
+    on {=: other} 
+      other{:
+        on {some: x} 
+          x = value
+        else false
+      }
+    on {!=: other}
+      !(self = other)
+  ]
+]
+
+Assert{: obj{some: 1} != obj{some: 3}}

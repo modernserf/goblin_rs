@@ -56,32 +56,27 @@ impl ObjectBuilder {
         }
     }
     pub fn compile_do(self, compiler: &mut Compiler) -> CompileIR {
-        let (class, instance) = self.compile_inner(compiler, None)?;
+        let mut class = Class::new();
 
-        let mut out = instance.ivars();
-        let arity = out.len();
-        out.push(IR::NewDoObject {
-            class: class.rc(),
-            arity,
-        });
-        Ok(out)
+        for (selector, handler) in self.handlers.into_iter() {
+            compiler.do_handler();
+
+            let ir_params = Self::compile_params(compiler, &handler);
+            let body = Compiler::body(handler.body, compiler)?;
+            class.add_handler(&selector, ir_params, body);
+
+            compiler.end_do_handler();
+        }
+
+        if let Some(else_handler) = self.else_handler {
+            compiler.do_handler();
+            class.add_else(Compiler::body(else_handler.body, compiler)?);
+            compiler.end_do_handler()
+        }
+
+        Ok(vec![IR::NewDoObject { class: class.rc() }])
     }
     pub fn compile(self, compiler: &mut Compiler, binding: Option<&Binding>) -> CompileIR {
-        let (class, instance) = self.compile_inner(compiler, binding)?;
-
-        let mut out = instance.ivars();
-        let arity = out.len();
-        out.push(IR::NewObject {
-            class: class.rc(),
-            arity,
-        });
-        Ok(out)
-    }
-    fn compile_inner(
-        self,
-        compiler: &mut Compiler,
-        binding: Option<&Binding>,
-    ) -> Compile<(Class, Instance)> {
         let mut class = Class::new();
         let mut instance = Instance::new();
 
@@ -111,7 +106,14 @@ impl ObjectBuilder {
             instance = compiler.end_handler()
         }
 
-        Ok((class, instance))
+        let mut out = instance.ivars();
+        let arity = out.len();
+
+        out.push(IR::NewObject {
+            class: class.rc(),
+            arity,
+        });
+        Ok(out)
     }
     fn compile_params(compiler: &mut Compiler, handler: &Handler) -> Vec<IRParam> {
         let mut ir_params = Vec::new();

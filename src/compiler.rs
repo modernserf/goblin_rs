@@ -58,6 +58,49 @@ impl Locals {
     }
 }
 
+#[derive(Debug, Clone)]
+enum GetResult {
+    Local(usize),
+    Var(usize),
+    IVar(usize),
+    Parent(usize),
+    ParentVar(usize),
+}
+
+impl GetResult {
+    fn ir(self) -> IR {
+        match self {
+            Self::Local(index) => IR::Local { index },
+            Self::Var(index) => IR::Local { index },
+            Self::IVar(index) => IR::IVar { index },
+            Self::Parent(index) => IR::Parent { index },
+            Self::ParentVar(index) => IR::Parent { index },
+        }
+    }
+    fn is_var(&self) -> bool {
+        match self {
+            Self::Var(_) | Self::ParentVar(_) => true,
+            _ => false,
+        }
+    }
+    fn assign_ir(self) -> IR {
+        match self {
+            Self::Var(index) => IR::SetLocal { index },
+            Self::ParentVar(index) => IR::SetParent { index },
+            _ => unreachable!(),
+        }
+    }
+    fn parent(self) -> Self {
+        match self {
+            Self::Local(index) => Self::Parent(index),
+            Self::Var(index) => Self::ParentVar(index),
+            Self::IVar(index) => Self::IVar(index),
+            Self::Parent(index) => Self::Parent(index),
+            Self::ParentVar(index) => Self::ParentVar(index),
+        }
+    }
+}
+
 #[derive(Debug)]
 pub struct Instance {
     ivars: Vec<IR>,
@@ -71,17 +114,15 @@ impl Instance {
             ivar_map: HashMap::new(),
         }
     }
-    fn get(&self, key: &str) -> Option<IR> {
+    fn get(&self, key: &str) -> Option<GetResult> {
         if let Some(record) = self.ivar_map.get(key) {
-            return Some(IR::IVar {
-                index: record.index,
-            });
+            return Some(GetResult::IVar(record.index));
         }
         return None;
     }
-    fn add(&mut self, key: &str, value: IR) -> IR {
+    fn add(&mut self, key: &str, value: GetResult) -> GetResult {
         let index = self.ivars.len();
-        self.ivars.push(value);
+        self.ivars.push(value.ir());
         self.ivar_map.insert(
             key.to_string(),
             BindingRecord {
@@ -89,7 +130,7 @@ impl Instance {
                 typ: BindingType::Let,
             },
         );
-        return IR::IVar { index };
+        return GetResult::IVar(index);
     }
     pub fn ivars(self) -> Vec<IR> {
         self.ivars
@@ -99,6 +140,7 @@ impl Instance {
 #[derive(Debug)]
 enum Scope {
     Root,
+    DoHandler,
     Handler(Instance),
 }
 
@@ -119,6 +161,12 @@ impl CompilerFrame {
         Self {
             locals: Locals::root(),
             scope: Scope::Handler(instance),
+        }
+    }
+    fn do_handler() -> Self {
+        Self {
+            locals: Locals::root(),
+            scope: Scope::DoHandler,
         }
     }
     fn add(&mut self, key: String, typ: BindingType) -> BindingRecord {
@@ -194,6 +242,18 @@ impl Compiler {
         }
     }
 
+    pub fn do_handler(&mut self) {
+        self.stack.push(CompilerFrame::do_handler());
+    }
+
+    pub fn end_do_handler(&mut self) {
+        let frame = self.stack.pop().expect("compiler frame underflow");
+        match frame.scope {
+            Scope::DoHandler => {}
+            _ => panic!("expected do handler frame"),
+        }
+    }
+
     pub fn add_anon(&mut self) -> BindingRecord {
         self.top_mut().add_anon(BindingType::Let)
     }
@@ -215,53 +275,61 @@ impl Compiler {
             _ => Ok(vec![IR::SelfRef]),
         }
     }
-    pub fn get(&mut self, key: &str) -> CompileIR {
-        let frame = self.top();
-        if let Some(value) = frame.locals.get(key) {
-            return Ok(vec![IR::Local { index: value.index }]);
-        }
-        if let Scope::Handler(instance) = &frame.scope {
-            if let Some(ir) = instance.get(key) {
-                return Ok(vec![ir]);
-            }
-        }
 
-        let next_depth = self.stack.len() - 2;
-        self.get_parent(key, next_depth)
+    pub fn get(&mut self, key: &str) -> CompileIR {
+        let res = self.get_inner(key, self.stack.len() - 1)?;
+        Ok(vec![res.ir()])
     }
 
-    pub fn get_parent(&mut self, key: &str, depth: usize) -> CompileIR {
+    fn get_inner(&mut self, key: &str, depth: usize) -> Compile<GetResult> {
+        // check locals
         let frame = &mut self.stack[depth];
-
-        if let Scope::Handler(instance) = &frame.scope {
-            if let Some(ir) = instance.get(key) {
-                return Ok(vec![self.get_found(ir, key, depth)]);
-            }
-        }
         if let Some(value) = frame.locals.get(key) {
-            match value.typ {
-                BindingType::Let => {
-                    let ir = IR::Local { index: value.index };
-                    return Ok(vec![self.get_found(ir, key, depth)]);
-                }
-                BindingType::Var => return Err(CompileError::InvalidVarBinding),
+            let res = match value.typ {
+                BindingType::Let => GetResult::Local(value.index),
+                BindingType::Var => GetResult::Var(value.index),
+            };
+            return Ok(res);
+        }
+
+        // check ivars
+        if let Scope::Handler(instance) = &mut frame.scope {
+            if let Some(res) = instance.get(key) {
+                return Ok(res);
             }
         }
-        if depth == 0 {
+
+        // give up at root
+        if let Scope::Root = frame.scope {
             return Err(CompileError::UnknownIdentifier(key.to_string()));
         }
-        self.get_parent(key, depth - 1)
-    }
 
-    fn get_found(&mut self, ir: IR, key: &str, index: usize) -> IR {
-        let mut out = ir;
-        for i in (index + 1)..self.stack.len() {
-            if let Scope::Handler(instance) = &mut self.stack[i].scope {
-                out = instance.add(key, out);
+        // recur at next level
+        let result = self.get_inner(&key, depth - 1)?;
+
+        // reject vars from outer scopes
+        // second let frame needed for borrow reasons
+        let frame = &mut self.stack[depth];
+        if let Scope::Handler(_) = &frame.scope {
+            if result.is_var() {
+                return Err(CompileError::InvalidVarBinding);
             }
         }
-        out
+
+        // transition result on way back up
+        let out = match &mut frame.scope {
+            Scope::Root => unreachable!(),
+            Scope::Handler(instance) => instance.add(&key, result),
+            Scope::DoHandler => result.parent(),
+        };
+        Ok(out)
     }
+
+    pub fn set_var(&mut self, key: &str) -> CompileIR {
+        let res = self.get_inner(&key, self.stack.len() - 1)?;
+        return Ok(vec![res.assign_ir()]);
+    }
+
     pub fn get_var_index(&self, key: &str) -> Option<usize> {
         self.top()
             .locals

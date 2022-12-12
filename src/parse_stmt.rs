@@ -55,11 +55,9 @@ impl Stmt {
                 let mut ir = expr.compile(compiler)?;
                 match binding {
                     Binding::Identifier(name, _) => {
-                        if let Some(index) = compiler.get_var_index(&name) {
-                            ir.push(IR::SetLocal { index });
-                            return Ok(ir);
-                        }
-                        Err(CompileError::InvalidVarBinding)
+                        let mut out = compiler.set_var(&name)?;
+                        ir.append(&mut out);
+                        Ok(ir)
                     }
                     Binding::Placeholder(_) => Err(CompileError::InvalidVarBinding),
                     Binding::Destructuring(_, _) => Err(CompileError::InvalidVarBinding),

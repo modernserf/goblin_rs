@@ -47,15 +47,17 @@ pub enum IR {
     Module(String),
     Local { index: usize },
     IVar { index: usize },
+    Parent { index: usize },
     VarArg { index: usize },
     // consume stack values
     Drop,
     SetLocal { index: usize },
+    SetParent { index: usize },
     Send { selector: String, arity: usize },
     SendPrimitive { f: NativeHandlerFn, arity: usize },
     TrySend { selector: String, arity: usize },
     NewObject { class: RcClass, arity: usize },
-    NewDoObject { class: RcClass, arity: usize },
+    NewDoObject { class: RcClass },
     NewSelf { arity: usize },
     Spawn,
     // control flow
@@ -119,7 +121,7 @@ impl Stack {
     }
     fn check_type(&self, index: usize, param: &Param) -> Runtime<()> {
         match (param, &self.stack[index]) {
-            (Param::Value, Value::DoObject(_)) => Err(RuntimeError::InvalidArg {
+            (Param::Value, Value::DoObject { .. }) => Err(RuntimeError::InvalidArg {
                 expected: param.clone(),
                 received: self.stack[index].clone(),
             }),
@@ -133,8 +135,8 @@ enum CallFrameInstance {
     Root,
     Handler(Value),
     Do {
-        instance: Value,
-        parent_depth: usize,
+        parent_offset: usize,
+        parent_frame_index: usize,
     },
 }
 
@@ -182,33 +184,23 @@ impl CallStack {
     fn top(&self) -> &CallFrame {
         self.stack.last().unwrap()
     }
-    fn get_self(&self) -> Value {
-        for frame in self.stack.iter().rev() {
-            match &frame.instance {
-                CallFrameInstance::Do { .. } => {
-                    continue;
-                }
-                CallFrameInstance::Handler(value) => return value.clone(),
-                CallFrameInstance::Root => unreachable!(),
-            };
-        }
-        unreachable!()
-    }
 
-    fn call(&mut self, selector: String, offset: usize, handler: Handler) {
-        let depth = self.stack.len();
+    fn call(&mut self, selector: String, offset: usize, target: Value, handler: Handler) {
         self.stack.push(CallFrame {
             selector,
             stack_offset: offset,
             instruction_pointer: 0,
             body: handler.body(),
-            instance: if handler.is_do_block() {
-                CallFrameInstance::Do {
-                    instance: handler.instance(),
-                    parent_depth: depth,
-                }
-            } else {
-                CallFrameInstance::Handler(handler.instance())
+            instance: match target {
+                Value::DoObject {
+                    parent_offset,
+                    parent_frame_index,
+                    ..
+                } => CallFrameInstance::Do {
+                    parent_offset,
+                    parent_frame_index,
+                },
+                _ => CallFrameInstance::Handler(target),
             },
         })
     }
@@ -216,7 +208,6 @@ impl CallStack {
     fn next(&mut self) -> NextResult {
         if self.is_unwinding {
             self.is_unwinding = false;
-            let current_depth = self.stack.len();
             let mut frame = self.stack.pop().unwrap();
             match &frame.instance {
                 CallFrameInstance::Root => return NextResult::End,
@@ -225,8 +216,14 @@ impl CallStack {
                         offset: frame.stack_offset,
                     };
                 }
-                CallFrameInstance::Do { parent_depth, .. } => {
-                    for _ in *parent_depth..=current_depth {
+                CallFrameInstance::Do {
+                    parent_frame_index, ..
+                } => {
+                    let parent_frame_index = *parent_frame_index;
+                    loop {
+                        if self.stack.len() == parent_frame_index {
+                            break;
+                        }
                         frame = self.stack.pop().unwrap();
                     }
                     return NextResult::Return {
@@ -258,12 +255,25 @@ impl CallStack {
     fn offset(&self) -> usize {
         self.top().stack_offset
     }
-    fn get_ivar(&self, index: usize) -> Value {
+    fn parent_offset(&self) -> usize {
         match &self.top().instance {
-            CallFrameInstance::Root => unreachable!(),
-            CallFrameInstance::Do { instance, .. } => instance.ivar(index).clone(),
-            CallFrameInstance::Handler(val) => val.ivar(index).clone(),
+            CallFrameInstance::Do { parent_offset, .. } => *parent_offset,
+            _ => self.offset(),
         }
+    }
+    fn get_self(&self) -> Value {
+        match &self.top().instance {
+            CallFrameInstance::Handler(val) => return val.clone(),
+            CallFrameInstance::Do {
+                parent_frame_index, ..
+            } => {
+                if let CallFrameInstance::Handler(val) = &self.stack[*parent_frame_index].instance {
+                    return val.clone();
+                }
+            }
+            _ => {}
+        }
+        unreachable!()
     }
     fn stack_trace(&self) -> Vec<String> {
         self.stack
@@ -366,8 +376,13 @@ impl<'a> Interpreter<'a> {
                 let value = self.stack.get(index + offset);
                 self.stack.push(value);
             }
+            IR::Parent { index } => {
+                let parent_offset = self.call_stack.parent_offset();
+                let value = self.stack.get(index + parent_offset);
+                self.stack.push(value);
+            }
             IR::IVar { index } => {
-                let value = self.call_stack.get_ivar(index);
+                let value = self.call_stack.get_self().ivar(index);
                 self.stack.push(value);
             }
             IR::VarArg { index } => {
@@ -386,12 +401,17 @@ impl<'a> Interpreter<'a> {
                 let offset = self.call_stack.offset();
                 self.stack.set(index + offset, value);
             }
+            IR::SetParent { index } => {
+                let value = self.stack.pop();
+                let parent_offset = self.call_stack.parent_offset();
+                self.stack.set(index + parent_offset, value);
+            }
             IR::Send { selector, arity } => {
                 let target = self.stack.pop();
                 let next_offset = self.stack.size() - arity;
                 let handler = target.get_handler(&selector, arity)?;
                 self.check_args(&handler)?;
-                self.call_stack.call(selector, next_offset, handler);
+                self.call_stack.call(selector, next_offset, target, handler);
             }
             IR::TrySend { selector, arity } => {
                 let target = self.stack.pop();
@@ -399,13 +419,14 @@ impl<'a> Interpreter<'a> {
                 let next_offset = self.stack.size() - arity;
                 if let Ok(handler) = target.get_handler(&selector, arity) {
                     self.check_args(&handler)?;
-                    self.call_stack.call(selector, next_offset, handler);
+                    self.call_stack.call(selector, next_offset, target, handler);
                 } else {
                     // TODO: should this be handled in the or_else handler?
                     self.stack.pop_args(arity);
                     let handler = or_else.get_handler("", 0)?;
                     let next_offset = self.stack.size();
-                    self.call_stack.call("".to_string(), next_offset, handler);
+                    self.call_stack
+                        .call("".to_string(), next_offset, target, handler);
                 }
             }
             IR::SendPrimitive { f, arity } => {
@@ -419,10 +440,14 @@ impl<'a> Interpreter<'a> {
                 self.stack
                     .push(Value::Object(Object::new(class, ivars).rc()));
             }
-            IR::NewDoObject { class, arity } => {
-                let ivars = self.stack.pop_args(arity);
-                self.stack
-                    .push(Value::DoObject(Object::new(class, ivars).rc()));
+            IR::NewDoObject { class } => {
+                let parent_offset = self.call_stack.parent_offset();
+                let parent_frame_index = self.call_stack.stack.len() - 1;
+                self.stack.push(Value::DoObject {
+                    class,
+                    parent_offset,
+                    parent_frame_index,
+                });
             }
             IR::NewSelf { arity } => {
                 let instance = self.call_stack.get_self();
@@ -584,5 +609,50 @@ mod test {
             ],
             Value::Integer(1),
         )
+    }
+
+    #[test]
+    fn parent_scope() {
+        assert_ok(
+            vec![
+                IR::int(1), // var x := 1
+                IR::new_object(
+                    {
+                        let mut class = Class::new();
+                        // let obj := [
+                        //     on {handler: do f}
+                        //         f{}
+                        // ]
+                        class.add_handler("handler:", vec![Param::Do], vec![IR::send("", 0)]);
+
+                        &class.rc()
+                    },
+                    0,
+                ),
+                // obj{handler: {}
+                //   set x := 2
+                // }
+                IR::NewDoObject {
+                    class: {
+                        let mut class = Class::new();
+                        class.add_handler(
+                            "",
+                            vec![],
+                            vec![
+                                IR::int(2),
+                                IR::SetParent { index: 0 },
+                                IR::Constant(Value::Unit),
+                            ],
+                        );
+                        class.rc()
+                    },
+                },
+                IR::Local { index: 1 },
+                IR::send("handler:", 1),
+                // x
+                IR::Local { index: 0 },
+            ],
+            Value::Integer(2),
+        );
     }
 }
