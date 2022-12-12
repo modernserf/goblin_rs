@@ -3,6 +3,7 @@ use std::rc::Rc;
 use crate::class::{Body, Object, Param};
 use crate::ir::IR;
 use crate::module_loader::ModuleLoader;
+use crate::primitive::Primitive;
 use crate::value::{Handler, Value};
 
 #[allow(unused)]
@@ -388,8 +389,12 @@ impl<'a> Interpreter<'a> {
             IR::SendPrimitive { f, arity } => {
                 let target = self.stack.pop();
                 let args = self.stack.pop_args(arity);
-                let result = f(target, args)?;
-                self.stack.push(result);
+                let primitive = match target {
+                    Value::Primitive(p) => p,
+                    _ => Primitive::Unit,
+                };
+                let res = f(primitive, args)?;
+                self.stack.push(res)
             }
             IR::NewObject { class, arity } => {
                 let ivars = self.stack.pop_args(arity);
@@ -462,7 +467,7 @@ mod test {
     fn addition() {
         assert_ok(
             vec![IR::int(1), IR::int(2), IR::send("+:", 1)],
-            Value::Integer(3),
+            Value::int(3),
         )
     }
 
@@ -484,7 +489,7 @@ mod test {
                 IR::Local { index: 0 },
                 IR::send("+:", 1),
             ],
-            Value::Integer(2),
+            Value::int(2),
         );
     }
 
@@ -509,11 +514,11 @@ mod test {
 
         assert_ok(
             vec![IR::int(2), IR::new_object(&class, 1), IR::send("foo", 0)],
-            Value::Integer(1),
+            Value::int(1),
         );
         assert_ok(
             vec![IR::int(2), IR::new_object(&class, 1), IR::send("bar", 0)],
-            Value::Integer(2),
+            Value::int(2),
         );
         assert_ok(
             vec![
@@ -522,7 +527,7 @@ mod test {
                 IR::new_object(&class, 1),
                 IR::send("baz:", 1),
             ],
-            Value::Integer(5),
+            Value::int(5),
         );
     }
 
@@ -566,7 +571,7 @@ mod test {
                 IR::new_object(&class, 0),
                 IR::send("bar:baz:foo:quux:", 4),
             ],
-            Value::Integer(1),
+            Value::int(1),
         )
     }
 
@@ -600,7 +605,7 @@ mod test {
                             vec![
                                 IR::int(2),
                                 IR::SetParent { index: 0 },
-                                IR::Constant(Value::Unit),
+                                IR::Constant(Value::unit()),
                             ],
                         );
                         class.rc()
@@ -611,7 +616,7 @@ mod test {
                 // x
                 IR::Local { index: 0 },
             ],
-            Value::Integer(2),
+            Value::int(2),
         );
     }
 
@@ -654,7 +659,7 @@ mod test {
                     arity: 1,
                 },
             ],
-            Value::Integer(1),
+            Value::int(1),
         )
     }
 }

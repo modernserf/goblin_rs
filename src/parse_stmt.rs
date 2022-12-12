@@ -69,7 +69,7 @@ impl Stmt {
                     ir.push(IR::Return);
                     return Ok(ir);
                 } else {
-                    let ir = vec![IR::Constant(Value::Unit), IR::Return];
+                    let ir = vec![IR::Constant(Value::unit()), IR::Return];
                     return Ok(ir);
                 }
             }

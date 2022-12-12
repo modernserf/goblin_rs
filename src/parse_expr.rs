@@ -1,5 +1,3 @@
-use std::rc::Rc;
-
 use crate::compiler::{CompileIR, Compiler};
 use crate::frame::{Frame, FrameBuilder};
 use crate::ir::IR;
@@ -61,21 +59,21 @@ impl Expr {
     pub fn compile(self, compiler: &mut Compiler) -> CompileIR {
         match self {
             Expr::Integer(value, _) => {
-                let val = Value::Integer(value as i64);
+                let val = Value::int(value as i64);
                 Ok(vec![IR::Constant(val)])
             }
             Expr::Float(value, _) => {
-                let val = Value::Float(value);
+                let val = Value::float(value);
                 Ok(vec![IR::Constant(val)])
             }
             Expr::String(value, _) => {
-                let val = Value::String(Rc::new(value));
+                let val = Value::string(&value);
                 Ok(vec![IR::Constant(val)])
             }
             Expr::Identifier(key, _) => compiler.get(&key),
             Expr::Paren(mut body, source) => {
                 if body.len() == 0 {
-                    return Ok(vec![IR::Constant(Value::Unit)]);
+                    return Ok(vec![IR::Constant(Value::unit())]);
                 }
                 if body.len() == 1 {
                     let stmt = body.pop().unwrap();

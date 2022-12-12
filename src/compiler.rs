@@ -218,12 +218,12 @@ impl Compiler {
                 stmt => {
                     let mut res = stmt.compile(compiler)?;
                     out.append(&mut res);
-                    out.push(IR::Constant(Value::Unit));
+                    out.push(IR::Constant(Value::unit()));
                 }
             }
             Ok(out)
         } else {
-            Ok(vec![IR::Constant(Value::Unit)])
+            Ok(vec![IR::Constant(Value::unit())])
         }
     }
 

@@ -1,4 +1,4 @@
-use crate::{class::RcClass, runtime::Runtime, value::Value};
+use crate::{class::RcClass, primitive::Primitive, runtime::Runtime, value::Value};
 
 #[allow(unused)]
 #[derive(Debug, Clone, PartialEq)]
@@ -30,7 +30,7 @@ pub enum IR {
 impl IR {
     #[cfg(test)]
     pub fn int(value: i64) -> IR {
-        IR::Constant(Value::Integer(value))
+        IR::Constant(Value::int(value))
     }
     pub fn send(selector: &str, arity: usize) -> IR {
         IR::Send {
@@ -50,4 +50,4 @@ impl IR {
     }
 }
 
-pub type NativeHandlerFn = fn(Value, Vec<Value>) -> Runtime<Value>;
+pub type NativeHandlerFn = fn(Primitive, Vec<Value>) -> Runtime<Value>;
