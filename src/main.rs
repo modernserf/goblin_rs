@@ -1,6 +1,7 @@
 mod binding;
 mod class;
 mod compiler;
+mod compiler_2;
 mod expr;
 mod frame;
 mod ir;
