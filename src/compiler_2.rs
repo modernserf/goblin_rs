@@ -37,36 +37,42 @@ impl IRBuilder {
 #[derive(Debug, Clone, PartialEq)]
 pub enum Binding {
     Identifier(String),
+    VarIdentifier(String),
+    DoIdentifier(String),
 }
 impl Binding {
     fn compile_let(self, compiler: &mut Compiler) {
         match self {
             Self::Identifier(name) => compiler.add_let(name),
+            _ => todo!(),
         }
     }
     fn compile_var(self, compiler: &mut Compiler) -> CompileIR {
         match self {
             Self::Identifier(name) => compiler.add_var(name),
+            _ => todo!(),
         }
     }
     fn compile_set(self, compiler: &mut Compiler) -> CompileIR {
         match self {
             Self::Identifier(name) => compiler.set(name),
+            _ => todo!(),
         }
     }
-    fn compile_param(self, compiler: &mut Compiler) {
+    fn compile_param(self, compiler: &mut Compiler) -> Param {
         match self {
-            Self::Identifier(name) => compiler.add_let(name),
-        }
-    }
-    fn compile_var_param(self, compiler: &mut Compiler) {
-        match self {
-            Self::Identifier(name) => compiler.add_var_param(name),
-        }
-    }
-    fn compile_do_param(self, compiler: &mut Compiler) {
-        match self {
-            Self::Identifier(name) => compiler.add_do_param(name),
+            Self::Identifier(name) => {
+                compiler.add_let(name);
+                Param::Value
+            }
+            Self::VarIdentifier(name) => {
+                compiler.add_var_param(name);
+                Param::Var
+            }
+            Self::DoIdentifier(name) => {
+                compiler.add_do_param(name);
+                Param::Do
+            }
         }
     }
 }
@@ -172,34 +178,8 @@ impl Expr {
 }
 
 #[derive(Debug, Clone, PartialEq)]
-pub enum ObjParam {
-    Value(Binding),
-    Var(Binding),
-    Do(Binding),
-}
-
-impl ObjParam {
-    fn compile(self, compiler: &mut Compiler) -> Param {
-        match self {
-            Self::Value(binding) => {
-                binding.compile_param(compiler);
-                Param::Value
-            }
-            Self::Var(binding) => {
-                binding.compile_var_param(compiler);
-                Param::Var
-            }
-            Self::Do(binding) => {
-                binding.compile_do_param(compiler);
-                Param::Do
-            }
-        }
-    }
-}
-
-#[derive(Debug, Clone, PartialEq)]
 struct Handler {
-    params: Vec<ObjParam>,
+    params: Vec<Binding>,
     body: Vec<Stmt>,
 }
 
@@ -214,10 +194,10 @@ impl Object {
         }
     }
     #[cfg(test)]
-    fn add(&mut self, selector: &str, params: Vec<ObjParam>, body: Vec<Stmt>) {
+    fn add(&mut self, selector: &str, params: Vec<Binding>, body: Vec<Stmt>) {
         self.add_handler(selector.to_string(), params, body)
     }
-    pub fn add_handler(&mut self, selector: String, params: Vec<ObjParam>, body: Vec<Stmt>) {
+    pub fn add_handler(&mut self, selector: String, params: Vec<Binding>, body: Vec<Stmt>) {
         self.handlers.insert(selector, Handler { params, body });
     }
     fn compile(self, compiler: &mut Compiler) -> CompileIR {
@@ -228,7 +208,7 @@ impl Object {
             compiler.handler(ivals);
             let mut params = vec![];
             for param in handler.params {
-                params.push(param.compile(compiler));
+                params.push(param.compile_param(compiler));
             }
             let ir = compiler.body(handler.body)?;
 
@@ -247,7 +227,7 @@ impl Object {
             compiler.do_handler(ivals);
             let mut params = vec![];
             for param in handler.params {
-                params.push(param.compile(compiler));
+                params.push(param.compile_param(compiler));
             }
             let ir = compiler.body(handler.body)?;
 
@@ -586,8 +566,11 @@ mod test {
     fn b_ident(name: &str) -> Binding {
         Binding::Identifier(name.to_string())
     }
-    fn p_ident(name: &str) -> ObjParam {
-        ObjParam::Value(Binding::Identifier(name.to_string()))
+    fn b_var(name: &str) -> Binding {
+        Binding::VarIdentifier(name.to_string())
+    }
+    fn b_do(name: &str) -> Binding {
+        Binding::DoIdentifier(name.to_string())
     }
     fn ident(name: &str) -> Expr {
         Expr::Identifier(name.to_string())
@@ -733,7 +716,7 @@ mod test {
                     let mut obj = Object::new();
                     obj.add(
                         "handler:",
-                        vec![p_ident("foo")],
+                        vec![b_ident("foo")],
                         vec![
                             Stmt::Let(b_ident("bar"), int(789)),
                             Stmt::Expr(send(ident("foo"), "+:", vec![ident("bar")])),
@@ -773,7 +756,7 @@ mod test {
                     let mut obj = Object::new();
                     obj.add(
                         "handler:",
-                        vec![p_ident("bar")],
+                        vec![b_ident("bar")],
                         vec![Stmt::Expr(send(ident("foo"), "+:", vec![ident("bar")]))],
                     );
                     obj
@@ -806,7 +789,7 @@ mod test {
                     let mut obj = Object::new();
                     obj.add(
                         "handler:",
-                        vec![p_ident("bar")],
+                        vec![b_ident("bar")],
                         vec![Stmt::Expr(send(ident("foo"), "+:", vec![ident("bar")]))],
                     );
                     obj
@@ -825,7 +808,7 @@ mod test {
                     let mut obj = Object::new();
                     obj.add(
                         "handler:",
-                        vec![p_ident("bar")],
+                        vec![b_ident("bar")],
                         vec![Stmt::Expr(send(ident("foo"), "+:", vec![ident("bar")]))],
                     );
                     obj.add("other", vec![], vec![Stmt::Expr(ident("foo"))]);
@@ -861,7 +844,7 @@ mod test {
                         let mut obj = Object::new();
                         obj.add(
                             "handler:",
-                            vec![ObjParam::Var(b_ident("arg"))],
+                            vec![b_var("arg")],
                             vec![Stmt::Set(b_ident("arg"), int(10))],
                         );
                         obj
@@ -903,7 +886,7 @@ mod test {
                         let mut obj = Object::new();
                         obj.add(
                             "handler:",
-                            vec![ObjParam::Var(b_ident("arg"))],
+                            vec![b_var("arg")],
                             vec![Stmt::Set(b_ident("arg"), int(10)), Stmt::Expr(ident("arg"))],
                         );
                         obj
@@ -925,7 +908,7 @@ mod test {
                     let mut obj = Object::new();
                     obj.add(
                         ":",
-                        vec![ObjParam::Do(b_ident("f"))],
+                        vec![b_do("f")],
                         vec![Stmt::Expr(send(ident("f"), "foo", vec![]))],
                     );
                     obj
@@ -970,7 +953,7 @@ mod test {
                         let mut obj = Object::new();
                         obj.add(
                             ":",
-                            vec![ObjParam::Do(b_ident("f"))],
+                            vec![b_do("f")],
                             vec![Stmt::Expr(send(ident("f"), "foo", vec![]))],
                         );
                         obj
@@ -1021,7 +1004,7 @@ mod test {
                     let mut object = Object::new();
                     object.add(
                         ":",
-                        vec![ObjParam::Do(b_ident("f"))],
+                        vec![b_do("f")],
                         vec![Stmt::Let(b_ident("g"), ident("f"))],
                     );
                     object
@@ -1040,7 +1023,7 @@ mod test {
                 let mut obj = Object::new();
                 obj.add(
                     ":",
-                    vec![ObjParam::Do(b_ident("f"))],
+                    vec![b_do("f")],
                     vec![Stmt::Expr(send(
                         Expr::Object(Object::new()),
                         ":",
