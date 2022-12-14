@@ -81,6 +81,11 @@ mod test {
         run("")
     }
 
+    #[test]
+    fn syntax() {
+        run(include_str!("./syntax.gob"))
+    }
+
     // #[test]
     // fn primitives() {
     //     run(include_str!("./stdlib/primitive.test.gob"));

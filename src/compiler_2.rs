@@ -172,7 +172,7 @@ impl Expr {
 }
 
 #[derive(Debug, Clone, PartialEq)]
-enum ObjParam {
+pub enum ObjParam {
     Value(Binding),
     Var(Binding),
     Do(Binding),
@@ -208,7 +208,7 @@ pub struct Object {
     handlers: HashMap<String, Handler>,
 }
 impl Object {
-    fn new() -> Self {
+    pub fn new() -> Self {
         Object {
             handlers: HashMap::new(),
         }
@@ -217,7 +217,7 @@ impl Object {
     fn add(&mut self, selector: &str, params: Vec<ObjParam>, body: Vec<Stmt>) {
         self.add_handler(selector.to_string(), params, body)
     }
-    fn add_handler(&mut self, selector: String, params: Vec<ObjParam>, body: Vec<Stmt>) {
+    pub fn add_handler(&mut self, selector: String, params: Vec<ObjParam>, body: Vec<Stmt>) {
         self.handlers.insert(selector, Handler { params, body });
     }
     fn compile(self, compiler: &mut Compiler) -> CompileIR {

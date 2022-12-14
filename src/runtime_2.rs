@@ -59,6 +59,10 @@ impl Value {
                     stack.push(result);
                     Ok(())
                 }
+                "-" => {
+                    stack.push(Value::Integer(-self.as_int()));
+                    Ok(())
+                }
                 _ => Err(RuntimeError::DoesNotUnderstand(selector.to_string())),
             },
             Value::Object(class, ivals) => {

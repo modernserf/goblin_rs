@@ -1,12 +1,14 @@
+use std::collections::HashSet;
+
 #[derive(Debug, Clone, PartialEq)]
 pub enum Token {
     Integer(i64),
     Identifier(String),
-    // Operator(String),
-    // OpenBrace,
-    // CloseBrace,
-    // OpenBracket,
-    // CloseBracket,
+    Operator(String),
+    OpenBrace,
+    CloseBrace,
+    OpenBracket,
+    CloseBracket,
     OpenParen,
     CloseParen,
     Colon,
@@ -21,6 +23,14 @@ pub enum Token {
 pub struct Lexer {
     chars: Vec<char>,
     index: usize,
+}
+
+thread_local! {
+  static OPERATORS: HashSet<char> = HashSet::from_iter("~!@$%^&*-+=|/,<>".chars());
+}
+
+fn is_operator(ch: char) -> bool {
+    OPERATORS.with(|set| set.contains(&ch))
 }
 
 impl Lexer {
@@ -67,8 +77,18 @@ impl Lexer {
             }
             '(' => self.accept(Token::OpenParen),
             ')' => self.accept(Token::CloseParen),
+            '{' => self.accept(Token::OpenBrace),
+            '}' => self.accept(Token::CloseBrace),
+            '[' => self.accept(Token::OpenBracket),
+            ']' => self.accept(Token::CloseBracket),
             '\0' => Token::EndOfInput,
-            _ => panic!("unknown char"),
+            ch => {
+                if is_operator(ch) {
+                    self.operator()
+                } else {
+                    panic!("unknown char")
+                }
+            }
         }
     }
 
@@ -119,6 +139,18 @@ impl Lexer {
                     "set" => Token::Set,
                     _ => Token::Identifier(str),
                 };
+            }
+        }
+    }
+    fn operator(&mut self) -> Token {
+        let mut str = String::new();
+        loop {
+            let ch = self.peek();
+            if is_operator(ch) {
+                self.advance();
+                str.push(ch);
+            } else {
+                return Token::Operator(str);
             }
         }
     }
