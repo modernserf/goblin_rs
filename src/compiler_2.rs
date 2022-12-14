@@ -232,9 +232,9 @@ impl Object {
             class.add_handler(selector, params, ir.to_vec());
             ivals = compiler.end_handler();
         }
-        class.set_ivals(ivals.count());
+        let arity = ivals.count();
         let mut out = ivals.compile()?;
-        out.push(IR::Object(class.rc()));
+        out.push(IR::Object(class.rc(), arity));
         Ok(out)
     }
     fn compile_do(self, compiler: &mut Compiler) -> CompileIR {
@@ -251,9 +251,9 @@ impl Object {
             class.add_handler(selector, params, ir.to_vec());
             ivals = compiler.end_handler();
         }
-        class.set_ivals(ivals.count());
+        let arity = ivals.count();
         let mut out = ivals.compile()?;
-        out.push(IR::DoObject(class.rc()));
+        out.push(IR::DoObject(class.rc(), arity));
         Ok(out)
     }
 }
@@ -687,7 +687,7 @@ mod test {
     fn empty_object() {
         assert_ok(
             vec![Stmt::Expr(Expr::Object(Object::new()))],
-            vec![IR::Object(Class::new().rc())],
+            vec![IR::Object(Class::new().rc(), 0)],
         )
     }
 
@@ -713,12 +713,15 @@ mod test {
             vec![
                 IR::Integer(123),
                 IR::Integer(456),
-                IR::Object({
-                    let mut class = Class::new();
-                    class.add("handler", vec![], vec![IR::Integer(789), IR::Local(0)]);
+                IR::Object(
+                    {
+                        let mut class = Class::new();
+                        class.add("handler", vec![], vec![IR::Integer(789), IR::Local(0)]);
 
-                    class.rc()
-                }),
+                        class.rc()
+                    },
+                    0,
+                ),
             ],
         )
     }
@@ -745,21 +748,24 @@ mod test {
             vec![
                 IR::Integer(123),
                 IR::Integer(456),
-                IR::Object({
-                    let mut class = Class::new();
-                    class.add(
-                        "handler:",
-                        vec![Param::Value],
-                        vec![
-                            IR::Integer(789),
-                            IR::Local(1),
-                            IR::Local(0),
-                            IR::Send("+:".to_string(), 1),
-                        ],
-                    );
+                IR::Object(
+                    {
+                        let mut class = Class::new();
+                        class.add(
+                            "handler:",
+                            vec![Param::Value],
+                            vec![
+                                IR::Integer(789),
+                                IR::Local(1),
+                                IR::Local(0),
+                                IR::Send("+:".to_string(), 1),
+                            ],
+                        );
 
-                    class.rc()
-                }),
+                        class.rc()
+                    },
+                    0,
+                ),
             ],
         )
     }
@@ -782,17 +788,18 @@ mod test {
             vec![
                 IR::Integer(123),
                 IR::Local(0),
-                IR::Object({
-                    let mut class = Class::new();
-                    class.add(
-                        "handler:",
-                        vec![Param::Value],
-                        vec![IR::Local(0), IR::IVal(0), IR::Send("+:".to_string(), 1)],
-                    );
-                    class.set_ivals(1);
-
-                    class.rc()
-                }),
+                IR::Object(
+                    {
+                        let mut class = Class::new();
+                        class.add(
+                            "handler:",
+                            vec![Param::Value],
+                            vec![IR::Local(0), IR::IVal(0), IR::Send("+:".to_string(), 1)],
+                        );
+                        class.rc()
+                    },
+                    1,
+                ),
             ],
         )
     }
@@ -835,18 +842,20 @@ mod test {
             vec![
                 IR::Integer(123),
                 IR::Local(0),
-                IR::Object({
-                    let mut class = Class::new();
-                    class.add(
-                        "handler:",
-                        vec![Param::Value],
-                        vec![IR::Local(0), IR::IVal(0), IR::Send("+:".to_string(), 1)],
-                    );
-                    class.add("other", vec![], vec![IR::IVal(0)]);
-                    class.set_ivals(1);
+                IR::Object(
+                    {
+                        let mut class = Class::new();
+                        class.add(
+                            "handler:",
+                            vec![Param::Value],
+                            vec![IR::Local(0), IR::IVal(0), IR::Send("+:".to_string(), 1)],
+                        );
+                        class.add("other", vec![], vec![IR::IVal(0)]);
 
-                    class.rc()
-                }),
+                        class.rc()
+                    },
+                    1,
+                ),
             ],
         )
     }
@@ -872,15 +881,18 @@ mod test {
                 Stmt::Expr(ident("foo")),
             ],
             vec![
-                IR::Object({
-                    let mut class = Class::new();
-                    class.add(
-                        "handler:",
-                        vec![Param::Var],
-                        vec![IR::Integer(10), IR::Local(0), IR::SetVar, IR::Unit],
-                    );
-                    class.rc()
-                }),
+                IR::Object(
+                    {
+                        let mut class = Class::new();
+                        class.add(
+                            "handler:",
+                            vec![Param::Var],
+                            vec![IR::Integer(10), IR::Local(0), IR::SetVar, IR::Unit],
+                        );
+                        class.rc()
+                    },
+                    0,
+                ),
                 IR::Integer(5),
                 IR::Var(1),
                 IR::Local(2),
@@ -939,22 +951,28 @@ mod test {
                 })],
             ))],
             vec![
-                IR::DoObject({
-                    let mut class = Class::new();
-                    class.add("foo", vec![], vec![IR::Integer(123)]);
+                IR::DoObject(
+                    {
+                        let mut class = Class::new();
+                        class.add("foo", vec![], vec![IR::Integer(123)]);
 
-                    class.rc()
-                }),
-                IR::Object({
-                    let mut class = Class::new();
-                    class.add(
-                        ":",
-                        vec![Param::Do],
-                        vec![IR::Local(0), IR::Send("foo".to_string(), 0)],
-                    );
+                        class.rc()
+                    },
+                    0,
+                ),
+                IR::Object(
+                    {
+                        let mut class = Class::new();
+                        class.add(
+                            ":",
+                            vec![Param::Do],
+                            vec![IR::Local(0), IR::Send("foo".to_string(), 0)],
+                        );
 
-                    class.rc()
-                }),
+                        class.rc()
+                    },
+                    0,
+                ),
                 IR::Send(":".to_string(), 1),
             ],
         )
@@ -987,27 +1005,31 @@ mod test {
                 IR::Integer(123),
                 IR::Var(0),
                 IR::Local(1),
-                IR::DoObject({
-                    let mut class = Class::new();
-                    class.add(
-                        "foo",
-                        vec![],
-                        vec![IR::Integer(456), IR::IVal(0), IR::SetVar, IR::Unit],
-                    );
-                    class.set_ivals(1);
+                IR::DoObject(
+                    {
+                        let mut class = Class::new();
+                        class.add(
+                            "foo",
+                            vec![],
+                            vec![IR::Integer(456), IR::IVal(0), IR::SetVar, IR::Unit],
+                        );
+                        class.rc()
+                    },
+                    1,
+                ),
+                IR::Object(
+                    {
+                        let mut class = Class::new();
+                        class.add(
+                            ":",
+                            vec![Param::Do],
+                            vec![IR::Local(0), IR::Send("foo".to_string(), 0)],
+                        );
 
-                    class.rc()
-                }),
-                IR::Object({
-                    let mut class = Class::new();
-                    class.add(
-                        ":",
-                        vec![Param::Do],
-                        vec![IR::Local(0), IR::Send("foo".to_string(), 0)],
-                    );
-
-                    class.rc()
-                }),
+                        class.rc()
+                    },
+                    0,
+                ),
                 IR::Send(":".to_string(), 1),
             ],
         )
@@ -1057,29 +1079,34 @@ mod test {
                 );
                 obj
             }))],
-            vec![IR::Object({
-                let mut class = Class::new();
-                class.add(
-                    ":",
-                    vec![Param::Do],
-                    vec![
-                        IR::Local(0),
-                        IR::DoObject({
-                            let mut class = Class::new();
-                            class.add(
-                                "foo",
-                                vec![],
-                                vec![IR::IVal(0), IR::Send("foo".to_string(), 0)],
-                            );
-                            class.set_ivals(1);
-                            class.rc()
-                        }),
-                        IR::Object(Class::new().rc()),
-                        IR::Send(":".to_string(), 1),
-                    ],
-                );
-                class.rc()
-            })],
+            vec![IR::Object(
+                {
+                    let mut class = Class::new();
+                    class.add(
+                        ":",
+                        vec![Param::Do],
+                        vec![
+                            IR::Local(0),
+                            IR::DoObject(
+                                {
+                                    let mut class = Class::new();
+                                    class.add(
+                                        "foo",
+                                        vec![],
+                                        vec![IR::IVal(0), IR::Send("foo".to_string(), 0)],
+                                    );
+                                    class.rc()
+                                },
+                                1,
+                            ),
+                            IR::Object(Class::new().rc(), 0),
+                            IR::Send(":".to_string(), 1),
+                        ],
+                    );
+                    class.rc()
+                },
+                0,
+            )],
         );
     }
 }
