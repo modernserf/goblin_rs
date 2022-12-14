@@ -9,8 +9,8 @@ use crate::{
 pub enum ParseError {
     Expected(String),
     ExpectedToken(Token),
-    InvalidSendArgs,
-    InvalidParams,
+    DuplicateKey(String),
+    MixedKeyPair(String),
 }
 
 pub type Parse<T> = Result<T, ParseError>;
@@ -23,89 +23,49 @@ fn expect<T>(name: &str, value: ParseOpt<T>) -> Parse<T> {
     }
 }
 
-struct ParamsBuilder {
-    params: HashMap<String, Binding>,
+struct SelectorBuilderResult<T> {
+    selector: String,
+    items: Vec<(String, T)>,
 }
 
-impl ParamsBuilder {
+struct SelectorBuilder<T> {
+    items: HashMap<String, T>,
+}
+
+impl<T> SelectorBuilder<T> {
     fn new() -> Self {
         Self {
-            params: HashMap::new(),
+            items: HashMap::new(),
         }
     }
-    fn key(self, key: String) -> Parse<(String, Vec<Binding>)> {
-        if self.params.len() > 0 {
-            if key.len() == 0 {
-                return self.build();
-            }
-            return Err(ParseError::InvalidParams);
+    fn add(&mut self, key: String, value: T) -> Parse<()> {
+        if self.items.contains_key(&key) {
+            return Err(ParseError::DuplicateKey(key));
         }
-        return Ok((key, vec![]));
-    }
-    fn add(&mut self, key: String, value: Binding) -> Parse<()> {
-        if self.params.insert(key, value).is_some() {
-            return Err(ParseError::InvalidParams);
-        }
+
+        self.items.insert(key, value);
         return Ok(());
     }
-    fn build(self) -> Parse<(String, Vec<Binding>)> {
-        let mut selector = String::new();
-        let mut params = Vec::new();
-
-        let mut entries = self.params.into_iter().collect::<Vec<_>>();
-        entries.sort_by(|(a, _), (b, _)| a.cmp(b));
-
-        for (key, param) in entries {
-            selector.push_str(&key);
-            selector.push(':');
-            params.push(param);
-        }
-
-        Ok((selector, params))
-    }
-}
-
-struct SendBuilder {
-    target: Expr,
-    args: HashMap<String, Expr>,
-}
-
-impl SendBuilder {
-    fn new(target: Expr) -> Self {
-        Self {
-            target,
-            args: HashMap::new(),
-        }
-    }
-    fn key(self, key: String) -> Parse<Expr> {
-        if self.args.len() > 0 {
-            if key.len() == 0 {
-                return self.build();
+    fn resolve(self, last_key: String) -> Parse<SelectorBuilderResult<T>> {
+        if self.items.len() > 0 {
+            if last_key.len() == 0 {
+                return self.resolve_pairs();
             }
-            return Err(ParseError::InvalidSendArgs);
+            return Err(ParseError::MixedKeyPair(last_key));
         }
-        return Ok(Expr::Send(key, Box::new(self.target), vec![]));
+        return Ok(SelectorBuilderResult {
+            selector: last_key,
+            items: vec![],
+        });
     }
-    fn add(&mut self, key: String, value: Expr) -> Parse<()> {
-        if self.args.insert(key, value).is_some() {
-            return Err(ParseError::InvalidSendArgs);
-        }
-        return Ok(());
-    }
-    fn build(self) -> Parse<Expr> {
-        let mut selector = String::new();
-        let mut args = Vec::new();
-
-        let mut entries = self.args.into_iter().collect::<Vec<_>>();
-        entries.sort_by(|(a, _), (b, _)| a.cmp(b));
-
-        for (key, arg) in entries {
-            selector.push_str(&key);
-            selector.push(':');
-            args.push(arg);
-        }
-
-        Ok(Expr::Send(selector, Box::new(self.target), args))
+    fn resolve_pairs(self) -> Parse<SelectorBuilderResult<T>> {
+        let mut items = self.items.into_iter().collect::<Vec<_>>();
+        items.sort_by(|(a, _), (b, _)| a.cmp(b));
+        let selector = items
+            .iter()
+            .map(|p| &p.0)
+            .fold(String::new(), |l, r| format!("{}{}:", l, r));
+        Ok(SelectorBuilderResult { selector, items })
     }
 }
 
@@ -163,25 +123,26 @@ impl Parser {
         }
     }
 
-    fn params_body(&mut self) -> Parse<(String, Vec<Binding>)> {
-        let mut builder = ParamsBuilder::new();
+    fn params_body(&mut self) -> Parse<SelectorBuilderResult<Binding>> {
+        let mut builder = SelectorBuilder::new();
         loop {
             let key = self.key()?;
             if self.expect_token(Token::Colon).is_ok() {
                 let param = self.param()?;
                 builder.add(key, param)?;
             } else {
-                return builder.key(key);
+                return builder.resolve(key);
             }
         }
     }
 
     fn handler(&mut self, object: &mut Object) -> Parse<()> {
         self.expect_token(Token::OpenBrace)?;
-        let (selector, params) = self.params_body()?;
+        let result = self.params_body()?;
         self.expect_token(Token::CloseBrace)?;
         let body = self.body()?;
-        object.add_handler(selector, params, body)?;
+        let params = result.items.into_iter().map(|p| p.1).collect();
+        object.add_handler(result.selector, params, body)?;
         Ok(())
     }
 
@@ -220,35 +181,36 @@ impl Parser {
         }
     }
 
-    fn send_body(&mut self, left: Expr) -> Parse<Expr> {
-        let mut builder = SendBuilder::new(left);
+    fn send_body(&mut self) -> Parse<SelectorBuilderResult<Expr>> {
+        let mut builder = SelectorBuilder::new();
         loop {
             let key = self.key()?;
             if self.expect_token(Token::Colon).is_ok() {
                 let arg = self.arg()?;
                 builder.add(key, arg)?;
             } else {
-                return builder.key(key);
+                return builder.resolve(key);
             }
         }
     }
 
     fn send_expr(&mut self) -> ParseOpt<Expr> {
-        let mut left = if let Some(expr) = self.base_expr()? {
-            expr
-        } else {
-            return Ok(None);
-        };
-        loop {
-            match self.peek() {
-                Token::OpenBrace => {
-                    self.advance();
-                    left = self.send_body(left)?;
-                    self.expect_token(Token::CloseBrace)?;
+        if let Some(mut left) = self.base_expr()? {
+            loop {
+                match self.peek() {
+                    Token::OpenBrace => {
+                        self.advance();
+                        let result = self.send_body()?;
+                        let args = result.items.into_iter().map(|p| p.1).collect();
+                        left = Expr::Send(result.selector, Box::new(left), args);
+
+                        self.expect_token(Token::CloseBrace)?;
+                    }
+                    _ => return Ok(Some(left)),
                 }
-                _ => return Ok(Some(left)),
             }
         }
+        Ok(None)
     }
 
     fn unary_op_expr(&mut self) -> ParseOpt<Expr> {
@@ -263,21 +225,19 @@ impl Parser {
     }
 
     fn expr(&mut self) -> ParseOpt<Expr> {
-        let mut left = if let Some(expr) = self.unary_op_expr()? {
-            expr
-        } else {
-            return Ok(None);
-        };
-        loop {
-            match self.peek() {
-                Token::Operator(op) => {
-                    self.advance();
-                    let expr = expect("expr", self.unary_op_expr())?;
-                    left = Expr::Send(format!("{}:", op), Box::new(left), vec![expr]);
+        if let Some(mut left) = self.unary_op_expr()? {
+            loop {
+                match self.peek() {
+                    Token::Operator(op) => {
+                        self.advance();
+                        let expr = expect("expr", self.unary_op_expr())?;
+                        left = Expr::Send(format!("{}:", op), Box::new(left), vec![expr]);
+                    }
+                    _ => return Ok(Some(left)),
                 }
-                _ => return Ok(Some(left)),
             }
         }
+        Ok(None)
     }
 
     fn arg(&mut self) -> Parse<Expr> {
@@ -291,6 +251,7 @@ impl Parser {
                 return Err(ParseError::Expected("var".to_string()));
             }
             Token::On => {
+                // object_body accepts On tokens
                 let object = self.object_body()?;
                 return Ok(Expr::DoArg(object));
             }
@@ -319,6 +280,7 @@ impl Parser {
                 return Err(ParseError::Expected("var param".to_string()));
             }
             Token::Do => {
+                self.advance();
                 if let Token::Identifier(key) = self.peek() {
                     self.advance();
                     return Ok(Binding::DoIdentifier(key));
@@ -363,7 +325,6 @@ impl Parser {
                     Ok(Some(Stmt::Return(Expr::Unit)))
                 }
             }
-
             _ => {
                 if let Some(expr) = self.expr()? {
                     Ok(Some(Stmt::Expr(expr)))
