@@ -9,20 +9,21 @@ pub type Runtime<T> = Result<T, RuntimeError>;
 pub type Address = usize;
 pub type Selector = String;
 pub type Index = usize;
+pub type Arity = usize;
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum IR {
-    Unit,                // (-- value)
-    Integer(i64),        // (-- value)
-    Local(Address),      // ( -- *address)
-    Var(Address),        // ( -- address)
-    IVal(Index),         // ( -- instance[index])
-    Object(Rc<Class>),   // (...instance -- object)
-    DoObject(Rc<Class>), // (...instance -- object)
-    Deref,               // (address -- *address)
-    SetVar,              // (value address -- )
-    Send(Selector),      // (...args target -- result)
-    Drop,                // (value --)
+    Unit,                  // (-- value)
+    Integer(i64),          // (-- value)
+    Local(Address),        // ( -- *address)
+    Var(Address),          // ( -- address)
+    IVal(Index),           // ( -- instance[index])
+    Object(Rc<Class>),     // (...instance -- object)
+    DoObject(Rc<Class>),   // (...instance -- object)
+    Deref,                 // (address -- *address)
+    SetVar,                // (value address -- )
+    Send(Selector, Arity), // (...args target -- result)
+    Drop,                  // (value --)
     Return,
 }
 
@@ -49,7 +50,13 @@ impl Value {
     fn primitive_add(self, arg: Value) -> Value {
         Value::Integer(self.as_int() + arg.as_int())
     }
-    fn send(self, selector: &str, stack: &mut Stack, call_stack: &mut CallStack) -> Runtime<()> {
+    fn send(
+        self,
+        selector: &str,
+        arity: usize,
+        stack: &mut Stack,
+        call_stack: &mut CallStack,
+    ) -> Runtime<()> {
         match self {
             Value::Unit => Err(RuntimeError::DoesNotUnderstand(selector.to_string())),
             Value::Integer(_) => match selector {
@@ -68,13 +75,13 @@ impl Value {
             Value::Object(class, ivals) => {
                 let handler = class.get(selector)?;
                 let local_offset = stack.size();
-                call_stack.call(handler, local_offset, ivals);
+                call_stack.call(handler, arity, local_offset, ivals);
                 Ok(())
             }
             Value::DoObject(class, ivals, return_from_index) => {
                 let handler = class.get(selector)?;
                 let local_offset = stack.size();
-                call_stack.call_do(handler, local_offset, ivals, return_from_index);
+                call_stack.call_do(handler, arity, local_offset, ivals, return_from_index);
                 Ok(())
             }
             Value::Pointer(_) => panic!("must deref pointer before sending message"),
@@ -295,12 +302,12 @@ impl CallStack {
     fn top_mut(&mut self) -> &mut Frame {
         self.frames.last_mut().unwrap()
     }
-    fn call(&mut self, handler: &Handler, local_offset: usize, ivals: Instance) {
+    fn call(&mut self, handler: &Handler, arity: usize, local_offset: usize, ivals: Instance) {
         let return_from_index = self.frames.len();
         self.frames.push(Frame::Handler {
             body: handler.body.clone(),
             ip: 0,
-            local_offset: local_offset - handler.params.len(),
+            local_offset: local_offset - arity,
             ivals,
             return_from_index,
         })
@@ -308,6 +315,7 @@ impl CallStack {
     fn call_do(
         &mut self,
         handler: &Handler,
+        arity: usize,
         local_offset: usize,
         ivals: Instance,
         return_from_index: usize,
@@ -315,7 +323,7 @@ impl CallStack {
         self.frames.push(Frame::Handler {
             body: handler.body.clone(),
             ip: 0,
-            local_offset: local_offset - handler.params.len(),
+            local_offset: local_offset - arity,
             ivals,
             return_from_index,
         })
@@ -401,9 +409,9 @@ impl Interpreter {
                 let value = self.stack.pop();
                 pointer.set(value, &mut self.stack);
             }
-            IR::Send(selector) => {
+            IR::Send(selector, arity) => {
                 let target = self.stack.pop();
-                target.send(&selector, &mut self.stack, &mut self.call_stack)?;
+                target.send(&selector, arity, &mut self.stack, &mut self.call_stack)?;
             }
             IR::Return => self.call_stack.do_return(),
             IR::Drop => {
@@ -427,7 +435,7 @@ mod test {
     }
 
     fn add() -> IR {
-        IR::Send("+:".to_string())
+        IR::Send("+:".to_string(), 1)
     }
 
     #[test]
@@ -441,7 +449,7 @@ mod test {
     #[test]
     fn does_not_understand() {
         assert_err(
-            vec![IR::Integer(1), IR::Send("foobar".to_string())],
+            vec![IR::Integer(1), IR::Send("foobar".to_string(), 0)],
             RuntimeError::DoesNotUnderstand("foobar".to_string()),
         )
     }
@@ -500,7 +508,7 @@ mod test {
         assert_err(
             vec![
                 IR::Object(empty_class.clone()),
-                IR::Send("foobar".to_string()),
+                IR::Send("foobar".to_string(), 0),
             ],
             RuntimeError::DoesNotUnderstand("foobar".to_string()),
         )
@@ -518,9 +526,9 @@ mod test {
             vec![
                 IR::Object(record.clone()), // 0
                 IR::Local(0),
-                IR::Send("x".to_string()),
+                IR::Send("x".to_string(), 0),
                 IR::Local(0),
-                IR::Send("y".to_string()),
+                IR::Send("y".to_string(), 0),
                 add(),
             ],
             Value::Integer(3),
@@ -550,7 +558,7 @@ mod test {
                 IR::Integer(420),        // 1
                 IR::Object(foo.clone()), // 2
                 IR::Local(2),
-                IR::Send("foo".to_string()),
+                IR::Send("foo".to_string(), 0),
             ],
             Value::Integer(223),
         )
@@ -584,7 +592,7 @@ mod test {
                 IR::Integer(420), // 1
                 IR::Object(foo),  // 2
                 IR::Local(2),
-                IR::Send("foo".to_string()),
+                IR::Send("foo".to_string(), 0),
             ],
             Value::Integer(323),
         )
@@ -615,7 +623,7 @@ mod test {
                 IR::Object(double_then_add_10.clone()), // $1
                 IR::Local(0),
                 IR::Local(1),
-                IR::Send("foo:".to_string()), // $1{foo: $0}
+                IR::Send("foo:".to_string(), 1), // $1{foo: $0}
             ],
             Value::Integer(110),
         )
@@ -647,7 +655,7 @@ mod test {
                 IR::Object(double_then_add_10), // $1
                 IR::Local(0),
                 IR::Local(1),
-                IR::Send("foo:".to_string()), // $2 = $1{foo: $0}
+                IR::Send("foo:".to_string(), 1), // $2 = $1{foo: $0}
                 IR::Local(2),
             ],
             Value::Integer(110),
@@ -681,7 +689,7 @@ mod test {
                 IR::Integer(100),              // $1
                 IR::Var(1),
                 IR::Local(0),
-                IR::Send("foo:".to_string()), // $0{foo: var $1}
+                IR::Send("foo:".to_string(), 1), // $0{foo: var $1}
                 IR::Local(1),
             ],
             Value::Integer(110),
@@ -707,9 +715,9 @@ mod test {
                 IR::Integer(4),
                 IR::Object(pair), // $1 = [x: 3 y: 4]
                 IR::Local(0),
-                IR::Send("x".to_string()),
+                IR::Send("x".to_string(), 0),
                 IR::Local(1),
-                IR::Send("y".to_string()),
+                IR::Send("y".to_string(), 0),
                 add(), // $0{x} + $1{y}
             ],
             Value::Integer(5),
@@ -742,7 +750,7 @@ mod test {
                 }), // $1
                 IR::Integer(20),
                 IR::Local(1),
-                IR::Send("add to var:".to_string()),
+                IR::Send("add to var:".to_string(), 1),
                 IR::Local(0),
             ],
             Value::Integer(120),
@@ -771,7 +779,7 @@ mod test {
             vec![
                 IR::Integer(3),
                 IR::Object(obj),
-                IR::Send("add 10:".to_string()),
+                IR::Send("add 10:".to_string(), 1),
             ],
             Value::Integer(13),
         );
@@ -824,7 +832,7 @@ mod test {
                                     vec![
                                         IR::Integer(50),
                                         IR::Local(0),
-                                        IR::Send("some:".to_string()),
+                                        IR::Send("some:".to_string(), 1),
                                         // unreachable if do block returns early
                                         IR::Integer(456),
                                     ],
@@ -848,14 +856,14 @@ mod test {
                                 class.rc()
                             }),
                             IR::Local(0),
-                            IR::Send("match:".to_string()),
+                            IR::Send("match:".to_string(), 1),
                             // unreachable if match do arg returns early
                             IR::Integer(789),
                         ],
                     );
                     class.rc()
                 }),
-                IR::Send("run".to_string()),
+                IR::Send("run".to_string(), 0),
             ],
             Value::Integer(100),
         );

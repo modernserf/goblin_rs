@@ -151,11 +151,12 @@ impl Expr {
             Self::Identifier(name) => compiler.identifier(name),
             Self::Send(selector, target, args) => {
                 let mut ir = IRBuilder::new();
+                let arity = args.len();
                 for arg in args {
                     ir.append(arg.compile_arg(compiler)?);
                 }
                 ir.append(target.compile_target(compiler)?);
-                ir.push(IR::Send(selector));
+                ir.push(IR::Send(selector, arity));
                 Ok(ir)
             }
             Self::Object(obj) => obj.compile(compiler),
@@ -636,7 +637,7 @@ mod test {
             vec![
                 IR::Integer(456),
                 IR::Integer(123),
-                IR::Send("+:".to_string()),
+                IR::Send("+:".to_string(), 1),
             ],
         );
     }
@@ -753,7 +754,7 @@ mod test {
                             IR::Integer(789),
                             IR::Local(1),
                             IR::Local(0),
-                            IR::Send("+:".to_string()),
+                            IR::Send("+:".to_string(), 1),
                         ],
                     );
 
@@ -786,7 +787,7 @@ mod test {
                     class.add(
                         "handler:",
                         vec![Param::Value],
-                        vec![IR::Local(0), IR::IVal(0), IR::Send("+:".to_string())],
+                        vec![IR::Local(0), IR::IVal(0), IR::Send("+:".to_string(), 1)],
                     );
                     class.set_ivals(1);
 
@@ -839,7 +840,7 @@ mod test {
                     class.add(
                         "handler:",
                         vec![Param::Value],
-                        vec![IR::Local(0), IR::IVal(0), IR::Send("+:".to_string())],
+                        vec![IR::Local(0), IR::IVal(0), IR::Send("+:".to_string(), 1)],
                     );
                     class.add("other", vec![], vec![IR::IVal(0)]);
                     class.set_ivals(1);
@@ -884,7 +885,7 @@ mod test {
                 IR::Var(1),
                 IR::Local(2),
                 IR::Local(0),
-                IR::Send("handler:".to_string()),
+                IR::Send("handler:".to_string(), 1),
                 IR::Drop,
                 IR::Local(2),
                 IR::Deref,
@@ -949,12 +950,12 @@ mod test {
                     class.add(
                         ":",
                         vec![Param::Do],
-                        vec![IR::Local(0), IR::Send("foo".to_string())],
+                        vec![IR::Local(0), IR::Send("foo".to_string(), 0)],
                     );
 
                     class.rc()
                 }),
-                IR::Send(":".to_string()),
+                IR::Send(":".to_string(), 1),
             ],
         )
     }
@@ -1002,12 +1003,12 @@ mod test {
                     class.add(
                         ":",
                         vec![Param::Do],
-                        vec![IR::Local(0), IR::Send("foo".to_string())],
+                        vec![IR::Local(0), IR::Send("foo".to_string(), 0)],
                     );
 
                     class.rc()
                 }),
-                IR::Send(":".to_string()),
+                IR::Send(":".to_string(), 1),
             ],
         )
     }
@@ -1068,13 +1069,13 @@ mod test {
                             class.add(
                                 "foo",
                                 vec![],
-                                vec![IR::IVal(0), IR::Send("foo".to_string())],
+                                vec![IR::IVal(0), IR::Send("foo".to_string(), 0)],
                             );
                             class.set_ivals(1);
                             class.rc()
                         }),
                         IR::Object(Class::new().rc()),
-                        IR::Send(":".to_string()),
+                        IR::Send(":".to_string(), 1),
                     ],
                 );
                 class.rc()
