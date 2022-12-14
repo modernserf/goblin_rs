@@ -31,7 +31,7 @@ type Instance = Rc<Vec<Value>>;
 type ParentFrameIndex = usize;
 
 #[derive(Debug, Clone, PartialEq)]
-enum Value {
+pub enum Value {
     Unit,
     Integer(i64),
     Object(Rc<Class>, Instance),
@@ -333,13 +333,12 @@ enum NextResult {
     Done,
 }
 
-struct Interpreter {
+pub struct Interpreter {
     stack: Stack,
     call_stack: CallStack,
 }
 
 impl Interpreter {
-    #[allow(unused)]
     pub fn program(code: Vec<IR>) -> Runtime<Value> {
         let mut interpreter = Interpreter {
             stack: Stack::new(),

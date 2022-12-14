@@ -1,64 +1,49 @@
-mod binding;
-mod class;
-mod compiler;
 mod compiler_2;
-mod expr;
-mod frame;
-mod ir;
-mod lexer;
-mod module;
-mod object;
-mod parser;
-mod primitive;
-mod runtime;
+mod lexer_2;
+mod parser_2;
 mod runtime_2;
-mod send;
-mod source;
-mod stmt;
-mod value;
+// mod source;
 
-fn compile_module(code: &str) -> Vec<ir::IR> {
-    let lexer = lexer::Lexer::from_string(code);
-    let mut parser = parser::Parser::new(lexer);
-    let module = parser.program().unwrap();
-    compiler::Compiler::module(module).unwrap()
-}
+// fn compile_module(code: &str) -> Vec<ir::IR> {
+//     let lexer = lexer::Lexer::from_string(code);
+//     let mut parser = parser::Parser::new(lexer);
+//     let module = parser.program().unwrap();
+//     compiler::Compiler::module(module).unwrap()
+// }
 
-fn build_stdlib() -> module::ModuleLoader {
-    let mut modules = module::ModuleLoader::new();
-    modules.add_ready("native", primitive::native_module());
-    modules.add_init("core", compile_module(include_str!("./stdlib/core.gob")));
-    modules.add_init(
-        "core/option",
-        compile_module(include_str!("./stdlib/option.gob")),
-    );
-    modules.add_init("core/ord", compile_module(include_str!("./stdlib/ord.gob")));
-    modules.add_init(
-        "core/result",
-        compile_module(include_str!("./stdlib/result.gob")),
-    );
-    modules.add_init(
-        "core/control",
-        compile_module(include_str!("./stdlib/control.gob")),
-    );
-    modules.add_init(
-        "core/iter",
-        compile_module(include_str!("./stdlib/iter.gob")),
-    );
-    modules
-}
+// fn build_stdlib() -> module::ModuleLoader {
+//     let mut modules = module::ModuleLoader::new();
+//     modules.add_ready("native", primitive::native_module());
+//     modules.add_init("core", compile_module(include_str!("./stdlib/core.gob")));
+//     modules.add_init(
+//         "core/option",
+//         compile_module(include_str!("./stdlib/option.gob")),
+//     );
+//     modules.add_init("core/ord", compile_module(include_str!("./stdlib/ord.gob")));
+//     modules.add_init(
+//         "core/result",
+//         compile_module(include_str!("./stdlib/result.gob")),
+//     );
+//     modules.add_init(
+//         "core/control",
+//         compile_module(include_str!("./stdlib/control.gob")),
+//     );
+//     modules.add_init(
+//         "core/iter",
+//         compile_module(include_str!("./stdlib/iter.gob")),
+//     );
+//     modules
+// }
 
-thread_local! {
-    static STDLIB : module::ModuleLoader = build_stdlib()
-}
+// thread_local! {
+//     static STDLIB : module::ModuleLoader = build_stdlib()
+// }
 
 fn run(code: &str) {
-    let lexer = lexer::Lexer::from_string(code);
-    let mut parser = parser::Parser::new(lexer);
-    let program = parser.program().unwrap();
-    let ir = compiler::Compiler::program(program).unwrap();
-    let mut modules = STDLIB.with(|m| m.clone());
-    let result = runtime::eval_module(ir, &mut modules);
+    let tokens = lexer_2::Lexer::lex(code.to_string());
+    let ast = parser_2::Parser::parse(tokens).unwrap();
+    let ir = compiler_2::Compiler::program(ast).unwrap();
+    let result = runtime_2::Interpreter::program(ir);
     match result {
         Ok(value) => {
             println!("{:?}", value);
@@ -96,48 +81,48 @@ mod test {
         run("")
     }
 
-    #[test]
-    fn primitives() {
-        run(include_str!("./stdlib/primitive.test.gob"));
-    }
+    // #[test]
+    // fn primitives() {
+    //     run(include_str!("./stdlib/primitive.test.gob"));
+    // }
 
-    #[test]
-    fn strings() {
-        run(include_str!("./stdlib/string.test.gob"));
-    }
+    // #[test]
+    // fn strings() {
+    //     run(include_str!("./stdlib/string.test.gob"));
+    // }
 
-    #[test]
-    fn frames() {
-        run(include_str!("./stdlib/frame.test.gob"));
-    }
+    // #[test]
+    // fn frames() {
+    //     run(include_str!("./stdlib/frame.test.gob"));
+    // }
 
-    #[test]
-    fn do_block() {
-        run(include_str!("./stdlib/do_block.test.gob"));
-    }
+    // #[test]
+    // fn do_block() {
+    //     run(include_str!("./stdlib/do_block.test.gob"));
+    // }
 
-    #[test]
-    fn option() {
-        run(include_str!("./stdlib/option.test.gob"));
-    }
+    // #[test]
+    // fn option() {
+    //     run(include_str!("./stdlib/option.test.gob"));
+    // }
 
-    #[test]
-    fn result() {
-        run(include_str!("./stdlib/result.test.gob"));
-    }
+    // #[test]
+    // fn result() {
+    //     run(include_str!("./stdlib/result.test.gob"));
+    // }
 
-    #[test]
-    fn var() {
-        run(include_str!("./stdlib/var.test.gob"));
-    }
+    // #[test]
+    // fn var() {
+    //     run(include_str!("./stdlib/var.test.gob"));
+    // }
 
-    #[test]
-    fn control() {
-        run(include_str!("./stdlib/control.test.gob"));
-    }
+    // #[test]
+    // fn control() {
+    //     run(include_str!("./stdlib/control.test.gob"));
+    // }
 
-    #[test]
-    fn iter() {
-        run(include_str!("./stdlib/iter.test.gob"));
-    }
+    // #[test]
+    // fn iter() {
+    //     run(include_str!("./stdlib/iter.test.gob"));
+    // }
 }
