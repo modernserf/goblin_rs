@@ -5,5 +5,9 @@ let a := x{+: y}{-}
 let obj := [
   on {foo} 1
   on {bar: x} x + 2
-  on {a: a b: b} a + b
+  on {a: a b: var b} a + b
 ]
+
+var v := 123
+set v := 456
+obj{a: 1 b: var v}

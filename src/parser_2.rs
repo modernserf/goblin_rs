@@ -181,7 +181,7 @@ impl Parser {
         loop {
             let key = self.key()?;
             if self.expect_token(Token::Colon).is_ok() {
-                let param = expect("param", self.binding())?;
+                let param = self.param()?;
                 builder.add(key, param)?;
             } else {
                 return builder.key(key);
@@ -198,6 +198,21 @@ impl Parser {
         Ok(())
     }
 
+    fn object_body(&mut self) -> Parse<Object> {
+        let mut object = Object::new();
+        loop {
+            match self.peek() {
+                Token::On => {
+                    self.advance();
+                    self.handler(&mut object)?;
+                }
+                _ => {
+                    return Ok(object);
+                }
+            }
+        }
+    }
+
     fn base_expr(&mut self) -> ParseOpt<Expr> {
         match self.peek() {
             Token::Integer(value) => {
@@ -210,19 +225,9 @@ impl Parser {
             }
             Token::OpenBracket => {
                 self.advance();
-                let mut object = Object::new();
-                loop {
-                    match self.peek() {
-                        Token::On => {
-                            self.advance();
-                            self.handler(&mut object)?;
-                        }
-                        _ => {
-                            self.expect_token(Token::CloseBracket)?;
-                            return Ok(Some(Expr::Object(object)));
-                        }
-                    }
-                }
+                let object = self.object_body()?;
+                self.expect_token(Token::CloseBracket)?;
+                return Ok(Some(Expr::Object(object)));
             }
             _ => Ok(None),
         }
@@ -233,7 +238,7 @@ impl Parser {
         loop {
             let key = self.key()?;
             if self.expect_token(Token::Colon).is_ok() {
-                let arg = expect("arg", self.expr())?;
+                let arg = self.arg()?;
                 builder.add(key, arg)?;
             } else {
                 return builder.key(key);
@@ -288,6 +293,24 @@ impl Parser {
         }
     }
 
+    fn arg(&mut self) -> Parse<Expr> {
+        match self.peek() {
+            Token::Var => {
+                self.advance();
+                if let Token::Identifier(key) = self.peek() {
+                    self.advance();
+                    return Ok(Expr::VarArg(key));
+                }
+                return Err(ParseError::Expected("var".to_string()));
+            }
+            Token::On => {
+                let object = self.object_body()?;
+                return Ok(Expr::DoArg(object));
+            }
+            _ => expect("arg", self.expr()),
+        }
+    }
+
     fn binding(&mut self) -> ParseOpt<Binding> {
         match self.peek() {
             Token::Identifier(key) => {
@@ -295,6 +318,27 @@ impl Parser {
                 Ok(Some(Binding::Identifier(key)))
             }
             _ => Ok(None),
+        }
+    }
+
+    fn param(&mut self) -> Parse<Binding> {
+        match self.peek() {
+            Token::Var => {
+                self.advance();
+                if let Token::Identifier(key) = self.peek() {
+                    self.advance();
+                    return Ok(Binding::VarIdentifier(key));
+                }
+                return Err(ParseError::Expected("var param".to_string()));
+            }
+            Token::Do => {
+                if let Token::Identifier(key) = self.peek() {
+                    self.advance();
+                    return Ok(Binding::DoIdentifier(key));
+                }
+                return Err(ParseError::Expected("do param".to_string()));
+            }
+            _ => expect("param", self.binding()),
         }
     }
 
@@ -308,6 +352,23 @@ impl Parser {
 
                 Ok(Some(Stmt::Let(binding, expr)))
             }
+            Token::Var => {
+                self.advance();
+                let binding = expect("binding", self.binding())?;
+                self.expect_token(Token::ColonEquals)?;
+                let expr = expect("expr", self.expr())?;
+
+                Ok(Some(Stmt::Var(binding, expr)))
+            }
+            Token::Set => {
+                self.advance();
+                let binding = expect("binding", self.binding())?;
+                self.expect_token(Token::ColonEquals)?;
+                let expr = expect("expr", self.expr())?;
+
+                Ok(Some(Stmt::Set(binding, expr)))
+            }
+
             _ => {
                 if let Some(expr) = self.expr()? {
                     Ok(Some(Stmt::Expr(expr)))
