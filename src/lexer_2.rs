@@ -1,6 +1,9 @@
-use std::collections::HashSet;
+use std::{
+    collections::{HashMap, HashSet},
+    rc::Rc,
+};
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum Token {
     Integer(i64),
     Identifier(String),
@@ -22,17 +25,62 @@ pub enum Token {
     EndOfInput,
 }
 
-pub struct Lexer {
-    chars: Vec<char>,
-    index: usize,
-}
+type KeywordTokens = Rc<(HashMap<String, Token>, HashMap<Token, String>)>;
 
-thread_local! {
-  static OPERATORS: HashSet<char> = HashSet::from_iter("~!@$%^&*-+=|/,<>".chars());
+fn keyword_tokens() -> KeywordTokens {
+    let pairs = vec![
+        (Token::Let, "let"),
+        (Token::Var, "var"),
+        (Token::Set, "set"),
+        (Token::Do, "do"),
+        (Token::On, "on"),
+        (Token::Return, "return"),
+    ];
+
+    Rc::new((
+        pairs
+            .iter()
+            .map(|(token, str)| (str.to_string(), token.clone()))
+            .collect(),
+        pairs
+            .iter()
+            .map(|(token, str)| (token.clone(), str.to_string()))
+            .collect(),
+    ))
 }
 
 fn is_operator(ch: char) -> bool {
     OPERATORS.with(|set| set.contains(&ch))
+}
+
+thread_local! {
+  static KEYWORD_TOKENS: KeywordTokens = keyword_tokens();
+  static OPERATORS: HashSet<char> = HashSet::from_iter("~!@$%^&*-+=|/,<>".chars());
+
+}
+
+impl Token {
+    fn from_ident(str: String) -> Token {
+        KEYWORD_TOKENS
+            .with(|pair| pair.clone())
+            .0
+            .get(&str)
+            .cloned()
+            .unwrap_or_else(|| Token::Identifier(str))
+    }
+
+    pub fn to_keyword(&self) -> Option<String> {
+        KEYWORD_TOKENS
+            .with(|pair| pair.clone())
+            .1
+            .get(self)
+            .map(|s| s.to_string())
+    }
+}
+
+pub struct Lexer {
+    chars: Vec<char>,
+    index: usize,
 }
 
 impl Lexer {
@@ -134,15 +182,7 @@ impl Lexer {
                 self.advance();
                 str.push(ch);
             } else {
-                return match str.as_str() {
-                    "let" => Token::Let,
-                    "var" => Token::Var,
-                    "do" => Token::Do,
-                    "set" => Token::Set,
-                    "on" => Token::On,
-                    "return" => Token::Return,
-                    _ => Token::Identifier(str),
-                };
+                return Token::from_ident(str);
             }
         }
     }

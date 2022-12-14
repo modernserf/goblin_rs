@@ -151,31 +151,14 @@ impl Parser {
                     self.advance();
                     parts.push(key);
                 }
-                Token::Do => {
-                    self.advance();
-                    parts.push("do".to_string());
+                tok => {
+                    if let Some(str) = tok.to_keyword() {
+                        self.advance();
+                        parts.push(str)
+                    } else {
+                        return Ok(parts.join(" "));
+                    }
                 }
-                Token::Let => {
-                    self.advance();
-                    parts.push("let".to_string());
-                }
-                Token::Set => {
-                    self.advance();
-                    parts.push("set".to_string());
-                }
-                Token::Var => {
-                    self.advance();
-                    parts.push("var".to_string());
-                }
-                Token::On => {
-                    self.advance();
-                    parts.push("on".to_string());
-                }
-                Token::Return => {
-                    self.advance();
-                    parts.push("return".to_string());
-                }
-                _ => return Ok(parts.join(" ")),
             }
         }
     }

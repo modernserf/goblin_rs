@@ -13,7 +13,7 @@ set v := 456
 obj{a: 1 b: var v}
 
 let obj := [
-  on {foo}
+  on {do var let on}
     return
   on {bar: x}
     return x
