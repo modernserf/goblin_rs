@@ -86,6 +86,7 @@ pub enum Stmt {
     Let(Binding, Expr),
     Var(Binding, Expr),
     Set(Binding, Expr),
+    Return(Expr),
 }
 
 impl Stmt {
@@ -106,6 +107,11 @@ impl Stmt {
             Self::Set(binding, expr) => {
                 let mut ir = expr.compile(compiler)?;
                 ir.append(binding.compile_set(compiler)?);
+                Ok(ir)
+            }
+            Self::Return(expr) => {
+                let mut ir = expr.compile(compiler)?;
+                ir.push(IR::Return);
                 Ok(ir)
             }
         }
@@ -136,6 +142,7 @@ impl Stmt {
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum Expr {
+    Unit,
     Integer(i64),
     Identifier(String),
     Send(Selector, Box<Expr>, Vec<Expr>),
@@ -147,6 +154,7 @@ pub enum Expr {
 impl Expr {
     fn compile(self, compiler: &mut Compiler) -> CompileIR {
         match self {
+            Self::Unit => Ok(IRBuilder::from(vec![IR::Unit])),
             Self::Integer(value) => Ok(IRBuilder::from(vec![IR::Integer(value)])),
             Self::Identifier(name) => compiler.identifier(name),
             Self::Send(selector, target, args) => {

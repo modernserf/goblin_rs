@@ -11,3 +11,10 @@ let obj := [
 var v := 123
 set v := 456
 obj{a: 1 b: var v}
+
+let obj := [
+  on {foo}
+    return
+  on {bar: x}
+    return x
+]

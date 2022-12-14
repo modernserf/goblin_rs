@@ -171,6 +171,10 @@ impl Parser {
                     self.advance();
                     parts.push("on".to_string());
                 }
+                Token::Return => {
+                    self.advance();
+                    parts.push("return".to_string());
+                }
                 _ => return Ok(parts.join(" ")),
             }
         }
@@ -367,6 +371,14 @@ impl Parser {
                 let expr = expect("expr", self.expr())?;
 
                 Ok(Some(Stmt::Set(binding, expr)))
+            }
+            Token::Return => {
+                self.advance();
+                if let Some(expr) = self.expr()? {
+                    Ok(Some(Stmt::Return(expr)))
+                } else {
+                    Ok(Some(Stmt::Return(Expr::Unit)))
+                }
             }
 
             _ => {
