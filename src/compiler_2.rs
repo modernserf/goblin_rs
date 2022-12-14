@@ -1,4 +1,7 @@
-use crate::runtime_2::{Address, Class, Index, Param, Selector, IR};
+use crate::{
+    parser_2::Parse,
+    runtime_2::{Address, Class, Index, Param, Selector, IR},
+};
 use std::collections::HashMap;
 
 #[derive(Debug, Clone, PartialEq)]
@@ -196,9 +199,22 @@ impl Object {
     #[cfg(test)]
     fn add(&mut self, selector: &str, params: Vec<Binding>, body: Vec<Stmt>) {
         self.add_handler(selector.to_string(), params, body)
+            .unwrap()
     }
-    pub fn add_handler(&mut self, selector: String, params: Vec<Binding>, body: Vec<Stmt>) {
-        self.handlers.insert(selector, Handler { params, body });
+    pub fn add_handler(
+        &mut self,
+        selector: String,
+        params: Vec<Binding>,
+        body: Vec<Stmt>,
+    ) -> Parse<()> {
+        if self
+            .handlers
+            .insert(selector, Handler { params, body })
+            .is_some()
+        {
+            todo!()
+        }
+        Ok(())
     }
     fn compile(self, compiler: &mut Compiler) -> CompileIR {
         let mut class = Class::new();

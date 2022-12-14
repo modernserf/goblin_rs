@@ -1,3 +1,9 @@
 let x := 1
 let y := x + -1
 let a := x{+: y}{-}
+
+let obj := [
+  on {foo} 1
+  on {bar: x} x + 2
+  on {a: a b: b} a + b
+]

@@ -17,6 +17,7 @@ pub enum Token {
     Var,
     Do,
     Set,
+    On,
     EndOfInput,
 }
 
@@ -137,6 +138,7 @@ impl Lexer {
                     "var" => Token::Var,
                     "do" => Token::Do,
                     "set" => Token::Set,
+                    "on" => Token::On,
                     _ => Token::Identifier(str),
                 };
             }

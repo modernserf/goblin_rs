@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 
 use crate::{
-    compiler_2::{Binding, Expr, Stmt},
+    compiler_2::{Binding, Expr, Object, Stmt},
     lexer_2::Token,
 };
 
@@ -10,15 +10,58 @@ pub enum ParseError {
     Expected(String),
     ExpectedToken(Token),
     InvalidSendArgs,
+    InvalidParams,
 }
 
-type Parse<T> = Result<T, ParseError>;
-type ParseOpt<T> = Result<Option<T>, ParseError>;
+pub type Parse<T> = Result<T, ParseError>;
+pub type ParseOpt<T> = Result<Option<T>, ParseError>;
 
 fn expect<T>(name: &str, value: ParseOpt<T>) -> Parse<T> {
     match value {
         Ok(Some(value)) => Ok(value),
         _ => Err(ParseError::Expected(name.to_string())),
+    }
+}
+
+struct ParamsBuilder {
+    params: HashMap<String, Binding>,
+}
+
+impl ParamsBuilder {
+    fn new() -> Self {
+        Self {
+            params: HashMap::new(),
+        }
+    }
+    fn key(self, key: String) -> Parse<(String, Vec<Binding>)> {
+        if self.params.len() > 0 {
+            if key.len() == 0 {
+                return self.build();
+            }
+            return Err(ParseError::InvalidParams);
+        }
+        return Ok((key, vec![]));
+    }
+    fn add(&mut self, key: String, value: Binding) -> Parse<()> {
+        if self.params.insert(key, value).is_some() {
+            return Err(ParseError::InvalidParams);
+        }
+        return Ok(());
+    }
+    fn build(self) -> Parse<(String, Vec<Binding>)> {
+        let mut selector = String::new();
+        let mut params = Vec::new();
+
+        let mut entries = self.params.into_iter().collect::<Vec<_>>();
+        entries.sort_by(|(a, _), (b, _)| a.cmp(b));
+
+        for (key, param) in entries {
+            selector.push_str(&key);
+            selector.push(':');
+            params.push(param);
+        }
+
+        Ok((selector, params))
     }
 }
 
@@ -124,9 +167,35 @@ impl Parser {
                     self.advance();
                     parts.push("var".to_string());
                 }
+                Token::On => {
+                    self.advance();
+                    parts.push("on".to_string());
+                }
                 _ => return Ok(parts.join(" ")),
             }
         }
+    }
+
+    fn params_body(&mut self) -> Parse<(String, Vec<Binding>)> {
+        let mut builder = ParamsBuilder::new();
+        loop {
+            let key = self.key()?;
+            if self.expect_token(Token::Colon).is_ok() {
+                let param = expect("param", self.binding())?;
+                builder.add(key, param)?;
+            } else {
+                return builder.key(key);
+            }
+        }
+    }
+
+    fn handler(&mut self, object: &mut Object) -> Parse<()> {
+        self.expect_token(Token::OpenBrace)?;
+        let (selector, params) = self.params_body()?;
+        self.expect_token(Token::CloseBrace)?;
+        let body = self.body()?;
+        object.add_handler(selector, params, body)?;
+        Ok(())
     }
 
     fn base_expr(&mut self) -> ParseOpt<Expr> {
@@ -138,6 +207,22 @@ impl Parser {
             Token::Identifier(value) => {
                 self.advance();
                 Ok(Some(Expr::Identifier(value)))
+            }
+            Token::OpenBracket => {
+                self.advance();
+                let mut object = Object::new();
+                loop {
+                    match self.peek() {
+                        Token::On => {
+                            self.advance();
+                            self.handler(&mut object)?;
+                        }
+                        _ => {
+                            self.expect_token(Token::CloseBracket)?;
+                            return Ok(Some(Expr::Object(object)));
+                        }
+                    }
+                }
             }
             _ => Ok(None),
         }
