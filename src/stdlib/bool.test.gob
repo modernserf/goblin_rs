@@ -39,3 +39,14 @@ Assert{: true = true}
 Assert{: false = false}
 Assert{: true != false}
 Assert{: false != true}
+
+let result := if true then
+  let x := 1
+  let y := 2
+  x + y
+else
+  let z := 3
+  z
+end
+
+Assert{received: result expected: 3}

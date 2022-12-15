@@ -204,6 +204,7 @@ pub enum Expr {
     VarArg(String),
     DoArg(Object),
     Frame(Selector, Vec<(String, Expr)>),
+    If(Box<Expr>, Vec<Stmt>, Vec<Stmt>),
 }
 
 impl Expr {
@@ -240,6 +241,19 @@ impl Expr {
                 ir.push(IR::Object(class, arity));
                 Ok(ir)
             }
+            Self::If(cond, if_true, if_false) => Self::Send(
+                ":".to_string(),
+                cond,
+                vec![Self::Object({
+                    let mut obj = Object::new();
+                    obj.add_handler("true".to_string(), vec![], if_true)
+                        .unwrap();
+                    obj.add_handler("false".to_string(), vec![], if_false)
+                        .unwrap();
+                    obj
+                })],
+            )
+            .compile(compiler),
             Self::VarArg(_) => unreachable!(),
             Self::DoArg(_) => unreachable!(),
         }

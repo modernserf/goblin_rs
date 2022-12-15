@@ -206,6 +206,38 @@ impl Parser {
                     }
                 }
             }
+            Token::If => {
+                self.advance();
+                let cond = expect("expr", self.expr())?;
+                self.expect_token(Token::Then)?;
+                let if_true = self.body()?;
+                match self.peek() {
+                    Token::End => {
+                        self.advance();
+                        Ok(Some(Expr::If(Box::new(cond), if_true, vec![])))
+                    }
+                    Token::Else => {
+                        self.advance();
+                        match self.peek() {
+                            Token::If => {
+                                // token consumed in recursion
+                                let next = expect("expr", self.expr())?;
+                                Ok(Some(Expr::If(
+                                    Box::new(cond),
+                                    if_true,
+                                    vec![Stmt::Expr(next)],
+                                )))
+                            }
+                            _ => {
+                                let if_false = self.body()?;
+                                self.expect_token(Token::End)?;
+                                Ok(Some(Expr::If(Box::new(cond), if_true, if_false)))
+                            }
+                        }
+                    }
+                    _ => Err(ParseError::Expected("else | end".to_string())),
+                }
+            }
             // TODO: blocks & unit
             Token::OpenParen => {
                 self.advance();
