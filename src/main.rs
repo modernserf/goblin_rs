@@ -1,3 +1,4 @@
+mod ast;
 mod compiler_2;
 mod lexer_2;
 mod parser_2;

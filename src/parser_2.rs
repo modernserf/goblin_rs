@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 
 use crate::{
-    compiler_2::{Binding, Expr, Object, Stmt},
+    ast::{Binding, Expr, Object, Stmt},
     lexer_2::Token,
 };
 
