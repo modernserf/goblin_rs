@@ -18,6 +18,7 @@ pub enum Token {
     CloseParen,
     Colon,
     ColonEquals,
+    QuestionMark,
     Let,
     Var,
     Do,
@@ -72,7 +73,6 @@ fn is_operator(ch: char) -> bool {
 thread_local! {
   static KEYWORD_TOKENS: KeywordTokens = keyword_tokens();
   static OPERATORS: HashSet<char> = HashSet::from_iter("~!@$%^&*-+=|/,<>".chars());
-
 }
 
 impl Token {
@@ -149,6 +149,7 @@ impl Lexer {
             '}' => self.accept(Token::CloseBrace),
             '[' => self.accept(Token::OpenBracket),
             ']' => self.accept(Token::CloseBracket),
+            '?' => self.accept(Token::QuestionMark),
             '\0' => Token::EndOfInput,
             ch => {
                 if is_operator(ch) {

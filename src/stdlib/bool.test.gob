@@ -39,6 +39,8 @@ Assert{: true = true}
 Assert{: false = false}
 Assert{: true != false}
 Assert{: false != true}
+Assert{: true != 123}
+Assert{: false != 123}
 
 let result := if true then
   let x := 1

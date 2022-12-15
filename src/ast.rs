@@ -200,6 +200,7 @@ pub enum Expr {
     Integer(i64),
     Identifier(String),
     Send(Selector, Box<Expr>, Vec<Expr>),
+    TrySend(Selector, Box<Expr>, Vec<Expr>, Box<Expr>),
     Object(Object),
     VarArg(String),
     DoArg(Object),
@@ -228,6 +229,25 @@ impl Expr {
                 }
                 ir.append(target.compile_target(compiler)?);
                 ir.push(IR::Send(selector, arity));
+                Ok(ir)
+            }
+            Self::TrySend(selector, target, args, or_else) => {
+                let mut ir = IRBuilder::new();
+                let arity = args.len();
+                for arg in args {
+                    ir.append(arg.compile_arg(compiler)?);
+                }
+                ir.append(
+                    Self::DoArg({
+                        let mut obj = Object::new();
+                        obj.add_handler("".to_string(), vec![], vec![Stmt::Expr(*or_else)])
+                            .unwrap();
+                        obj
+                    })
+                    .compile_arg(compiler)?,
+                );
+                ir.append(target.compile_target(compiler)?);
+                ir.push(IR::TrySend(selector, arity));
                 Ok(ir)
             }
             Self::Object(obj) => obj.compile(compiler, binding),

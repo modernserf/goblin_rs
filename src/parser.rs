@@ -288,6 +288,15 @@ impl Parser {
                         let expr = expect("expr", self.unary_op_expr())?;
                         left = Expr::Send(format!("{}:", op), Box::new(left), vec![expr]);
                     }
+                    Token::QuestionMark => {
+                        self.advance();
+                        if let Expr::Send(selector, target, args) = left {
+                            let or_else = expect("expr", self.unary_op_expr())?;
+                            left = Expr::TrySend(selector, target, args, Box::new(or_else));
+                        } else {
+                            return Err(ParseError::Expected("try send".to_string()));
+                        }
+                    }
                     _ => return Ok(Some(left)),
                 }
             }

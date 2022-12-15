@@ -13,7 +13,7 @@ export let Bool := [
     on {^^: other}
       other{true: Bool{false} false: Bool{true}}
     on {=: other}
-      other{true: Bool{true} false: Bool{false}}
+      other{true: Bool{true} false: Bool{false}} ? Bool{false}
     on {!=: other}
       !(self = other)
   ]
@@ -31,7 +31,7 @@ export let Bool := [
     on {^^: other}
       other{true: Bool{true} false: Bool{false}}
     on {=: other}
-      other{true: Bool{false} false: Bool{true}}
+      other{true: Bool{false} false: Bool{true}} ? Bool{false}
     on {!=: other}
       !(self = other)
   ]

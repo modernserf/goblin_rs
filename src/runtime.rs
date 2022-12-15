@@ -35,6 +35,7 @@ pub enum IR {
     Deref,                       // (address -- *address)
     SetVar,                      // (value address -- )
     Send(Selector, Arity),       // (...args target -- result)
+    TrySend(Selector, Arity),    // (...args target -- result)
     SendNative(NativeFn, Arity), // (...args target -- result)
     Drop,                        // (value --)
     Return,
@@ -310,7 +311,7 @@ impl Frame {
     }
     fn self_value(&self) -> Value {
         match self {
-            Frame::Root { .. } => panic!("root has no self"),
+            Frame::Root { .. } => Value::Unit,
             Frame::Handler { self_value, .. } => self_value.clone(),
         }
     }
@@ -529,6 +530,17 @@ impl<'a> Interpreter<'a> {
             IR::Send(selector, arity) => {
                 let target = self.stack.pop();
                 target.send(&selector, arity, &mut self.stack, &mut self.call_stack)?;
+            }
+            IR::TrySend(selector, arity) => {
+                let target = self.stack.pop();
+                let or_else = self.stack.pop();
+                match target.send(&selector, arity, &mut self.stack, &mut self.call_stack) {
+                    Ok(_) => {}
+                    Err(_) => {
+                        self.stack.take(arity);
+                        or_else.send("", 0, &mut self.stack, &mut self.call_stack)?;
+                    }
+                }
             }
             IR::SendNative(f, arity) => {
                 let target = self.stack.pop();
@@ -1119,6 +1131,25 @@ mod test {
         assert_err(
             vec![IR::Module("unknown".to_string())],
             RuntimeError::UnknownModule("unknown".to_string()),
+        )
+    }
+
+    #[test]
+    fn try_send() {
+        assert_ok(
+            vec![
+                IR::DoObject(
+                    {
+                        let mut class = Class::new();
+                        class.add("", vec![], vec![IR::Integer(123)]);
+                        class.rc()
+                    },
+                    0,
+                ),
+                IR::Integer(1),
+                IR::TrySend("unknown".to_string(), 0),
+            ],
+            Value::Integer(123),
         )
     }
 }
