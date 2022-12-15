@@ -1,9 +1,9 @@
 use std::{cell::RefCell, collections::HashMap, rc::Rc};
 
 use crate::{
-    compiler::{Compile, CompileIR, Compiler, IRBuilder, IVals},
+    compiler::{CompileIR, Compiler, IRBuilder, IVals},
     parser::Parse,
-    runtime::{Class, Param, Selector, IR},
+    runtime::{Address, Class, Param, Selector, IR},
 };
 
 #[derive(Debug, Clone, PartialEq)]
@@ -11,17 +11,44 @@ pub enum Binding {
     Identifier(String),
     VarIdentifier(String),
     DoIdentifier(String),
+    Destructure(Vec<(String, Binding)>),
 }
 impl Binding {
-    fn compile_let(self, compiler: &mut Compiler) {
+    fn compile_let(self, compiler: &mut Compiler) -> CompileIR {
         match self {
-            Self::Identifier(name) => compiler.add_let(name),
+            Self::Identifier(name) => {
+                compiler.add_let(name);
+                Ok(IRBuilder::new())
+            }
+            Self::Destructure(items) => {
+                let addr = compiler.add_anon();
+                let mut ir = IRBuilder::new();
+                for (key, binding) in items {
+                    ir.push(IR::Local(addr));
+                    ir.push(IR::Send(key, 0));
+                    ir.append(binding.compile_let(compiler)?);
+                }
+                Ok(ir)
+            }
             _ => todo!(),
         }
     }
-    fn compile_export(self, compiler: &mut Compiler) -> Compile<()> {
+    fn compile_export(self, compiler: &mut Compiler) -> CompileIR {
         match self {
-            Self::Identifier(name) => compiler.add_let_export(name),
+            Self::Identifier(name) => {
+                compiler.add_let_export(name)?;
+                Ok(IRBuilder::new())
+            }
+            Self::Destructure(items) => {
+                let addr = compiler.add_anon();
+                let mut ir = IRBuilder::new();
+                for (key, binding) in items {
+                    ir.push(IR::Local(addr));
+                    ir.push(IR::Send(key, 0));
+                    ir.append(binding.compile_export(compiler)?);
+                }
+                Ok(ir)
+            }
             _ => todo!(),
         }
     }
@@ -37,20 +64,55 @@ impl Binding {
             _ => todo!(),
         }
     }
-    fn compile_param(self, compiler: &mut Compiler) -> Param {
+    fn compile_param(self, compiler: &mut Compiler) -> ParamResult {
         match self {
             Self::Identifier(name) => {
                 compiler.add_let(name);
-                Param::Value
+                ParamResult::Value
+            }
+            Self::Destructure(items) => {
+                let addr = compiler.add_anon();
+                ParamResult::Destructure(addr, items)
             }
             Self::VarIdentifier(name) => {
                 compiler.add_var_param(name);
-                Param::Var
+                ParamResult::Var
             }
             Self::DoIdentifier(name) => {
                 compiler.add_do_param(name);
-                Param::Do
+                ParamResult::Do
             }
+        }
+    }
+}
+
+pub enum ParamResult {
+    Value,
+    Destructure(Address, Vec<(String, Binding)>),
+    Var,
+    Do,
+}
+impl ParamResult {
+    pub fn param(&self) -> Param {
+        match self {
+            Self::Value => Param::Value,
+            Self::Destructure(_, _) => Param::Value,
+            Self::Var => Param::Var,
+            Self::Do => Param::Do,
+        }
+    }
+    pub fn compile(self, compiler: &mut Compiler) -> CompileIR {
+        match self {
+            Self::Destructure(addr, items) => {
+                let mut ir = IRBuilder::new();
+                for (key, binding) in items {
+                    ir.push(IR::Local(addr));
+                    ir.push(IR::Send(key, 0));
+                    ir.append(binding.compile_let(compiler)?);
+                }
+                Ok(ir)
+            }
+            _ => Ok(IRBuilder::new()),
         }
     }
 }
@@ -72,11 +134,11 @@ impl Stmt {
         match self {
             Self::Expr(expr) => expr.compile(compiler),
             Self::Let(binding, expr, is_export) => {
-                let ir = expr.compile(compiler)?;
+                let mut ir = expr.compile(compiler)?;
                 if is_export {
-                    binding.compile_export(compiler)?;
+                    ir.append(binding.compile_export(compiler)?);
                 } else {
-                    binding.compile_let(compiler);
+                    ir.append(binding.compile_let(compiler)?);
                 }
                 Ok(ir)
             }
@@ -92,11 +154,11 @@ impl Stmt {
                 Ok(ir)
             }
             Self::Import(binding, name, is_export) => {
-                let ir = IRBuilder::from(vec![IR::Module(name)]);
+                let mut ir = IRBuilder::from(vec![IR::Module(name)]);
                 if is_export {
-                    binding.compile_export(compiler)?;
+                    ir.append(binding.compile_export(compiler)?);
                 } else {
-                    binding.compile_let(compiler);
+                    ir.append(binding.compile_let(compiler)?);
                 }
                 Ok(ir)
             }
@@ -235,11 +297,17 @@ impl Object {
 
         for (selector, handler) in self.handlers {
             compiler.handler(ivals);
-            let mut params = vec![];
+            let mut param_results = vec![];
             for param in handler.params {
-                params.push(param.compile_param(compiler));
+                param_results.push(param.compile_param(compiler));
             }
-            let ir = compiler.body(handler.body)?;
+            let params = param_results.iter().map(|p| p.param()).collect();
+
+            let mut ir = IRBuilder::new();
+            for res in param_results {
+                ir.append(res.compile(compiler)?);
+            }
+            ir.append(compiler.body(handler.body)?);
 
             class.add_handler(selector, params, ir.to_vec());
             ivals = compiler.end_handler();
@@ -254,11 +322,17 @@ impl Object {
         let mut ivals = IVals::new();
         for (selector, handler) in self.handlers {
             compiler.do_handler(ivals);
-            let mut params = vec![];
+            let mut param_results = vec![];
             for param in handler.params {
-                params.push(param.compile_param(compiler));
+                param_results.push(param.compile_param(compiler));
             }
-            let ir = compiler.body(handler.body)?;
+            let params = param_results.iter().map(|p| p.param()).collect();
+
+            let mut ir = IRBuilder::new();
+            for res in param_results {
+                ir.append(res.compile(compiler)?);
+            }
+            ir.append(compiler.body(handler.body)?);
 
             class.add_handler(selector, params, ir.to_vec());
             ivals = compiler.end_handler();

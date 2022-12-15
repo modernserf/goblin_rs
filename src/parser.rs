@@ -285,11 +285,30 @@ impl Parser {
         }
     }
 
+    fn destructure_binding(&mut self) -> Parse<SelectorBuilderResult<Binding>> {
+        let mut builder = SelectorBuilder::new();
+        loop {
+            let key = self.key()?;
+            if self.expect_token(Token::Colon).is_ok() {
+                let binding = self.binding()?;
+                builder.add(key, binding)?;
+            } else {
+                return builder.resolve(key);
+            }
+        }
+    }
+
     fn binding(&mut self) -> Parse<Binding> {
         match self.peek() {
             Token::Identifier(key) => {
                 self.advance();
                 Ok(Binding::Identifier(key))
+            }
+            Token::OpenBracket => {
+                self.advance();
+                let result = self.destructure_binding()?;
+                self.expect_token(Token::CloseBracket)?;
+                Ok(Binding::Destructure(result.items))
             }
             _ => Err(ParseError::Expected("binding".to_string())),
         }

@@ -23,5 +23,6 @@ obj{do var let on}
 
 import foo := "native"
 let frame := [x]
-let another := [x: 1 y: 2]
+let [x: x y: y1] := [x: 1 y: 2]
+x + y1
 let empty := []

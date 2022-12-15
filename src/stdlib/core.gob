@@ -4,14 +4,7 @@ export let Assert := [
   on {expected: e received: r}
     native{expected: e received: r}
 ]
-import bool := "core/bool"
-export let true := bool{true}
-export let false := bool{false}
-
-# export let Bool := [
-#   on {true} true
-#   on {false} false
-# ]
+export import [true: true false: false] := "core/bool"
 
 # export import [_Ord_] := "core/ord"
 # export import [_Option_] := "core/option"

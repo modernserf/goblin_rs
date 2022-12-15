@@ -166,6 +166,11 @@ impl Locals {
     fn get(&self, key: &str) -> Option<BindingRecord> {
         self.locals.get(key).map(|x| *x)
     }
+    fn add_anon(&mut self) -> usize {
+        let address = self.next_index;
+        self.next_index += 1;
+        address
+    }
     fn add_let(&mut self, key: String) -> usize {
         let address = self.next_index;
         self.locals
@@ -353,6 +358,9 @@ impl Compiler {
     }
     pub fn add_let(&mut self, key: String) {
         self.top_mut().locals_mut().add_let(key);
+    }
+    pub fn add_anon(&mut self) -> Address {
+        self.top_mut().locals_mut().add_anon()
     }
     pub fn add_var(&mut self, key: String) -> CompileIR {
         let index = self.top_mut().locals_mut().add_var(key);
@@ -1062,6 +1070,57 @@ mod test {
                 obj
             }))],
             CompileError::InvalidExport("foo".to_string()),
+        )
+    }
+
+    #[test]
+    fn destructuring() {
+        assert_ok(
+            vec![
+                Stmt::Let(
+                    Binding::Destructure(vec![("get x".to_string(), b_ident("x"))]),
+                    Expr::Unit,
+                    false,
+                ),
+                Stmt::Expr(ident("x")),
+            ],
+            vec![
+                IR::Unit,
+                IR::Local(0),
+                IR::Send("get x".to_string(), 0),
+                IR::Local(1),
+            ],
+        )
+    }
+
+    #[test]
+    fn destructuring_param() {
+        assert_ok(
+            vec![Stmt::Expr(Expr::Object({
+                let mut obj = Object::new();
+                obj.add(
+                    "foo:",
+                    vec![Binding::Destructure(vec![(
+                        "get x".to_string(),
+                        b_ident("x"),
+                    )])],
+                    vec![Stmt::Expr(ident("x"))],
+                );
+                obj
+            }))],
+            vec![IR::Object(
+                {
+                    let mut class = Class::new();
+                    class.add(
+                        "foo:",
+                        vec![Param::Value],
+                        vec![IR::Local(0), IR::Send("get x".to_string(), 0), IR::Local(1)],
+                    );
+
+                    class.rc()
+                },
+                0,
+            )],
         )
     }
 }
