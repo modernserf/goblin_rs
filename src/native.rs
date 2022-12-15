@@ -25,19 +25,23 @@ fn build_native_module() -> Rc<Class> {
     class.add_handler(
         "expected:received:".to_string(),
         vec![Param::Value, Param::Value],
-        vec![IR::SendNative(
-            |_, args| {
-                if &args[0] == &args[1] {
-                    Ok(Value::Unit)
-                } else {
-                    Err(RuntimeError::Panic(format!(
-                        "expected: {:?} received: {:?}",
-                        &args[0], &args[1]
-                    )))
-                }
-            },
-            2,
-        )],
+        vec![
+            IR::Local(0),
+            IR::Local(1),
+            IR::SendNative(
+                |_, args| {
+                    if &args[0] == &args[1] {
+                        Ok(Value::Unit)
+                    } else {
+                        Err(RuntimeError::Panic(format!(
+                            "expected: {:?} received: {:?}",
+                            &args[0], &args[1]
+                        )))
+                    }
+                },
+                2,
+            ),
+        ],
     );
     class.rc()
 }

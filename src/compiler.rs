@@ -737,7 +737,13 @@ mod test {
                         class.add(
                             "handler:",
                             vec![Param::Var],
-                            vec![IR::Integer(10), IR::Local(0), IR::SetVar, IR::Unit],
+                            vec![
+                                IR::SelfRef,
+                                IR::Integer(10),
+                                IR::Local(0),
+                                IR::SetVar,
+                                IR::Unit,
+                            ],
                         );
                         class.rc()
                     },
@@ -1121,6 +1127,40 @@ mod test {
                 },
                 0,
             )],
+        )
+    }
+
+    #[test]
+    fn indirect_self_ref() {
+        assert_ok(
+            vec![Stmt::Let(
+                b_ident("foo"),
+                Expr::Object({
+                    let mut obj = Object::new();
+                    obj.add(
+                        "x",
+                        vec![],
+                        vec![Stmt::Expr(send(ident("foo"), "x", vec![]))],
+                    );
+                    obj
+                }),
+                false,
+            )],
+            vec![
+                IR::Object(
+                    {
+                        let mut class = Class::new();
+                        class.add(
+                            "x",
+                            vec![],
+                            vec![IR::SelfRef, IR::Local(0), IR::Send("x".to_string(), 0)],
+                        );
+                        class.rc()
+                    },
+                    0,
+                ),
+                IR::Unit,
+            ],
         )
     }
 }

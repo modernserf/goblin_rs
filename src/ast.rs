@@ -134,7 +134,7 @@ impl Stmt {
         match self {
             Self::Expr(expr) => expr.compile(compiler),
             Self::Let(binding, expr, is_export) => {
-                let mut ir = expr.compile(compiler)?;
+                let mut ir = expr.compile_with_binding(compiler, &binding)?;
                 if is_export {
                     ir.append(binding.compile_export(compiler)?);
                 } else {
@@ -208,6 +208,12 @@ pub enum Expr {
 
 impl Expr {
     fn compile(self, compiler: &mut Compiler) -> CompileIR {
+        self.compile_base(compiler, None)
+    }
+    fn compile_with_binding(self, compiler: &mut Compiler, binding: &Binding) -> CompileIR {
+        self.compile_base(compiler, Some(binding))
+    }
+    fn compile_base(self, compiler: &mut Compiler, binding: Option<&Binding>) -> CompileIR {
         match self {
             Self::Unit => Ok(IRBuilder::from(vec![IR::Unit])),
             Self::SelfRef => Ok(IRBuilder::from(vec![IR::SelfRef])),
@@ -223,7 +229,7 @@ impl Expr {
                 ir.push(IR::Send(selector, arity));
                 Ok(ir)
             }
-            Self::Object(obj) => obj.compile(compiler),
+            Self::Object(obj) => obj.compile(compiler, binding),
             Self::Frame(selector, pairs) => {
                 let class = frame_class(selector, &pairs);
                 let arity = pairs.len();
@@ -291,7 +297,7 @@ impl Object {
         }
         Ok(())
     }
-    fn compile(self, compiler: &mut Compiler) -> CompileIR {
+    fn compile(self, compiler: &mut Compiler, binding: Option<&Binding>) -> CompileIR {
         let mut class = Class::new();
         let mut ivals = IVals::new();
 
@@ -304,9 +310,17 @@ impl Object {
             let params = param_results.iter().map(|p| p.param()).collect();
 
             let mut ir = IRBuilder::new();
+
             for res in param_results {
                 ir.append(res.compile(compiler)?);
             }
+
+            if let Some(b) = binding {
+                println!("binding {:?}", b);
+                ir.push(IR::SelfRef);
+                ir.append(b.clone().compile_let(compiler)?);
+            }
+
             ir.append(compiler.body(handler.body)?);
 
             class.add_handler(selector, params, ir.to_vec());

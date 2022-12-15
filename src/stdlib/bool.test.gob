@@ -1,7 +1,4 @@
-import core := "core"
-let true := core{true}
-let false := core{false}
-let Assert := core{Assert}
+import [_true_ _false_ _Assert_] := "core"
 
 Assert{
   received: true{true: 123 false: 456}
@@ -11,3 +8,6 @@ Assert{
   received: false{true: 123 false: 456}
   expected: 456
 }
+
+Assert{received: !true expected: false}
+Assert{received: !false expected: true}
