@@ -1,0 +1,13 @@
+import core := "core"
+let true := core{true}
+let false := core{false}
+let Assert := core{Assert}
+
+Assert{
+  received: true{true: 123 false: 456}
+  expected: 123
+}
+Assert{
+  received: false{true: 123 false: 456}
+  expected: 456
+}

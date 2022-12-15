@@ -15,6 +15,10 @@ fn build_stdlib() -> runtime_2::ModuleLoader {
     let mut modules = runtime_2::ModuleLoader::new();
     modules.add_ready("native", native::native_module());
     modules.add_init("core", compile_module(include_str!("./stdlib/core.gob")));
+    modules.add_init(
+        "core/bool",
+        compile_module(include_str!("./stdlib/bool.gob")),
+    );
     // modules.add_init(
     //     "core/option",
     //     compile_module(include_str!("./stdlib/option.gob")),
@@ -85,6 +89,11 @@ mod test {
     #[test]
     fn syntax() {
         run(include_str!("./syntax.gob"))
+    }
+
+    #[test]
+    fn bool() {
+        run(include_str!("./stdlib/bool.test.gob"))
     }
 
     // #[test]

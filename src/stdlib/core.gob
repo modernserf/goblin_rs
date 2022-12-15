@@ -1,4 +1,12 @@
 # export import [_true_ _false_ _Assert_ _File_ _String_ _Panic_ _Log_] := "native"
+import native := "native"
+export let Assert := [
+  on {expected: e received: r}
+    native{expected: e received: r}
+]
+import bool := "core/bool"
+export let true := bool{true}
+export let false := bool{false}
 
 # export let Bool := [
 #   on {true} true
@@ -9,4 +17,3 @@
 # export import [_Option_] := "core/option"
 # export import [_Result_] := "core/result"
 # export import [_Control_] := "core/control"
-export let zero := 0

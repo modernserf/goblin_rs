@@ -10,6 +10,7 @@ pub enum RuntimeError {
     ExpectedType(String),
     ModuleLoadLoop(String),
     UnknownModule(String),
+    Panic(String),
 }
 pub type Runtime<T> = Result<T, RuntimeError>;
 

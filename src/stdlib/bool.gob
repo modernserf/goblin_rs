@@ -1,0 +1,13 @@
+export let Bool := [
+  on {true} [
+    on {true: t false: f}
+      t
+  ]
+  on {false} [
+    on {true: t false: f}
+      f
+  ]
+]
+
+export let true := Bool{true}
+export let false := Bool{false}
