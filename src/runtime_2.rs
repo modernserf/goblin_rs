@@ -3,6 +3,8 @@ use std::{collections::HashMap, rc::Rc};
 #[derive(Debug, Clone, PartialEq)]
 pub enum RuntimeError {
     DoesNotUnderstand(Selector),
+    ExpectedVarArg,
+    DidNotExpectDoArg,
 }
 pub type Runtime<T> = Result<T, RuntimeError>;
 
@@ -75,12 +77,19 @@ impl Value {
             Value::Object(class, ivals) => {
                 let handler = class.get(selector)?;
                 let local_offset = stack.size();
+                for (i, param) in handler.params.iter().enumerate() {
+                    stack.check_arg(local_offset - arity + i, *param)?;
+                }
+
                 call_stack.call(handler, arity, local_offset, ivals);
                 Ok(())
             }
             Value::DoObject(class, ivals, return_from_index) => {
                 let handler = class.get(selector)?;
                 let local_offset = stack.size();
+                for (i, param) in handler.params.iter().enumerate() {
+                    stack.check_arg(local_offset - arity + i, *param)?;
+                }
                 call_stack.call_do(handler, arity, local_offset, ivals, return_from_index);
                 Ok(())
             }
@@ -142,11 +151,22 @@ struct Handler {
     body: Body,
 }
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Copy, Clone, PartialEq)]
 pub enum Param {
     Value,
     Var,
     Do,
+}
+impl Param {
+    fn check_arg(&self, arg: &Value) -> Runtime<()> {
+        match (self, arg) {
+            (Param::Var, Value::Pointer(_)) => Ok(()),
+            (Param::Var, _) => Err(RuntimeError::ExpectedVarArg),
+            (Param::Do, Value::DoObject(..)) => Ok(()),
+            (_, Value::DoObject(..)) => Err(RuntimeError::DidNotExpectDoArg),
+            _ => Ok(()),
+        }
+    }
 }
 
 struct Stack {
@@ -177,6 +197,9 @@ impl Stack {
     }
     fn take(&mut self, count: usize) -> Vec<Value> {
         self.stack.split_off(self.stack.len() - count)
+    }
+    fn check_arg(&self, index: Address, param: Param) -> Runtime<()> {
+        param.check_arg(&self.stack[index])
     }
 }
 
@@ -868,6 +891,40 @@ mod test {
                 IR::Send("run".to_string(), 0),
             ],
             Value::Integer(100),
+        );
+    }
+
+    #[test]
+    fn arg_type_error() {
+        assert_err(
+            vec![
+                IR::Integer(1),
+                IR::Object(
+                    {
+                        let mut class = Class::new();
+                        class.add("foo:", vec![Param::Var], vec![IR::Unit]);
+                        class.rc()
+                    },
+                    0,
+                ),
+                IR::Send("foo:".to_string(), 1),
+            ],
+            RuntimeError::ExpectedVarArg,
+        );
+        assert_err(
+            vec![
+                IR::DoObject(Class::new().rc(), 0),
+                IR::Object(
+                    {
+                        let mut class = Class::new();
+                        class.add("foo:", vec![Param::Value], vec![IR::Unit]);
+                        class.rc()
+                    },
+                    0,
+                ),
+                IR::Send("foo:".to_string(), 1),
+            ],
+            RuntimeError::DidNotExpectDoArg,
         );
     }
 }
