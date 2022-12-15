@@ -1,9 +1,9 @@
 use std::{cell::RefCell, collections::HashMap, rc::Rc};
 
 use crate::{
-    compiler_2::{Compile, CompileIR, Compiler, IRBuilder, IVals},
-    parser_2::Parse,
-    runtime_2::{Class, Param, Selector, IR},
+    compiler::{Compile, CompileIR, Compiler, IRBuilder, IVals},
+    parser::Parse,
+    runtime::{Class, Param, Selector, IR},
 };
 
 #[derive(Debug, Clone, PartialEq)]

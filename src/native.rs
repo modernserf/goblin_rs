@@ -1,6 +1,6 @@
 use std::rc::Rc;
 
-use crate::runtime_2::{Class, Param, Runtime, RuntimeError, Value, IR};
+use crate::runtime::{Class, Param, Runtime, RuntimeError, Value, IR};
 
 fn expected<T>(selector: &str) -> Runtime<T> {
     Err(RuntimeError::ExpectedType(selector.to_string()))

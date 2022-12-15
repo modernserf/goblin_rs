@@ -2,7 +2,7 @@ use std::collections::HashMap;
 
 use crate::{
     ast::{Binding, Expr, Object, Stmt},
-    lexer_2::Token,
+    lexer::Token,
 };
 
 #[derive(Debug, Clone, PartialEq)]

@@ -1,18 +1,18 @@
 mod ast;
-mod compiler_2;
-mod lexer_2;
+mod compiler;
+mod lexer;
 mod native;
-mod parser_2;
-mod runtime_2;
+mod parser;
+mod runtime;
 
-fn compile_module(code: &str) -> Vec<runtime_2::IR> {
-    let tokens = lexer_2::Lexer::lex(code.to_string());
-    let ast = parser_2::Parser::parse(tokens).unwrap();
-    compiler_2::Compiler::module(ast).unwrap()
+fn compile_module(code: &str) -> Vec<runtime::IR> {
+    let tokens = lexer::Lexer::lex(code.to_string());
+    let ast = parser::Parser::parse(tokens).unwrap();
+    compiler::Compiler::module(ast).unwrap()
 }
 
-fn build_stdlib() -> runtime_2::ModuleLoader {
-    let mut modules = runtime_2::ModuleLoader::new();
+fn build_stdlib() -> runtime::ModuleLoader {
+    let mut modules = runtime::ModuleLoader::new();
     modules.add_ready("native", native::native_module());
     modules.add_init("core", compile_module(include_str!("./stdlib/core.gob")));
     modules.add_init(
@@ -40,15 +40,15 @@ fn build_stdlib() -> runtime_2::ModuleLoader {
 }
 
 thread_local! {
-    static STDLIB : runtime_2::ModuleLoader = build_stdlib()
+    static STDLIB : runtime::ModuleLoader = build_stdlib()
 }
 
 fn run(code: &str) {
-    let tokens = lexer_2::Lexer::lex(code.to_string());
-    let ast = parser_2::Parser::parse(tokens).unwrap();
-    let ir = compiler_2::Compiler::program(ast).unwrap();
+    let tokens = lexer::Lexer::lex(code.to_string());
+    let ast = parser::Parser::parse(tokens).unwrap();
+    let ir = compiler::Compiler::program(ast).unwrap();
     let mut modules = STDLIB.with(|m| m.clone());
-    let result = runtime_2::Interpreter::program(ir, &mut modules);
+    let result = runtime::Interpreter::program(ir, &mut modules);
     match result {
         Ok(value) => {
             println!("{:?}", value);
