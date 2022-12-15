@@ -1,6 +1,7 @@
 mod ast;
 mod compiler_2;
 mod lexer_2;
+mod native;
 mod parser_2;
 mod runtime_2;
 // mod source;

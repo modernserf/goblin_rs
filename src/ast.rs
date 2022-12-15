@@ -112,6 +112,7 @@ impl Stmt {
 #[derive(Debug, Clone, PartialEq)]
 pub enum Expr {
     Unit,
+    SelfRef,
     Integer(i64),
     Identifier(String),
     Send(Selector, Box<Expr>, Vec<Expr>),
@@ -125,6 +126,7 @@ impl Expr {
     fn compile(self, compiler: &mut Compiler) -> CompileIR {
         match self {
             Self::Unit => Ok(IRBuilder::from(vec![IR::Unit])),
+            Self::SelfRef => Ok(IRBuilder::from(vec![IR::SelfRef])),
             Self::Integer(value) => Ok(IRBuilder::from(vec![IR::Integer(value)])),
             Self::Identifier(name) => compiler.identifier(name),
             Self::Send(selector, target, args) => {

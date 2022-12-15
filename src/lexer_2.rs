@@ -22,6 +22,7 @@ pub enum Token {
     Set,
     On,
     Return,
+    SelfRef,
     EndOfInput,
 }
 
@@ -35,6 +36,7 @@ fn keyword_tokens() -> KeywordTokens {
         (Token::Do, "do"),
         (Token::On, "on"),
         (Token::Return, "return"),
+        (Token::SelfRef, "self"),
     ];
 
     Rc::new((

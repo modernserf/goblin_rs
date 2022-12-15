@@ -176,6 +176,10 @@ impl Parser {
 
     fn base_expr(&mut self) -> ParseOpt<Expr> {
         match self.peek() {
+            Token::SelfRef => {
+                self.advance();
+                Ok(Some(Expr::SelfRef))
+            }
             Token::Integer(value) => {
                 self.advance();
                 Ok(Some(Expr::Integer(value)))

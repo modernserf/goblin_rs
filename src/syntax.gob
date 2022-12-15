@@ -14,10 +14,12 @@ obj{a: 1 b: var v}
 
 let obj := [
   on {do var let on}
+    self{bar: 1}
     return
   on {bar: x}
     return x
 ]
+obj{do var let on}
 
 let frame := [x]
 let another := [x: 1 y: 2]

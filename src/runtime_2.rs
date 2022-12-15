@@ -1,10 +1,13 @@
 use std::{collections::HashMap, rc::Rc};
 
+use crate::native::int_class;
+
 #[derive(Debug, Clone, PartialEq)]
 pub enum RuntimeError {
     DoesNotUnderstand(Selector),
     ExpectedVarArg,
     DidNotExpectDoArg,
+    ExpectedType(String),
 }
 pub type Runtime<T> = Result<T, RuntimeError>;
 
@@ -12,21 +15,24 @@ pub type Address = usize;
 pub type Selector = String;
 pub type Index = usize;
 pub type Arity = usize;
+pub type NativeFn = fn(Value, Vec<Value>) -> Runtime<Value>;
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum IR {
-    Unit,                       // (-- value)
-    Integer(i64),               // (-- value)
-    Local(Address),             // ( -- *address)
-    Var(Address),               // ( -- address)
-    IVal(Index),                // ( -- instance[index])
-    Object(Rc<Class>, Arity),   // (...instance -- object)
-    DoObject(Rc<Class>, Arity), // (...instance -- object)
-    NewSelf(Arity),             // (...instance -- object)
-    Deref,                      // (address -- *address)
-    SetVar,                     // (value address -- )
-    Send(Selector, Arity),      // (...args target -- result)
-    Drop,                       // (value --)
+    Unit,                        // (-- value)
+    Integer(i64),                // (-- value)
+    Local(Address),              // ( -- *address)
+    Var(Address),                // ( -- address)
+    IVal(Index),                 // ( -- instance[index])
+    SelfRef,                     // ( -- value)
+    Object(Rc<Class>, Arity),    // (...instance -- object)
+    DoObject(Rc<Class>, Arity),  // (...instance -- object)
+    NewSelf(Arity),              // (...instance -- object)
+    Deref,                       // (address -- *address)
+    SetVar,                      // (value address -- )
+    Send(Selector, Arity),       // (...args target -- result)
+    SendNative(NativeFn, Arity), // (...args target -- result)
+    Drop,                        // (value --)
     Return,
 }
 
@@ -44,14 +50,25 @@ pub enum Value {
 }
 
 impl Value {
-    fn as_int(self) -> i64 {
+    pub fn as_int(self) -> i64 {
         match self {
             Value::Integer(val) => val,
             _ => panic!("cannot cast to int"),
         }
     }
-    fn primitive_add(self, arg: Value) -> Value {
-        Value::Integer(self.as_int() + arg.as_int())
+    fn class(&self) -> Rc<Class> {
+        match self {
+            Value::Integer(_) => int_class(),
+            Value::Object(class, _) => class.clone(),
+            _ => todo!(),
+        }
+    }
+    fn ivals(&self) -> Instance {
+        match self {
+            Value::Integer(_) => Rc::new(vec![]),
+            Value::Object(_, ivals) => ivals.clone(),
+            _ => todo!(),
+        }
     }
     fn send(
         self,
@@ -62,27 +79,26 @@ impl Value {
     ) -> Runtime<()> {
         match self {
             Value::Unit => Err(RuntimeError::DoesNotUnderstand(selector.to_string())),
-            Value::Integer(_) => match selector {
-                "+:" => {
-                    let arg = stack.pop();
-                    let result = self.primitive_add(arg);
-                    stack.push(result);
-                    Ok(())
-                }
-                "-" => {
-                    stack.push(Value::Integer(-self.as_int()));
-                    Ok(())
-                }
-                _ => Err(RuntimeError::DoesNotUnderstand(selector.to_string())),
-            },
-            Value::Object(class, ivals) => {
+            Value::Integer(_) => {
+                let class = int_class();
                 let handler = class.get(selector)?;
                 let local_offset = stack.size();
                 for (i, param) in handler.params.iter().enumerate() {
                     stack.check_arg(local_offset - arity + i, *param)?;
                 }
 
-                call_stack.call(handler, arity, local_offset, class.clone(), ivals);
+                call_stack.call(handler, arity, local_offset, self);
+                Ok(())
+            }
+            Value::Object(_, _) => {
+                let class = self.class();
+                let handler = class.get(selector)?;
+                let local_offset = stack.size();
+                for (i, param) in handler.params.iter().enumerate() {
+                    stack.check_arg(local_offset - arity + i, *param)?;
+                }
+
+                call_stack.call(handler, arity, local_offset, self);
                 Ok(())
             }
             Value::DoObject(class, ivals, return_from_index) => {
@@ -133,6 +149,14 @@ impl Class {
                 body: Rc::new(body),
                 params,
             },
+        );
+    }
+    pub fn add_native(&mut self, selector: &str, params: Vec<Param>, f: NativeFn) {
+        let arity = params.len();
+        self.add_handler(
+            selector.to_string(),
+            params,
+            vec![IR::SelfRef, IR::SendNative(f, arity)],
         );
     }
     fn get(&self, selector: &str) -> Runtime<&Handler> {
@@ -213,7 +237,7 @@ enum Frame {
         body: Body,
         ip: usize,
         local_offset: usize,
-        class: Rc<Class>,
+        self_value: Value,
         ivals: Instance,
         return_from_index: usize,
     },
@@ -232,10 +256,10 @@ impl Frame {
             Frame::Handler { local_offset, .. } => *local_offset,
         }
     }
-    fn class(&self) -> Rc<Class> {
+    fn self_value(&self) -> Value {
         match self {
-            Frame::Root { .. } => panic!("root has no class"),
-            Frame::Handler { class, .. } => class.clone(),
+            Frame::Root { .. } => panic!("root has no self"),
+            Frame::Handler { self_value, .. } => self_value.clone(),
         }
     }
     fn ival(&self, index: usize) -> Value {
@@ -325,21 +349,14 @@ impl CallStack {
     fn top_mut(&mut self) -> &mut Frame {
         self.frames.last_mut().unwrap()
     }
-    fn call(
-        &mut self,
-        handler: &Handler,
-        arity: usize,
-        local_offset: usize,
-        class: Rc<Class>,
-        ivals: Instance,
-    ) {
+    fn call(&mut self, handler: &Handler, arity: usize, local_offset: usize, self_value: Value) {
         let return_from_index = self.frames.len();
         self.frames.push(Frame::Handler {
             body: handler.body.clone(),
             ip: 0,
             local_offset: local_offset - arity,
-            class,
-            ivals,
+            ivals: self_value.ivals(),
+            self_value,
             return_from_index,
         })
     }
@@ -355,13 +372,13 @@ impl CallStack {
             body: handler.body.clone(),
             ip: 0,
             local_offset: local_offset - arity,
-            class: self.class(),
+            self_value: self.self_value(),
             ivals,
             return_from_index,
         })
     }
-    fn class(&self) -> Rc<Class> {
-        self.top().class()
+    fn self_value(&self) -> Value {
+        self.top().self_value()
     }
     fn ival(&self, index: usize) -> Value {
         self.top().ival(index)
@@ -409,6 +426,7 @@ impl Interpreter {
     fn eval(&mut self, ir: IR) -> Runtime<()> {
         match ir {
             IR::Unit => self.stack.push(Value::Unit),
+            IR::SelfRef => self.stack.push(self.call_stack.self_value()),
             IR::Integer(value) => self.stack.push(Value::Integer(value)),
             IR::Local(address) => {
                 let local_offset = self.call_stack.local_offset();
@@ -429,7 +447,7 @@ impl Interpreter {
                 self.stack.push(value);
             }
             IR::NewSelf(arity) => {
-                let class = self.call_stack.class();
+                let class = self.call_stack.self_value().class();
                 let ivals = Rc::new(self.stack.take(arity));
                 let value = Value::Object(class, ivals);
                 self.stack.push(value);
@@ -453,6 +471,12 @@ impl Interpreter {
             IR::Send(selector, arity) => {
                 let target = self.stack.pop();
                 target.send(&selector, arity, &mut self.stack, &mut self.call_stack)?;
+            }
+            IR::SendNative(f, arity) => {
+                let target = self.stack.pop();
+                let args = self.stack.take(arity);
+                let result = f(target, args)?;
+                self.stack.push(result);
             }
             IR::Return => self.call_stack.do_return(),
             IR::Drop => {
@@ -975,6 +999,36 @@ mod test {
                 IR::Send("value:".to_string(), 1),
             ],
             Value::Object(class.clone(), Rc::new(vec![Value::Integer(456)])),
+        )
+    }
+
+    #[test]
+    fn self_ref() {
+        let class = {
+            let mut class = Class::new();
+            class.add("x", vec![], vec![IR::Integer(123)]);
+            class.add(
+                "x1",
+                vec![],
+                vec![IR::SelfRef, IR::Send("x".to_string(), 0)],
+            );
+            class.rc()
+        };
+
+        assert_ok(
+            vec![IR::Object(class, 0), IR::Send("x1".to_string(), 0)],
+            Value::Integer(123),
+        )
+    }
+
+    #[test]
+    fn native_fn() {
+        assert_ok(
+            vec![
+                IR::Integer(2),
+                IR::SendNative(|x, _| Ok(Value::Integer(x.as_int() << 2)), 0),
+            ],
+            Value::Integer(8),
         )
     }
 }
