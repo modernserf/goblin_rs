@@ -123,22 +123,9 @@ impl Parser {
         }
     }
 
-    fn params_body(&mut self) -> Parse<SelectorBuilderResult<Binding>> {
-        let mut builder = SelectorBuilder::new();
-        loop {
-            let key = self.key()?;
-            if self.expect_token(Token::Colon).is_ok() {
-                let param = self.param()?;
-                builder.add(key, param)?;
-            } else {
-                return builder.resolve(key);
-            }
-        }
-    }
-
     fn handler(&mut self, object: &mut Object) -> Parse<()> {
         self.expect_token(Token::OpenBrace)?;
-        let result = self.params_body()?;
+        let result = self.build_structure(|p| p.param())?;
         self.expect_token(Token::CloseBrace)?;
         let body = self.body()?;
         let params = result.items.into_iter().map(|p| p.1).collect();
@@ -161,15 +148,27 @@ impl Parser {
         }
     }
 
-    fn frame(&mut self) -> Parse<SelectorBuilderResult<Expr>> {
+    fn build_structure<T>(
+        &mut self,
+        parse_item: fn(&mut Parser) -> Parse<T>,
+    ) -> Parse<SelectorBuilderResult<T>> {
         let mut builder = SelectorBuilder::new();
         loop {
-            let key = self.key()?;
-            if self.expect_token(Token::Colon).is_ok() {
-                let arg = self.arg()?;
-                builder.add(key, arg)?;
-            } else {
-                return builder.resolve(key);
+            match self.peek() {
+                Token::QuotedIdentifier(key) => {
+                    // token is read twice: first as key, then as value
+                    let item = parse_item(self)?;
+                    builder.add(key, item)?;
+                }
+                _ => {
+                    let key = self.key()?;
+                    if self.expect_token(Token::Colon).is_ok() {
+                        let item = parse_item(self)?;
+                        builder.add(key, item)?;
+                    } else {
+                        return builder.resolve(key);
+                    }
+                }
             }
         }
     }
@@ -188,6 +187,10 @@ impl Parser {
                 self.advance();
                 Ok(Some(Expr::Identifier(value)))
             }
+            Token::QuotedIdentifier(value) => {
+                self.advance();
+                Ok(Some(Expr::Identifier(value)))
+            }
             Token::OpenBracket => {
                 self.advance();
                 match self.peek() {
@@ -197,7 +200,7 @@ impl Parser {
                         return Ok(Some(Expr::Object(object)));
                     }
                     _ => {
-                        let frame = self.frame()?;
+                        let frame = self.build_structure(|p| p.arg())?;
                         self.expect_token(Token::CloseBracket)?;
                         return Ok(Some(Expr::Frame(frame.selector, frame.items)));
                     }
@@ -207,26 +210,13 @@ impl Parser {
         }
     }
 
-    fn send_body(&mut self) -> Parse<SelectorBuilderResult<Expr>> {
-        let mut builder = SelectorBuilder::new();
-        loop {
-            let key = self.key()?;
-            if self.expect_token(Token::Colon).is_ok() {
-                let arg = self.arg()?;
-                builder.add(key, arg)?;
-            } else {
-                return builder.resolve(key);
-            }
-        }
-    }
-
     fn send_expr(&mut self) -> ParseOpt<Expr> {
         if let Some(mut left) = self.base_expr()? {
             loop {
                 match self.peek() {
                     Token::OpenBrace => {
                         self.advance();
-                        let result = self.send_body()?;
+                        let result = self.build_structure(|p| p.arg())?;
                         let args = result.items.into_iter().map(|p| p.1).collect();
                         left = Expr::Send(result.selector, Box::new(left), args);
 
@@ -266,12 +256,25 @@ impl Parser {
         Ok(None)
     }
 
+    fn ident(&mut self) -> ParseOpt<String> {
+        match self.peek() {
+            Token::Identifier(key) => {
+                self.advance();
+                Ok(Some(key))
+            }
+            Token::QuotedIdentifier(key) => {
+                self.advance();
+                Ok(Some(key))
+            }
+            _ => Ok(None),
+        }
+    }
+
     fn arg(&mut self) -> Parse<Expr> {
         match self.peek() {
             Token::Var => {
                 self.advance();
-                if let Token::Identifier(key) = self.peek() {
-                    self.advance();
+                if let Some(key) = self.ident()? {
                     return Ok(Expr::VarArg(key));
                 }
                 return Err(ParseError::Expected("var".to_string()));
@@ -285,28 +288,19 @@ impl Parser {
         }
     }
 
-    fn destructure_binding(&mut self) -> Parse<SelectorBuilderResult<Binding>> {
-        let mut builder = SelectorBuilder::new();
-        loop {
-            let key = self.key()?;
-            if self.expect_token(Token::Colon).is_ok() {
-                let binding = self.binding()?;
-                builder.add(key, binding)?;
-            } else {
-                return builder.resolve(key);
-            }
-        }
-    }
-
     fn binding(&mut self) -> Parse<Binding> {
         match self.peek() {
             Token::Identifier(key) => {
                 self.advance();
                 Ok(Binding::Identifier(key))
             }
+            Token::QuotedIdentifier(key) => {
+                self.advance();
+                Ok(Binding::Identifier(key))
+            }
             Token::OpenBracket => {
                 self.advance();
-                let result = self.destructure_binding()?;
+                let result = self.build_structure(|p| p.binding())?;
                 self.expect_token(Token::CloseBracket)?;
                 Ok(Binding::Destructure(result.items))
             }
@@ -318,16 +312,14 @@ impl Parser {
         match self.peek() {
             Token::Var => {
                 self.advance();
-                if let Token::Identifier(key) = self.peek() {
-                    self.advance();
+                if let Some(key) = self.ident()? {
                     return Ok(Binding::VarIdentifier(key));
                 }
                 return Err(ParseError::Expected("var param".to_string()));
             }
             Token::Do => {
                 self.advance();
-                if let Token::Identifier(key) = self.peek() {
-                    self.advance();
+                if let Some(key) = self.ident()? {
                     return Ok(Binding::DoIdentifier(key));
                 }
                 return Err(ParseError::Expected("do param".to_string()));

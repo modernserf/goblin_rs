@@ -9,4 +9,4 @@ export let Bool := [
   ]
 ]
 
-export let [true: true false: false] := Bool
+export let [_true_ _false_] := Bool

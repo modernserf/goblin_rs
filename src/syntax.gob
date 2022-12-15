@@ -26,3 +26,11 @@ let frame := [x]
 let [x: x y: y1] := [x: 1 y: 2]
 x + y1
 let empty := []
+
+let _quoted identifier_ := 123
+let [_x_ _y_] := [x: 1 y: 2]
+
+let obj := [
+  on {_x_ _y_}
+    x + y
+]

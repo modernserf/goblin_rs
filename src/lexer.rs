@@ -7,6 +7,7 @@ use std::{
 pub enum Token {
     Integer(i64),
     Identifier(String),
+    QuotedIdentifier(String),
     Operator(String),
     String(String),
     OpenBrace,
@@ -126,6 +127,7 @@ impl Lexer {
             '0'..='9' => self.number(),
             'a'..='z' | 'A'..='Z' => self.identifier_or_keyword(),
             '"' => self.string(),
+            '_' => self.quoted_identifier(),
             ':' => {
                 self.advance();
                 match self.peek() {
@@ -191,6 +193,20 @@ impl Lexer {
                 str.push(ch);
             } else {
                 return Token::from_ident(str);
+            }
+        }
+    }
+    fn quoted_identifier(&mut self) -> Token {
+        let mut str = String::new();
+        self.advance();
+        loop {
+            let ch = self.peek();
+            if ch == '_' {
+                self.advance();
+                return Token::QuotedIdentifier(str);
+            } else {
+                self.advance();
+                str.push(ch);
             }
         }
     }
