@@ -55,6 +55,7 @@ pub enum Stmt {
     Let(Binding, Expr),
     Var(Binding, Expr),
     Set(Binding, Expr),
+    Import(Binding, String),
     Return(Expr),
 }
 
@@ -76,6 +77,11 @@ impl Stmt {
             Self::Set(binding, expr) => {
                 let mut ir = expr.compile(compiler)?;
                 ir.append(binding.compile_set(compiler)?);
+                Ok(ir)
+            }
+            Self::Import(binding, name) => {
+                let ir = IRBuilder::from(vec![IR::Module(name)]);
+                binding.compile_let(compiler);
                 Ok(ir)
             }
             Self::Return(expr) => {

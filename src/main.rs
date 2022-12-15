@@ -4,6 +4,7 @@ mod lexer_2;
 mod native;
 mod parser_2;
 mod runtime_2;
+
 // mod source;
 
 // fn compile_module(code: &str) -> Vec<ir::IR> {
@@ -13,39 +14,40 @@ mod runtime_2;
 //     compiler::Compiler::module(module).unwrap()
 // }
 
-// fn build_stdlib() -> module::ModuleLoader {
-//     let mut modules = module::ModuleLoader::new();
-//     modules.add_ready("native", primitive::native_module());
-//     modules.add_init("core", compile_module(include_str!("./stdlib/core.gob")));
-//     modules.add_init(
-//         "core/option",
-//         compile_module(include_str!("./stdlib/option.gob")),
-//     );
-//     modules.add_init("core/ord", compile_module(include_str!("./stdlib/ord.gob")));
-//     modules.add_init(
-//         "core/result",
-//         compile_module(include_str!("./stdlib/result.gob")),
-//     );
-//     modules.add_init(
-//         "core/control",
-//         compile_module(include_str!("./stdlib/control.gob")),
-//     );
-//     modules.add_init(
-//         "core/iter",
-//         compile_module(include_str!("./stdlib/iter.gob")),
-//     );
-//     modules
-// }
+fn build_stdlib() -> runtime_2::ModuleLoader {
+    let mut modules = runtime_2::ModuleLoader::new();
+    modules.add_ready("native", native::native_module());
+    // modules.add_init("core", compile_module(include_str!("./stdlib/core.gob")));
+    // modules.add_init(
+    //     "core/option",
+    //     compile_module(include_str!("./stdlib/option.gob")),
+    // );
+    // modules.add_init("core/ord", compile_module(include_str!("./stdlib/ord.gob")));
+    // modules.add_init(
+    //     "core/result",
+    //     compile_module(include_str!("./stdlib/result.gob")),
+    // );
+    // modules.add_init(
+    //     "core/control",
+    //     compile_module(include_str!("./stdlib/control.gob")),
+    // );
+    // modules.add_init(
+    //     "core/iter",
+    //     compile_module(include_str!("./stdlib/iter.gob")),
+    // );
+    modules
+}
 
-// thread_local! {
-//     static STDLIB : module::ModuleLoader = build_stdlib()
-// }
+thread_local! {
+    static STDLIB : runtime_2::ModuleLoader = build_stdlib()
+}
 
 fn run(code: &str) {
     let tokens = lexer_2::Lexer::lex(code.to_string());
     let ast = parser_2::Parser::parse(tokens).unwrap();
     let ir = compiler_2::Compiler::program(ast).unwrap();
-    let result = runtime_2::Interpreter::program(ir);
+    let mut modules = STDLIB.with(|m| m.clone());
+    let result = runtime_2::Interpreter::program(ir, &mut modules);
     match result {
         Ok(value) => {
             println!("{:?}", value);

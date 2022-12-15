@@ -20,10 +20,20 @@ fn build_int_class() -> Rc<Class> {
     class.rc()
 }
 
+fn build_native_module() -> Rc<Class> {
+    let class = Class::new();
+    class.rc()
+}
+
 thread_local! {
   static INT_CLASS: Rc<Class> = build_int_class();
+  static NATIVE_MODULE: Rc<Class> = build_native_module();
 }
 
 pub fn int_class() -> Rc<Class> {
     INT_CLASS.with(|c| c.clone())
+}
+
+pub fn native_module() -> Value {
+    NATIVE_MODULE.with(|c| Value::Object(c.clone(), Rc::new(vec![])))
 }

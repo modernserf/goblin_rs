@@ -8,6 +8,8 @@ pub enum RuntimeError {
     ExpectedVarArg,
     DidNotExpectDoArg,
     ExpectedType(String),
+    ModuleLoadLoop(String),
+    UnknownModule(String),
 }
 pub type Runtime<T> = Result<T, RuntimeError>;
 
@@ -24,7 +26,8 @@ pub enum IR {
     Local(Address),              // ( -- *address)
     Var(Address),                // ( -- address)
     IVal(Index),                 // ( -- instance[index])
-    SelfRef,                     // ( -- value)
+    SelfRef,                     // ( -- self_value)
+    Module(String),              // ( -- module)
     Object(Rc<Class>, Arity),    // (...instance -- object)
     DoObject(Rc<Class>, Arity),  // (...instance -- object)
     NewSelf(Arity),              // (...instance -- object)
@@ -190,6 +193,54 @@ impl Param {
             (Param::Do, Value::DoObject(..)) => Ok(()),
             (_, Value::DoObject(..)) => Err(RuntimeError::DidNotExpectDoArg),
             _ => Ok(()),
+        }
+    }
+}
+
+#[derive(Debug, Clone)]
+enum ModuleLoadState {
+    Init(Vec<IR>),
+    Loading,
+    Ready(Value),
+}
+
+#[derive(Debug, Clone)]
+pub struct ModuleLoader {
+    modules: HashMap<String, ModuleLoadState>,
+}
+
+impl ModuleLoader {
+    pub fn new() -> Self {
+        ModuleLoader {
+            modules: HashMap::new(),
+        }
+    }
+    pub fn add_init(&mut self, name: &str, ir: Vec<IR>) {
+        self.modules
+            .insert(name.to_string(), ModuleLoadState::Init(ir));
+    }
+    pub fn add_ready(&mut self, name: &str, value: Value) {
+        self.modules
+            .insert(name.to_string(), ModuleLoadState::Ready(value));
+    }
+    pub fn load(&mut self, name: &str) -> Runtime<Value> {
+        match self.modules.get_mut(name) {
+            Some(ModuleLoadState::Loading) => Err(RuntimeError::ModuleLoadLoop(name.to_string())),
+            Some(ModuleLoadState::Ready(value)) => Ok(value.clone()),
+            Some(ModuleLoadState::Init(ir)) => {
+                let ir = std::mem::take(ir);
+                self.modules
+                    .insert(name.to_string(), ModuleLoadState::Loading);
+
+                match Interpreter::program(ir, self) {
+                    Ok(value) => {
+                        self.add_ready(name, value.clone());
+                        Ok(value)
+                    }
+                    Err(err) => Err(err),
+                }
+            }
+            None => Err(RuntimeError::UnknownModule(name.to_string())),
         }
     }
 }
@@ -397,16 +448,18 @@ enum NextResult {
     Done,
 }
 
-pub struct Interpreter {
+pub struct Interpreter<'a> {
     stack: Stack,
     call_stack: CallStack,
+    modules: &'a mut ModuleLoader,
 }
 
-impl Interpreter {
-    pub fn program(code: Vec<IR>) -> Runtime<Value> {
+impl<'a> Interpreter<'a> {
+    pub fn program(code: Vec<IR>, modules: &'a mut ModuleLoader) -> Runtime<Value> {
         let mut interpreter = Interpreter {
             stack: Stack::new(),
             call_stack: CallStack::root(code),
+            modules,
         };
         interpreter.run()
     }
@@ -458,6 +511,10 @@ impl Interpreter {
                 let value = Value::DoObject(class, ivals, return_from_index);
                 self.stack.push(value);
             }
+            IR::Module(name) => {
+                let value = self.modules.load(&name)?;
+                self.stack.push(value);
+            }
             IR::Deref => {
                 let pointer = self.stack.pop();
                 let value = pointer.deref(&self.stack);
@@ -492,11 +549,13 @@ mod test {
     use super::*;
 
     fn assert_ok(code: Vec<IR>, expected: Value) {
-        assert_eq!(Interpreter::program(code), Ok(expected));
+        let mut modules = ModuleLoader::new();
+        assert_eq!(Interpreter::program(code, &mut modules), Ok(expected));
     }
 
     fn assert_err(code: Vec<IR>, expected: RuntimeError) {
-        assert_eq!(Interpreter::program(code), Err(expected));
+        let mut modules = ModuleLoader::new();
+        assert_eq!(Interpreter::program(code, &mut modules), Err(expected));
     }
 
     fn add() -> IR {
@@ -1029,6 +1088,36 @@ mod test {
                 IR::SendNative(|x, _| Ok(Value::Integer(x.as_int() << 2)), 0),
             ],
             Value::Integer(8),
+        )
+    }
+
+    #[test]
+    fn modules() {
+        let mut modules = ModuleLoader::new();
+        modules.add_ready("foo", Value::Integer(123));
+
+        assert_eq!(
+            Interpreter::program(vec![IR::Module("foo".to_string())], &mut modules),
+            Ok(Value::Integer(123))
+        );
+    }
+
+    #[test]
+    fn module_load_loop() {
+        let mut modules = ModuleLoader::new();
+        modules.add_init("foo", vec![IR::Module("foo".to_string())]);
+
+        assert_eq!(
+            Interpreter::program(vec![IR::Module("foo".to_string())], &mut modules),
+            Err(RuntimeError::ModuleLoadLoop("foo".to_string()))
+        );
+    }
+
+    #[test]
+    fn unknown_module() {
+        assert_err(
+            vec![IR::Module("unknown".to_string())],
+            RuntimeError::UnknownModule("unknown".to_string()),
         )
     }
 }

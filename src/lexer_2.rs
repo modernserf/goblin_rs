@@ -8,6 +8,7 @@ pub enum Token {
     Integer(i64),
     Identifier(String),
     Operator(String),
+    String(String),
     OpenBrace,
     CloseBrace,
     OpenBracket,
@@ -22,6 +23,7 @@ pub enum Token {
     Set,
     On,
     Return,
+    Import,
     SelfRef,
     EndOfInput,
 }
@@ -37,6 +39,7 @@ fn keyword_tokens() -> KeywordTokens {
         (Token::On, "on"),
         (Token::Return, "return"),
         (Token::SelfRef, "self"),
+        (Token::Import, "import"),
     ];
 
     Rc::new((
@@ -120,6 +123,7 @@ impl Lexer {
             // actually produce values
             '0'..='9' => self.number(),
             'a'..='z' | 'A'..='Z' => self.identifier_or_keyword(),
+            '"' => self.string(),
             ':' => {
                 self.advance();
                 match self.peek() {
@@ -197,6 +201,20 @@ impl Lexer {
                 str.push(ch);
             } else {
                 return Token::Operator(str);
+            }
+        }
+    }
+    fn string(&mut self) -> Token {
+        let mut str = String::new();
+        self.advance();
+        loop {
+            let ch = self.peek();
+            if ch == '"' {
+                self.advance();
+                return Token::String(str);
+            } else {
+                self.advance();
+                str.push(ch);
             }
         }
     }

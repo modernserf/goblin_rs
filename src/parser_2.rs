@@ -343,6 +343,17 @@ impl Parser {
 
                 Ok(Some(Stmt::Set(binding, expr)))
             }
+            Token::Import => {
+                self.advance();
+                let binding = expect("binding", self.binding())?;
+                self.expect_token(Token::ColonEquals)?;
+                if let Token::String(str) = self.peek() {
+                    self.advance();
+                    Ok(Some(Stmt::Import(binding, str)))
+                } else {
+                    Err(ParseError::Expected("import source".to_string()))
+                }
+            }
             Token::Return => {
                 self.advance();
                 if let Some(expr) = self.expr()? {

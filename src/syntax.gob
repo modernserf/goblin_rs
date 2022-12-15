@@ -21,6 +21,7 @@ let obj := [
 ]
 obj{do var let on}
 
+import foo := "native"
 let frame := [x]
 let another := [x: 1 y: 2]
 let empty := []
