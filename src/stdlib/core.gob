@@ -1,11 +1,12 @@
-export import [_true_ _false_ _Assert_ _File_ _String_ _Panic_ _Log_] := "native"
+# export import [_true_ _false_ _Assert_ _File_ _String_ _Panic_ _Log_] := "native"
 
-export let Bool := [
-  on {true} true
-  on {false} false
-]
+# export let Bool := [
+#   on {true} true
+#   on {false} false
+# ]
 
-export import [_Ord_] := "core/ord"
-export import [_Option_] := "core/option"
-export import [_Result_] := "core/result"
-export import [_Control_] := "core/control"
+# export import [_Ord_] := "core/ord"
+# export import [_Option_] := "core/option"
+# export import [_Result_] := "core/result"
+# export import [_Control_] := "core/control"
+export let zero := 0

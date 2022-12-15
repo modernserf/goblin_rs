@@ -1,6 +1,6 @@
 use crate::{
     ast::Stmt,
-    runtime_2::{Address, Index, IR},
+    runtime_2::{Address, Class, Index, IR},
 };
 use std::collections::HashMap;
 
@@ -11,6 +11,8 @@ pub enum CompileError {
     InvalidVarReference(String),
     InvalidVarArg(String),
     InvalidDoReference(String),
+    DuplicateExport(String),
+    InvalidExport(String),
 }
 pub type Compile<T> = Result<T, CompileError>;
 pub type CompileIR = Compile<IRBuilder>;
@@ -34,6 +36,36 @@ impl IRBuilder {
     }
     pub fn to_vec(self) -> Vec<IR> {
         self.ir
+    }
+}
+
+struct Exports {
+    exports: HashMap<String, Address>,
+}
+
+impl Exports {
+    fn new() -> Self {
+        Exports {
+            exports: HashMap::new(),
+        }
+    }
+    fn add(&mut self, name: String, address: Address) -> Compile<()> {
+        if self.exports.contains_key(&name) {
+            return Err(CompileError::DuplicateExport(name));
+        }
+        self.exports.insert(name, address);
+        Ok(())
+    }
+    fn compile(self) -> CompileIR {
+        let mut ir = IRBuilder::new();
+        let mut class = Class::new();
+        let arity = self.exports.len();
+        for (i, (key, addr)) in self.exports.into_iter().enumerate() {
+            ir.push(IR::Local(addr));
+            class.add_handler(key, vec![], vec![IR::IVal(i)]);
+        }
+        ir.push(IR::Object(class.rc(), arity));
+        Ok(ir)
     }
 }
 
@@ -134,10 +166,12 @@ impl Locals {
     fn get(&self, key: &str) -> Option<BindingRecord> {
         self.locals.get(key).map(|x| *x)
     }
-    fn add_let(&mut self, key: String) {
+    fn add_let(&mut self, key: String) -> usize {
+        let address = self.next_index;
         self.locals
             .insert(key, BindingRecord::Local(self.next_index));
         self.next_index += 1;
+        address
     }
     fn add_var(&mut self, key: String) -> usize {
         let var_index = self.next_index;
@@ -200,14 +234,14 @@ impl IVals {
     }
 }
 enum CompilerFrame {
-    Root(Locals),
+    Root(Locals, Exports),
     Handler(Locals, IVals),
     Do(Locals, IVals),
 }
 
 impl CompilerFrame {
     fn root() -> Self {
-        Self::Root(Locals::new())
+        Self::Root(Locals::new(), Exports::new())
     }
     fn handler(ivals: IVals) -> Self {
         Self::Handler(Locals::new(), ivals)
@@ -217,37 +251,49 @@ impl CompilerFrame {
     }
     fn get_local(&self, key: &str) -> Option<BindingRecord> {
         match self {
-            Self::Root(ls) => ls.get(key),
+            Self::Root(ls, _) => ls.get(key),
             Self::Handler(ls, _) => ls.get(key),
             Self::Do(ls, _) => ls.get(key),
         }
     }
     fn locals_mut(&mut self) -> &mut Locals {
         match self {
-            Self::Root(ls) => ls,
+            Self::Root(ls, _) => ls,
             Self::Handler(ls, _) => ls,
             Self::Do(ls, _) => ls,
         }
     }
     fn ivals(self) -> IVals {
         match self {
-            Self::Root(_) => panic!("no ivals at root"),
+            Self::Root(_, _) => panic!("no ivals at root"),
             Self::Handler(_, ivals) => ivals,
             Self::Do(_, ivals) => ivals,
         }
     }
     fn get_ival(&self, key: &str) -> Option<BindingRecord> {
         match self {
-            Self::Root(_) => None,
+            Self::Root(_, _) => None,
             Self::Handler(_, ivals) => ivals.get(key),
             Self::Do(_, ivals) => ivals.get(key),
         }
     }
     fn add_ival(&mut self, key: String, value: BindingRecord) -> Compile<BindingRecord> {
         match self {
-            Self::Root(_) => panic!("no ivals at root"),
+            Self::Root(_, _) => panic!("no ivals at root"),
             Self::Handler(_, ivals) => ivals.add(key, value),
             Self::Do(_, ivals) => ivals.add_do(key, value),
+        }
+    }
+    fn add_export(&mut self, name: String, address: Address) -> Compile<()> {
+        match self {
+            Self::Root(_, exports) => exports.add(name, address),
+            _ => Err(CompileError::InvalidExport(name)),
+        }
+    }
+    fn compile_exports(self) -> CompileIR {
+        match self {
+            Self::Root(_, exports) => exports.compile(),
+            _ => panic!("no exports in handlers"),
         }
     }
 }
@@ -260,6 +306,12 @@ impl Compiler {
     pub fn program(program: Vec<Stmt>) -> Compile<Vec<IR>> {
         let mut compiler = Compiler::new();
         let out = compiler.body(program)?;
+        Ok(out.to_vec())
+    }
+    pub fn module(module: Vec<Stmt>) -> Compile<Vec<IR>> {
+        let mut compiler = Compiler::new();
+        let mut out = compiler.body(module)?;
+        out.append(compiler.frames.pop().unwrap().compile_exports()?);
         Ok(out.to_vec())
     }
     fn new() -> Self {
@@ -293,6 +345,11 @@ impl Compiler {
     }
     fn top_mut(&mut self) -> &mut CompilerFrame {
         self.frames.last_mut().unwrap()
+    }
+    pub fn add_let_export(&mut self, key: String) -> Compile<()> {
+        let address = self.top_mut().locals_mut().add_let(key.to_string());
+        self.top_mut().add_export(key, address)?;
+        Ok(())
     }
     pub fn add_let(&mut self, key: String) {
         self.top_mut().locals_mut().add_let(key);
@@ -384,6 +441,10 @@ mod test {
         Expr::Send(selector.to_string(), Box::new(target), args)
     }
 
+    fn let_(binding: Binding, value: Expr) -> Stmt {
+        Stmt::Let(binding, value, false)
+    }
+
     #[test]
     fn empty() {
         assert_ok(vec![], vec![IR::Unit]);
@@ -398,8 +459,8 @@ mod test {
     fn identifier() {
         assert_ok(
             vec![
-                Stmt::Let(b_ident("foo"), int(123)),
-                Stmt::Let(b_ident("bar"), int(456)),
+                let_(b_ident("foo"), int(123)),
+                let_(b_ident("bar"), int(456)),
                 Stmt::Expr(ident("foo")),
             ],
             vec![IR::Integer(123), IR::Integer(456), IR::Local(0)],
@@ -430,7 +491,7 @@ mod test {
     fn vars() {
         assert_ok(
             vec![
-                Stmt::Let(b_ident("foo"), int(456)),
+                let_(b_ident("foo"), int(456)),
                 Stmt::Var(b_ident("bar"), int(123)),
                 Stmt::Set(b_ident("bar"), int(789)),
                 Stmt::Expr(ident("bar")),
@@ -460,7 +521,7 @@ mod test {
     fn invalid_set() {
         assert_err(
             vec![
-                Stmt::Let(b_ident("foo"), int(456)),
+                let_(b_ident("foo"), int(456)),
                 Stmt::Set(b_ident("foo"), int(789)),
             ],
             CompileError::InvalidSet("foo".to_string()),
@@ -479,17 +540,14 @@ mod test {
     fn object_with_simple_handler() {
         assert_ok(
             vec![
-                Stmt::Let(b_ident("foo"), int(123)),
-                Stmt::Let(b_ident("bar"), int(456)),
+                let_(b_ident("foo"), int(123)),
+                let_(b_ident("bar"), int(456)),
                 Stmt::Expr(Expr::Object({
                     let mut obj = Object::new();
                     obj.add(
                         "handler",
                         vec![],
-                        vec![
-                            Stmt::Let(b_ident("bar"), int(789)),
-                            Stmt::Expr(ident("bar")),
-                        ],
+                        vec![let_(b_ident("bar"), int(789)), Stmt::Expr(ident("bar"))],
                     );
                     obj
                 })),
@@ -514,15 +572,15 @@ mod test {
     fn object_with_args() {
         assert_ok(
             vec![
-                Stmt::Let(b_ident("foo"), int(123)),
-                Stmt::Let(b_ident("bar"), int(456)),
+                let_(b_ident("foo"), int(123)),
+                let_(b_ident("bar"), int(456)),
                 Stmt::Expr(Expr::Object({
                     let mut obj = Object::new();
                     obj.add(
                         "handler:",
                         vec![b_ident("foo")],
                         vec![
-                            Stmt::Let(b_ident("bar"), int(789)),
+                            let_(b_ident("bar"), int(789)),
                             Stmt::Expr(send(ident("foo"), "+:", vec![ident("bar")])),
                         ],
                     );
@@ -558,7 +616,7 @@ mod test {
     fn instance_values() {
         assert_ok(
             vec![
-                Stmt::Let(b_ident("foo"), int(123)),
+                let_(b_ident("foo"), int(123)),
                 Stmt::Expr(Expr::Object({
                     let mut obj = Object::new();
                     obj.add(
@@ -611,7 +669,7 @@ mod test {
     fn instance_values_shared() {
         assert_ok(
             vec![
-                Stmt::Let(b_ident("foo"), int(123)),
+                let_(b_ident("foo"), int(123)),
                 Stmt::Expr(Expr::Object({
                     let mut obj = Object::new();
                     obj.add(
@@ -648,7 +706,7 @@ mod test {
     fn var_args() {
         assert_ok(
             vec![
-                Stmt::Let(
+                let_(
                     b_ident("obj"),
                     Expr::Object({
                         let mut obj = Object::new();
@@ -693,7 +751,7 @@ mod test {
     fn invalid_var_arg() {
         assert_err(
             vec![
-                Stmt::Let(
+                let_(
                     b_ident("obj"),
                     Expr::Object({
                         let mut obj = Object::new();
@@ -705,7 +763,7 @@ mod test {
                         obj
                     }),
                 ),
-                Stmt::Let(b_ident("foo"), int(5)),
+                let_(b_ident("foo"), int(5)),
                 Stmt::Expr(send(ident("obj"), "handler:", vec![var_arg("foo")])),
                 Stmt::Expr(ident("foo")),
             ],
@@ -825,11 +883,7 @@ mod test {
             vec![Stmt::Expr(send(
                 Expr::Object({
                     let mut object = Object::new();
-                    object.add(
-                        ":",
-                        vec![b_do("f")],
-                        vec![Stmt::Let(b_ident("g"), ident("f"))],
-                    );
+                    object.add(":", vec![b_do("f")], vec![let_(b_ident("g"), ident("f"))]);
                     object
                 }),
                 ":",
@@ -961,6 +1015,53 @@ mod test {
                     2,
                 ),
             ],
+        )
+    }
+
+    #[test]
+    fn exports() {
+        assert_eq!(
+            Compiler::module(vec![Stmt::Let(b_ident("foo"), Expr::Integer(123), true),]),
+            Ok(vec![
+                IR::Integer(123),
+                IR::Unit,
+                IR::Local(0),
+                IR::Object(
+                    {
+                        let mut class = Class::new();
+                        class.add("foo", vec![], vec![IR::IVal(0)]);
+                        class.rc()
+                    },
+                    1
+                )
+            ])
+        )
+    }
+
+    #[test]
+    fn duplicate_export() {
+        assert_err(
+            vec![
+                Stmt::Let(b_ident("foo"), Expr::Integer(123), true),
+                Stmt::Let(b_ident("foo"), Expr::Integer(456), true),
+            ],
+            CompileError::DuplicateExport("foo".to_string()),
+        );
+    }
+
+    #[test]
+    fn invalid_export() {
+        assert_err(
+            vec![Stmt::Expr(Expr::Object({
+                let mut obj = Object::new();
+                obj.add(
+                    "",
+                    vec![],
+                    vec![Stmt::Let(b_ident("foo"), Expr::Integer(123), true)],
+                );
+                obj
+            }))],
+            CompileError::InvalidExport("foo".to_string()),
         )
     }
 }

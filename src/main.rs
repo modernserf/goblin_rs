@@ -5,19 +5,16 @@ mod native;
 mod parser_2;
 mod runtime_2;
 
-// mod source;
-
-// fn compile_module(code: &str) -> Vec<ir::IR> {
-//     let lexer = lexer::Lexer::from_string(code);
-//     let mut parser = parser::Parser::new(lexer);
-//     let module = parser.program().unwrap();
-//     compiler::Compiler::module(module).unwrap()
-// }
+fn compile_module(code: &str) -> Vec<runtime_2::IR> {
+    let tokens = lexer_2::Lexer::lex(code.to_string());
+    let ast = parser_2::Parser::parse(tokens).unwrap();
+    compiler_2::Compiler::module(ast).unwrap()
+}
 
 fn build_stdlib() -> runtime_2::ModuleLoader {
     let mut modules = runtime_2::ModuleLoader::new();
     modules.add_ready("native", native::native_module());
-    // modules.add_init("core", compile_module(include_str!("./stdlib/core.gob")));
+    modules.add_init("core", compile_module(include_str!("./stdlib/core.gob")));
     // modules.add_init(
     //     "core/option",
     //     compile_module(include_str!("./stdlib/option.gob")),

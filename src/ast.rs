@@ -1,7 +1,7 @@
 use std::{cell::RefCell, collections::HashMap, rc::Rc};
 
 use crate::{
-    compiler_2::{CompileIR, Compiler, IRBuilder, IVals},
+    compiler_2::{Compile, CompileIR, Compiler, IRBuilder, IVals},
     parser_2::Parse,
     runtime_2::{Class, Param, Selector, IR},
 };
@@ -16,6 +16,12 @@ impl Binding {
     fn compile_let(self, compiler: &mut Compiler) {
         match self {
             Self::Identifier(name) => compiler.add_let(name),
+            _ => todo!(),
+        }
+    }
+    fn compile_export(self, compiler: &mut Compiler) -> Compile<()> {
+        match self {
+            Self::Identifier(name) => compiler.add_let_export(name),
             _ => todo!(),
         }
     }
@@ -49,13 +55,15 @@ impl Binding {
     }
 }
 
+type IsExport = bool;
+
 #[derive(Debug, Clone, PartialEq)]
 pub enum Stmt {
     Expr(Expr),
-    Let(Binding, Expr),
+    Let(Binding, Expr, IsExport),
     Var(Binding, Expr),
     Set(Binding, Expr),
-    Import(Binding, String),
+    Import(Binding, String, IsExport),
     Return(Expr),
 }
 
@@ -63,9 +71,13 @@ impl Stmt {
     fn compile_base(self, compiler: &mut Compiler) -> CompileIR {
         match self {
             Self::Expr(expr) => expr.compile(compiler),
-            Self::Let(binding, expr) => {
+            Self::Let(binding, expr, is_export) => {
                 let ir = expr.compile(compiler)?;
-                binding.compile_let(compiler);
+                if is_export {
+                    binding.compile_export(compiler)?;
+                } else {
+                    binding.compile_let(compiler);
+                }
                 Ok(ir)
             }
             Self::Var(binding, expr) => {
@@ -79,9 +91,13 @@ impl Stmt {
                 ir.append(binding.compile_set(compiler)?);
                 Ok(ir)
             }
-            Self::Import(binding, name) => {
+            Self::Import(binding, name, is_export) => {
                 let ir = IRBuilder::from(vec![IR::Module(name)]);
-                binding.compile_let(compiler);
+                if is_export {
+                    binding.compile_export(compiler)?;
+                } else {
+                    binding.compile_let(compiler);
+                }
                 Ok(ir)
             }
             Self::Return(expr) => {

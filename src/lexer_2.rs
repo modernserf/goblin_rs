@@ -24,6 +24,7 @@ pub enum Token {
     On,
     Return,
     Import,
+    Export,
     SelfRef,
     EndOfInput,
 }
@@ -40,6 +41,7 @@ fn keyword_tokens() -> KeywordTokens {
         (Token::Return, "return"),
         (Token::SelfRef, "self"),
         (Token::Import, "import"),
+        (Token::Export, "export"),
     ];
 
     Rc::new((

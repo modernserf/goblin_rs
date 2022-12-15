@@ -285,13 +285,13 @@ impl Parser {
         }
     }
 
-    fn binding(&mut self) -> ParseOpt<Binding> {
+    fn binding(&mut self) -> Parse<Binding> {
         match self.peek() {
             Token::Identifier(key) => {
                 self.advance();
-                Ok(Some(Binding::Identifier(key)))
+                Ok(Binding::Identifier(key))
             }
-            _ => Ok(None),
+            _ => Err(ParseError::Expected("binding".to_string())),
         }
     }
 
@@ -313,7 +313,16 @@ impl Parser {
                 }
                 return Err(ParseError::Expected("do param".to_string()));
             }
-            _ => expect("param", self.binding()),
+            _ => self.binding(),
+        }
+    }
+
+    fn import_source(&mut self) -> Parse<String> {
+        if let Token::String(str) = self.peek() {
+            self.advance();
+            Ok(str)
+        } else {
+            Err(ParseError::Expected("import source".to_string()))
         }
     }
 
@@ -321,15 +330,15 @@ impl Parser {
         match self.peek() {
             Token::Let => {
                 self.advance();
-                let binding = expect("binding", self.binding())?;
+                let binding = self.binding()?;
                 self.expect_token(Token::ColonEquals)?;
                 let expr = expect("expr", self.expr())?;
 
-                Ok(Some(Stmt::Let(binding, expr)))
+                Ok(Some(Stmt::Let(binding, expr, false)))
             }
             Token::Var => {
                 self.advance();
-                let binding = expect("binding", self.binding())?;
+                let binding = self.binding()?;
                 self.expect_token(Token::ColonEquals)?;
                 let expr = expect("expr", self.expr())?;
 
@@ -337,7 +346,7 @@ impl Parser {
             }
             Token::Set => {
                 self.advance();
-                let binding = expect("binding", self.binding())?;
+                let binding = self.binding()?;
                 self.expect_token(Token::ColonEquals)?;
                 let expr = expect("expr", self.expr())?;
 
@@ -345,13 +354,30 @@ impl Parser {
             }
             Token::Import => {
                 self.advance();
-                let binding = expect("binding", self.binding())?;
+                let binding = self.binding()?;
                 self.expect_token(Token::ColonEquals)?;
-                if let Token::String(str) = self.peek() {
-                    self.advance();
-                    Ok(Some(Stmt::Import(binding, str)))
-                } else {
-                    Err(ParseError::Expected("import source".to_string()))
+                let source = self.import_source()?;
+                Ok(Some(Stmt::Import(binding, source, false)))
+            }
+            Token::Export => {
+                self.advance();
+                match self.peek() {
+                    Token::Let => {
+                        self.advance();
+                        let binding = self.binding()?;
+                        self.expect_token(Token::ColonEquals)?;
+                        let expr = expect("expr", self.expr())?;
+
+                        Ok(Some(Stmt::Let(binding, expr, true)))
+                    }
+                    Token::Import => {
+                        self.advance();
+                        let binding = self.binding()?;
+                        self.expect_token(Token::ColonEquals)?;
+                        let source = self.import_source()?;
+                        Ok(Some(Stmt::Import(binding, source, true)))
+                    }
+                    _ => Err(ParseError::Expected("export".to_string())),
                 }
             }
             Token::Return => {
@@ -427,6 +453,7 @@ mod test {
             vec![Stmt::Let(
                 Binding::Identifier("x".to_string()),
                 Expr::Integer(123),
+                false,
             )],
         )
     }
