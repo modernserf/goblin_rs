@@ -111,6 +111,10 @@ impl Parser {
                     self.advance();
                     parts.push(key);
                 }
+                Token::Integer(num) => {
+                    self.advance();
+                    parts.push(num.to_string());
+                }
                 tok => {
                     if let Some(str) = tok.to_keyword() {
                         self.advance();

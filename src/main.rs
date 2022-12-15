@@ -19,11 +19,11 @@ fn build_stdlib() -> runtime::ModuleLoader {
         "core/bool",
         compile_module(include_str!("./stdlib/bool.gob")),
     );
+    modules.add_init("core/ord", compile_module(include_str!("./stdlib/ord.gob")));
     // modules.add_init(
     //     "core/option",
     //     compile_module(include_str!("./stdlib/option.gob")),
     // );
-    // modules.add_init("core/ord", compile_module(include_str!("./stdlib/ord.gob")));
     // modules.add_init(
     //     "core/result",
     //     compile_module(include_str!("./stdlib/result.gob")),
@@ -96,10 +96,10 @@ mod test {
         run(include_str!("./stdlib/bool.test.gob"))
     }
 
-    // #[test]
-    // fn primitives() {
-    //     run(include_str!("./stdlib/primitive.test.gob"));
-    // }
+    #[test]
+    fn ord() {
+        run(include_str!("./stdlib/ord.test.gob"));
+    }
 
     // #[test]
     // fn strings() {

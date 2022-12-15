@@ -1,13 +1,21 @@
-import [_true_ _false_] := "native"
+import [_true_ _false_] := "core/bool"
 
 # - orderable objects respond to {order: other} with an Ord instance
 # - operators (note: prefix!) can be used for quickly deriving relevant methods from {order: other}
-# - TODO: this should also have min:max: helpers
 export let Ord := [
   on {from int: int}
     if int > 0 then return Ord{>} end
     if int < 0 then return Ord{<} end
     return Ord{==}
+  on {: l min: r}
+    if <l{order: r} then l else r end
+  on {: l max: r}
+    if >l{order: r} then l else r end
+  on {: target min: min max: max}
+    # TODO: check that min <= max
+    if <target{order: min} then min
+    else if >target{order: max} then max
+    else target end
   on {<} [
     on {: do f} f{<}
     on {<} true

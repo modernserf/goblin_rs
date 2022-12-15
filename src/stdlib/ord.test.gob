@@ -1,0 +1,74 @@
+import [_Ord_ _Assert_] := "core"
+
+let T := [
+  on {0} [
+    on {: do f} f{0}
+    on {order: other}
+      other{:
+        on {0} Ord{==}
+        on {1} Ord{<}
+        on {2} Ord{<}
+      }
+    on {<: val}   <self{order: val}
+    on {<=: val} <=self{order: val}
+    on {==: val} ==self{order: val}
+    on {<>: val} <>self{order: val}
+    on {>=: val} >=self{order: val}
+    on {>: val}   >self{order: val}
+    on {min: val} Ord{: self min: val}
+    on {max: val} Ord{: self max: val}
+    on {min: min max: max} Ord{: self min: min max: max}
+  ]
+  on {1} [
+    on {: do f} f{1}
+    on {order: other}
+      other{:
+        on {0} Ord{>}
+        on {1} Ord{==}
+        on {2} Ord{<}
+      }
+    on {<: val}   <self{order: val}
+    on {<=: val} <=self{order: val}
+    on {==: val} ==self{order: val}
+    on {<>: val} <>self{order: val}
+    on {>=: val} >=self{order: val}
+    on {>: val}   >self{order: val}
+    on {min: val} Ord{: self min: val}
+    on {max: val} Ord{: self max: val}
+    on {min: min max: max} Ord{: self min: min max: max}
+  ]
+  on {2} [
+    on {: do f} f{2}
+    on {order: other}
+      other{:
+        on {0} Ord{>}
+        on {1} Ord{>}
+        on {2} Ord{==}
+      }
+    on {<: val}   <self{order: val}
+    on {<=: val} <=self{order: val}
+    on {==: val} ==self{order: val}
+    on {<>: val} <>self{order: val}
+    on {>=: val} >=self{order: val}
+    on {>: val}   >self{order: val}
+    on {min: val} Ord{: self min: val}
+    on {max: val} Ord{: self max: val}
+    on {min: min max: max} Ord{: self min: min max: max}
+  ]
+]
+
+Assert{: T{0} < T{1}}
+Assert{: T{1} == T{1}}
+Assert{: T{2} > T{1}}
+Assert{: T{0} <> T{1}}
+
+Assert{received: T{0}{min: T{1}} expected: T{0}}
+Assert{received: T{0}{max: T{1}} expected: T{1}}
+Assert{
+  received: T{0}{min: T{1} max: T{2}}
+  expected: T{1}
+}
+Assert{
+  received: T{2}{min: T{0} max: T{1}}
+  expected: T{1}
+}
