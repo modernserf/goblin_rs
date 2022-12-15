@@ -206,6 +206,13 @@ impl Parser {
                     }
                 }
             }
+            // TODO: blocks & unit
+            Token::OpenParen => {
+                self.advance();
+                let expr = expect("expr", self.expr())?;
+                self.expect_token(Token::CloseParen)?;
+                Ok(Some(expr))
+            }
             _ => Ok(None),
         }
     }
@@ -479,6 +486,6 @@ mod test {
 
     #[test]
     fn expected_end_of_input() {
-        assert_err(vec![OpenParen], ParseError::ExpectedToken(EndOfInput))
+        assert_err(vec![CloseParen], ParseError::ExpectedToken(EndOfInput))
     }
 }

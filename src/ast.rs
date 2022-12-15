@@ -316,7 +316,6 @@ impl Object {
             }
 
             if let Some(b) = binding {
-                println!("binding {:?}", b);
                 ir.push(IR::SelfRef);
                 ir.append(b.clone().compile_let(compiler)?);
             }

@@ -11,3 +11,31 @@ Assert{
 
 Assert{received: !true expected: false}
 Assert{received: !false expected: true}
+
+Assert{
+  received: true{:
+    on {true} 123
+    on {false} 456
+  }
+  expected: 123
+}
+
+Assert{received: true && true   expected: true}
+Assert{received: true && false  expected: false}
+Assert{received: false && true  expected: false}
+Assert{received: false && false expected: false}
+
+Assert{received: true || true   expected: true}
+Assert{received: true || false  expected: true}
+Assert{received: false || true  expected: true}
+Assert{received: false || false expected: false}
+
+Assert{received: true ^^ true   expected: false}
+Assert{received: true ^^ false  expected: true}
+Assert{received: false ^^ true  expected: true}
+Assert{received: false ^^ false expected: false}
+
+Assert{: true = true}
+Assert{: false = false}
+Assert{: true != false}
+Assert{: false != true}
