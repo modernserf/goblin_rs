@@ -18,3 +18,7 @@ let obj := [
   on {bar: x}
     return x
 ]
+
+let frame := [x]
+let another := [x: 1 y: 2]
+let empty := []

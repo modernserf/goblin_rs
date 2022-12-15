@@ -161,6 +161,19 @@ impl Parser {
         }
     }
 
+    fn frame(&mut self) -> Parse<SelectorBuilderResult<Expr>> {
+        let mut builder = SelectorBuilder::new();
+        loop {
+            let key = self.key()?;
+            if self.expect_token(Token::Colon).is_ok() {
+                let arg = self.arg()?;
+                builder.add(key, arg)?;
+            } else {
+                return builder.resolve(key);
+            }
+        }
+    }
+
     fn base_expr(&mut self) -> ParseOpt<Expr> {
         match self.peek() {
             Token::Integer(value) => {
@@ -173,9 +186,18 @@ impl Parser {
             }
             Token::OpenBracket => {
                 self.advance();
-                let object = self.object_body()?;
-                self.expect_token(Token::CloseBracket)?;
-                return Ok(Some(Expr::Object(object)));
+                match self.peek() {
+                    Token::On => {
+                        let object = self.object_body()?;
+                        self.expect_token(Token::CloseBracket)?;
+                        return Ok(Some(Expr::Object(object)));
+                    }
+                    _ => {
+                        let frame = self.frame()?;
+                        self.expect_token(Token::CloseBracket)?;
+                        return Ok(Some(Expr::Frame(frame.selector, frame.items)));
+                    }
+                }
             }
             _ => Ok(None),
         }

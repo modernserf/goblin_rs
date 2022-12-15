@@ -2,7 +2,7 @@ use crate::{
     parser_2::Parse,
     runtime_2::{Address, Class, Index, Param, Selector, IR},
 };
-use std::collections::HashMap;
+use std::{cell::RefCell, collections::HashMap, rc::Rc};
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum CompileError {
@@ -149,6 +149,7 @@ pub enum Expr {
     Object(Object),
     VarArg(String),
     DoArg(Object),
+    Frame(Selector, Vec<(String, Expr)>),
 }
 
 impl Expr {
@@ -168,6 +169,16 @@ impl Expr {
                 Ok(ir)
             }
             Self::Object(obj) => obj.compile(compiler),
+            Self::Frame(selector, pairs) => {
+                let class = frame_class(selector, &pairs);
+                let arity = pairs.len();
+                let mut ir = IRBuilder::new();
+                for (_, expr) in pairs {
+                    ir.append(expr.compile_arg(compiler)?);
+                }
+                ir.push(IR::Object(class, arity));
+                Ok(ir)
+            }
             Self::VarArg(_) => unreachable!(),
             Self::DoArg(_) => unreachable!(),
         }
@@ -264,6 +275,68 @@ impl Object {
         out.push(IR::DoObject(class.rc(), arity));
         Ok(out)
     }
+}
+
+thread_local! {
+    static FRAME_CACHE: RefCell<HashMap<String, Rc<Class>>> = RefCell::new(HashMap::new());
+}
+
+pub fn frame_class(selector: String, pairs: &Vec<(String, Expr)>) -> Rc<Class> {
+    let cached = FRAME_CACHE.with(|cell| {
+        let map = cell.borrow();
+        map.get(&selector).cloned()
+    });
+    if let Some(class) = cached {
+        return class;
+    }
+
+    let mut class = Class::new();
+    // match
+    class.add_handler(":".to_string(), vec![Param::Do], {
+        let mut builder = IRBuilder::new();
+        for i in 0..pairs.len() {
+            builder.push(IR::IVal(i));
+        }
+        builder.push(IR::Local(0));
+        builder.push(IR::Send(selector.to_string(), pairs.len()));
+        builder.to_vec()
+    });
+
+    if pairs.len() == 0 {
+        // fold
+        class.add_handler(
+            ":into:".to_string(),
+            vec![Param::Value, Param::Value],
+            vec![IR::Send(format!("{}:", &selector), 1)],
+        );
+    } else {
+        for (i, (key, _)) in pairs.iter().enumerate() {
+            // getter
+            class.add_handler(key.to_string(), vec![], vec![IR::IVal(i)]);
+            // setter
+            class.add_handler(format!("{}:", &key), vec![Param::Value], {
+                let mut builder = IRBuilder::new();
+                for j in 0..pairs.len() {
+                    if i == j {
+                        builder.push(IR::Local(0));
+                    } else {
+                        builder.push(IR::IVal(j));
+                    }
+                }
+                builder.push(IR::NewSelf(pairs.len()));
+                builder.to_vec()
+            });
+        }
+    }
+
+    let rc = class.rc();
+
+    FRAME_CACHE.with(|cell| {
+        let mut map = cell.borrow_mut();
+        map.insert(selector, rc.clone());
+    });
+
+    rc
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -1116,5 +1189,75 @@ mod test {
                 0,
             )],
         );
+    }
+
+    #[test]
+    fn key_frame() {
+        assert_ok(
+            vec![Stmt::Expr(Expr::Frame("foo".to_string(), vec![]))],
+            vec![IR::Object(
+                {
+                    let mut class = Class::new();
+                    class.add(
+                        ":",
+                        vec![Param::Do],
+                        vec![IR::Local(0), IR::Send("foo".to_string(), 0)],
+                    );
+                    class.add(
+                        ":into:",
+                        vec![Param::Value, Param::Value],
+                        vec![IR::Send("foo:".to_string(), 1)],
+                    );
+                    class.rc()
+                },
+                0,
+            )],
+        )
+    }
+
+    #[test]
+    fn pair_frame() {
+        assert_ok(
+            vec![Stmt::Expr(Expr::Frame(
+                "x:y:".to_string(),
+                vec![
+                    ("x".to_string(), Expr::Integer(1)),
+                    ("y".to_string(), Expr::Integer(2)),
+                ],
+            ))],
+            vec![
+                IR::Integer(1),
+                IR::Integer(2),
+                IR::Object(
+                    {
+                        let mut class = Class::new();
+                        class.add(
+                            ":",
+                            vec![Param::Do],
+                            vec![
+                                IR::IVal(0),
+                                IR::IVal(1),
+                                IR::Local(0),
+                                IR::Send("x:y:".to_string(), 2),
+                            ],
+                        );
+                        class.add("x", vec![], vec![IR::IVal(0)]);
+                        class.add("y", vec![], vec![IR::IVal(1)]);
+                        class.add(
+                            "x:",
+                            vec![Param::Value],
+                            vec![IR::Local(0), IR::IVal(1), IR::NewSelf(2)],
+                        );
+                        class.add(
+                            "y:",
+                            vec![Param::Value],
+                            vec![IR::IVal(0), IR::Local(0), IR::NewSelf(2)],
+                        );
+                        class.rc()
+                    },
+                    2,
+                ),
+            ],
+        )
     }
 }
