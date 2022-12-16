@@ -198,6 +198,7 @@ pub enum Expr {
     Unit,
     SelfRef,
     Integer(i64),
+    String(String),
     Identifier(String),
     Send(Selector, Box<Expr>, Vec<Expr>),
     TrySend(Selector, Box<Expr>, Vec<Expr>, Box<Expr>),
@@ -220,6 +221,7 @@ impl Expr {
             Self::Unit => Ok(IRBuilder::from(vec![IR::Unit])),
             Self::SelfRef => Ok(IRBuilder::from(vec![IR::SelfRef])),
             Self::Integer(value) => Ok(IRBuilder::from(vec![IR::Integer(value)])),
+            Self::String(str) => Ok(IRBuilder::from(vec![IR::String(Rc::new(str))])),
             Self::Identifier(name) => compiler.identifier(name),
             Self::Send(selector, target, args) => {
                 let mut ir = IRBuilder::new();

@@ -1,6 +1,6 @@
 use std::{collections::HashMap, rc::Rc};
 
-use crate::native::int_class;
+use crate::native::{int_class, string_class};
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum RuntimeError {
@@ -24,6 +24,7 @@ pub type NativeFn = fn(Value, Vec<Value>) -> Runtime<Value>;
 pub enum IR {
     Unit,                        // (-- value)
     Integer(i64),                // (-- value)
+    String(Rc<String>),          // (-- value)
     Local(Address),              // ( -- *address)
     Var(Address),                // ( -- address)
     IVal(Index),                 // ( -- instance[index])
@@ -49,6 +50,7 @@ type ParentFrameIndex = usize;
 pub enum Value {
     Unit,
     Integer(i64),
+    String(Rc<String>),
     Object(Rc<Class>, Instance),
     DoObject(Rc<Class>, Instance, ParentFrameIndex),
     Pointer(Address),
@@ -61,9 +63,16 @@ impl Value {
             _ => panic!("cannot cast to int"),
         }
     }
+    pub fn as_string(self) -> Rc<String> {
+        match self {
+            Value::String(str) => str,
+            _ => panic!("cannot cast to string"),
+        }
+    }
     fn class(&self) -> Rc<Class> {
         match self {
             Value::Integer(_) => int_class(),
+            Value::String(_) => string_class(),
             Value::Object(class, _) => class.clone(),
             _ => todo!(),
         }
@@ -71,6 +80,7 @@ impl Value {
     fn ivals(&self) -> Instance {
         match self {
             Value::Integer(_) => Rc::new(vec![]),
+            Value::String(_) => Rc::new(vec![]),
             Value::Object(_, ivals) => ivals.clone(),
             _ => todo!(),
         }
@@ -86,6 +96,17 @@ impl Value {
             Value::Unit => Err(RuntimeError::DoesNotUnderstand(selector.to_string())),
             Value::Integer(_) => {
                 let class = int_class();
+                let handler = class.get(selector)?;
+                let local_offset = stack.size();
+                for (i, param) in handler.params.iter().enumerate() {
+                    stack.check_arg(local_offset - arity + i, *param)?;
+                }
+
+                call_stack.call(handler, arity, local_offset, self);
+                Ok(())
+            }
+            Value::String(_) => {
+                let class = string_class();
                 let handler = class.get(selector)?;
                 let local_offset = stack.size();
                 for (i, param) in handler.params.iter().enumerate() {
@@ -483,6 +504,7 @@ impl<'a> Interpreter<'a> {
             IR::Unit => self.stack.push(Value::Unit),
             IR::SelfRef => self.stack.push(self.call_stack.self_value()),
             IR::Integer(value) => self.stack.push(Value::Integer(value)),
+            IR::String(str) => self.stack.push(Value::String(str)),
             IR::Local(address) => {
                 let local_offset = self.call_stack.local_offset();
                 let value = self.stack.get(address + local_offset);

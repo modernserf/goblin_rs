@@ -16,6 +16,37 @@ fn build_int_class() -> Rc<Class> {
     class.add_native("-", vec![], |target, _| {
         Ok(Value::Integer(-target.as_int()))
     });
+    class.add_native("to String", vec![], |target, _| {
+        Ok(Value::String(Rc::new(target.as_int().to_string())))
+    });
+
+    class.rc()
+}
+
+fn build_string_class() -> Rc<Class> {
+    let mut class = Class::new();
+    class.add_handler(
+        "++:".to_string(),
+        vec![Param::Value],
+        vec![
+            IR::Local(0),
+            IR::Send("to String".to_string(), 0),
+            IR::SelfRef,
+            IR::SendNative(
+                |target, args| match &args[0] {
+                    Value::String(str) => Ok(Value::String(Rc::new(format!(
+                        "{}{}",
+                        target.as_string(),
+                        str
+                    )))),
+                    _ => expected("string"),
+                },
+                1,
+            ),
+        ],
+    );
+
+    class.add_handler("to String".to_string(), vec![], vec![IR::SelfRef]);
 
     class.rc()
 }
@@ -48,11 +79,16 @@ fn build_native_module() -> Rc<Class> {
 
 thread_local! {
   static INT_CLASS: Rc<Class> = build_int_class();
+  static STRING_CLASS: Rc<Class> = build_string_class();
   static NATIVE_MODULE: Rc<Class> = build_native_module();
 }
 
 pub fn int_class() -> Rc<Class> {
     INT_CLASS.with(|c| c.clone())
+}
+
+pub fn string_class() -> Rc<Class> {
+    STRING_CLASS.with(|c| c.clone())
 }
 
 pub fn native_module() -> Value {

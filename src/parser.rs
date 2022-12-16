@@ -187,6 +187,10 @@ impl Parser {
                 self.advance();
                 Ok(Some(Expr::Integer(value)))
             }
+            Token::String(str) => {
+                self.advance();
+                Ok(Some(Expr::String(str)))
+            }
             Token::Identifier(value) => {
                 self.advance();
                 Ok(Some(Expr::Identifier(value)))
