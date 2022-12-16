@@ -134,12 +134,21 @@ impl Parser {
     }
 
     fn handler(&mut self, object: &mut Object) -> Parse<()> {
-        self.expect_token(Token::OpenBrace)?;
-        let result = self.build_structure(|p| p.param())?;
-        self.expect_token(Token::CloseBrace)?;
+        let mut heads = vec![];
+        while self.expect_token(Token::OpenBrace).is_ok() {
+            let result = self.build_structure(|p| p.param())?;
+            self.expect_token(Token::CloseBrace)?;
+            heads.push(result);
+        }
+        if heads.is_empty() {
+            return Err(ParseError::expected("params"));
+        }
         let body = self.body()?;
-        let params = result.items.into_iter().map(|p| p.1).collect();
-        object.add_handler(result.selector, params, body)?;
+
+        for head in heads {
+            let params = head.items.into_iter().map(|p| p.1).collect();
+            object.add_handler(head.selector, params, body.clone())?;
+        }
         Ok(())
     }
 

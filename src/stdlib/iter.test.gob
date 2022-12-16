@@ -1,5 +1,4 @@
-import [_Assert_ _Option_] := "core"
-import [_Iter_] := "core/iter"
+import [_Assert_ _Option_ _Iter_] := "core"
 
 Assert{received: Iter{}{next} expected: [done]}
 Assert{received: Iter{value: 1}{next}{value} expected: 1}
@@ -16,40 +15,17 @@ Assert{: sum = 6}
 
 Assert{: iter{count} = 3}
 
-Assert{: iter{last} = Option{some: 3}}
-Assert{: Iter{}{last} = Option{none}}
+Assert{: iter{last}{some!} = 3}
+Assert{: Iter{}{last}{is none}}
 
-# [{}
-#   import [_Log_] := "core"
-#   let obj := [
-#     on {do: do f}
-#       f{: 123}
-#     on {foo}
-#       Log{: "a"}
-#       self{do: {: value}
-#         Log{: "b " ++ value}
-#         if (1 = 1) then
-#           Log{: "c " ++ value}
-#           return value
-#         end
-#         Log{: "d"}
-#         456
-#       }
-#       Log{: "e"}
-#       789
-#   ]
-#   Assert{received: obj{foo} expected: 123}
-# ]{}
-
-
-# Assert{: iter{nth: 1} = Option{some: 2}}
-# Assert{: Iter{}{nth: 1} = Option{none}}
+Assert{: iter{nth: 1}{some!} = 2}
+Assert{: Iter{}{nth: 1}{is none}}
 
 let iter := Iter{}, 1, 2, 3
 Assert{: iter{any: [>: 2]}}
-Assert{false: iter{any: [>: 10]}}
+Assert{: !iter{any: [>: 10]}}
 Assert{: iter{every: [>=: 0]}}
-Assert{false: iter{every: [>: 2]}}
+Assert{: !iter{every: [>: 2]}}
 
 # let is_even := [{: x} x & 1 = 0]
 # Assert{: iter{find: is_even} = Option{some: 2}}

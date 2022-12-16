@@ -28,10 +28,10 @@ fn build_stdlib() -> runtime::ModuleLoader {
         "core/control",
         compile_module(include_str!("./stdlib/control.gob")),
     );
-    // modules.add_init(
-    //     "core/iter",
-    //     compile_module(include_str!("./stdlib/iter.gob")),
-    // );
+    modules.add_init(
+        "core/iter",
+        compile_module(include_str!("./stdlib/iter.gob")),
+    );
     modules
 }
 
@@ -129,8 +129,8 @@ mod test {
         run(include_str!("./stdlib/control.test.gob"));
     }
 
-    // #[test]
-    // fn iter() {
-    //     run(include_str!("./stdlib/iter.test.gob"));
-    // }
+    #[test]
+    fn iter() {
+        run(include_str!("./stdlib/iter.test.gob"));
+    }
 }

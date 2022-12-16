@@ -108,10 +108,35 @@ fn build_int_class() -> Rc<Class> {
     class.add_native("to String", vec![], |target, _| {
         Ok(Value::String(Rc::new(target.as_int().to_string())))
     });
-
+    // value comparison
     class.add_native("=:", vec![Param::Value], |target, args| match &args[0] {
         Value::Integer(arg) => Ok(Value::Bool(target.as_int() == *arg)),
         _ => Ok(Value::Bool(false)),
+    });
+    // numeric comparison
+    class.add_native("<:", vec![Param::Value], |target, args| match &args[0] {
+        Value::Integer(arg) => Ok(Value::Bool(target.as_int() < *arg)),
+        _ => expected("number"),
+    });
+    class.add_native("<=:", vec![Param::Value], |target, args| match &args[0] {
+        Value::Integer(arg) => Ok(Value::Bool(target.as_int() <= *arg)),
+        _ => expected("number"),
+    });
+    class.add_native("==:", vec![Param::Value], |target, args| match &args[0] {
+        Value::Integer(arg) => Ok(Value::Bool(target.as_int() == *arg)),
+        _ => expected("number"),
+    });
+    class.add_native("<>:", vec![Param::Value], |target, args| match &args[0] {
+        Value::Integer(arg) => Ok(Value::Bool(target.as_int() != *arg)),
+        _ => expected("number"),
+    });
+    class.add_native(">=:", vec![Param::Value], |target, args| match &args[0] {
+        Value::Integer(arg) => Ok(Value::Bool(target.as_int() >= *arg)),
+        _ => expected("number"),
+    });
+    class.add_native(">:", vec![Param::Value], |target, args| match &args[0] {
+        Value::Integer(arg) => Ok(Value::Bool(target.as_int() > *arg)),
+        _ => expected("number"),
     });
 
     class.rc()

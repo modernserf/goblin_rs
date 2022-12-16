@@ -1,4 +1,4 @@
-import [_Panic_ _Log_] := "native"
+import native := "native"
 import [_Option_] := "core/option"
 import [_Control_] := "core/control"
 
@@ -36,7 +36,7 @@ export let Iter := [
     on {fold: do f}
       iterable{next}{:
         on {done}
-          Panic{: "cannot fold empty iterator"}
+          native{panic: "cannot fold empty iterator"}
         on {value: value next: next}
           next{into: value fold: f}
       }
