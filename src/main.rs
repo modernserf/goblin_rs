@@ -32,6 +32,14 @@ fn build_stdlib() -> runtime::ModuleLoader {
         "core/iter",
         compile_module(include_str!("./stdlib/iter.gob")),
     );
+    modules.add_init(
+        "core/sortable",
+        compile_module(include_str!("./stdlib/sortable.gob")),
+    );
+    modules.add_init(
+        "core/slice",
+        compile_module(include_str!("./stdlib/slice.gob")),
+    );
     modules
 }
 
@@ -132,5 +140,10 @@ mod test {
     #[test]
     fn iter() {
         run(include_str!("./stdlib/iter.test.gob"));
+    }
+
+    #[test]
+    fn slice() {
+        run(include_str!("./stdlib/slice.test.gob"));
     }
 }

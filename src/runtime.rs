@@ -1,6 +1,6 @@
-use std::{collections::HashMap, rc::Rc};
+use std::{cell::RefCell, collections::HashMap, rc::Rc};
 
-use crate::native::{bool_class, int_class, string_class};
+use crate::native::{array_class, bool_class, int_class, string_class};
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum RuntimeError {
@@ -26,6 +26,7 @@ pub enum IR {
     Bool(bool),                  // (-- value)
     Integer(i64),                // (-- value)
     String(Rc<String>),          // (-- value)
+    MutArray,                    // (-- array)
     Local(Address),              // ( -- *address)
     Var(Address),                // ( -- address)
     IVal(Index),                 // ( -- instance[index])
@@ -39,9 +40,24 @@ pub enum IR {
     Send(Selector, Arity),       // (...args target -- result)
     TrySend(Selector, Arity),    // (...args target -- result)
     SendNative(NativeFn, Arity), // (...args target -- result)
+    SendNativeMore(MoreFn),      // (...)
+    SendBool,                    // (target bool -- result)
     Drop,                        // (value --)
     Return,
     Loop,
+}
+
+#[derive(Clone)]
+pub struct MoreFn(fn(&mut Stack, &mut CallStack) -> Runtime<()>);
+impl std::fmt::Debug for MoreFn {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str("<more fn>")
+    }
+}
+impl PartialEq for MoreFn {
+    fn eq(&self, other: &Self) -> bool {
+        self.0 as usize == other.0 as usize
+    }
 }
 
 impl IR {
@@ -61,8 +77,9 @@ pub enum Value {
     Integer(i64),
     String(Rc<String>),
     Object(Rc<Class>, Instance),
-    DoObject(Rc<Class>, Instance, ParentFrameIndex),
+    DoObject(Rc<Class>, Instance, ParentFrameIndex, Box<Value>),
     Pointer(Address),
+    MutArray(Rc<RefCell<Vec<Value>>>),
 }
 
 impl Value {
@@ -84,18 +101,27 @@ impl Value {
             _ => panic!("cannot cast to string"),
         }
     }
+    pub fn as_array(self) -> Rc<RefCell<Vec<Value>>> {
+        match self {
+            Value::MutArray(arr) => arr,
+            _ => panic!("cannot cast to array"),
+        }
+    }
     fn class(&self) -> Rc<Class> {
         match self {
             Value::Integer(_) => int_class(),
             Value::String(_) => string_class(),
             Value::Bool(_) => bool_class(),
+            Value::MutArray(_) => array_class(),
             Value::Object(class, _) => class.clone(),
             _ => todo!(),
         }
     }
     fn ivals(&self) -> Instance {
         match self {
-            Value::Bool(_) | Value::Integer(_) | Value::String(_) => Rc::new(vec![]),
+            Value::Bool(_) | Value::Integer(_) | Value::String(_) | Value::MutArray(_) => {
+                Rc::new(vec![])
+            }
             Value::Object(_, ivals) => ivals.clone(),
             _ => todo!(),
         }
@@ -109,7 +135,11 @@ impl Value {
     ) -> Runtime<()> {
         match self {
             Value::Unit => Err(RuntimeError::DoesNotUnderstand(selector.to_string())),
-            Value::Bool(_) | Value::Integer(_) | Value::String(_) | Value::Object(_, _) => {
+            Value::Bool(_)
+            | Value::Integer(_)
+            | Value::String(_)
+            | Value::Object(_, _)
+            | Value::MutArray(_) => {
                 let class = self.class();
                 let handler = class.get(selector)?;
                 let local_offset = stack.size();
@@ -120,13 +150,20 @@ impl Value {
                 call_stack.call(handler, arity, local_offset, self);
                 Ok(())
             }
-            Value::DoObject(class, ivals, return_from_index) => {
+            Value::DoObject(class, ivals, return_from_index, self_value) => {
                 let handler = class.get(selector)?;
                 let local_offset = stack.size();
                 for (i, param) in handler.params.iter().enumerate() {
                     stack.check_arg(local_offset - arity + i, *param)?;
                 }
-                call_stack.call_do(handler, arity, local_offset, ivals, return_from_index);
+                call_stack.call_do(
+                    handler,
+                    arity,
+                    local_offset,
+                    ivals,
+                    return_from_index,
+                    *self_value,
+                );
                 Ok(())
             }
             Value::Pointer(_) => panic!("must deref pointer before sending message"),
@@ -259,7 +296,6 @@ impl ModuleLoader {
         }
     }
 }
-
 struct Stack {
     stack: Vec<Value>,
 }
@@ -439,12 +475,13 @@ impl CallStack {
         local_offset: usize,
         ivals: Instance,
         return_from_index: usize,
+        self_value: Value,
     ) {
         self.frames.push(Frame::Handler {
             body: handler.body.clone(),
             ip: 0,
             local_offset: local_offset - arity,
-            self_value: self.self_value(),
+            self_value,
             ivals,
             return_from_index,
         })
@@ -503,8 +540,20 @@ impl<'a> Interpreter<'a> {
     fn eval(&mut self, ir: IR) -> Runtime<()> {
         match ir {
             IR::Unit => self.stack.push(Value::Unit),
+            IR::MutArray => self
+                .stack
+                .push(Value::MutArray(Rc::new(RefCell::new(Vec::new())))),
             IR::SelfRef => self.stack.push(self.call_stack.self_value()),
             IR::Bool(value) => self.stack.push(Value::Bool(value)),
+            IR::SendBool => {
+                let bool = self.stack.pop().as_bool();
+                let target = self.stack.pop();
+                if bool {
+                    target.send("true", 0, &mut self.stack, &mut self.call_stack)?;
+                } else {
+                    target.send("false", 0, &mut self.stack, &mut self.call_stack)?;
+                }
+            }
             IR::Integer(value) => self.stack.push(Value::Integer(value)),
             IR::String(str) => self.stack.push(Value::String(str)),
             IR::Local(address) => {
@@ -534,7 +583,8 @@ impl<'a> Interpreter<'a> {
             IR::DoObject(class, arity) => {
                 let ivals = Rc::new(self.stack.take(arity));
                 let return_from_index = self.call_stack.return_from_index();
-                let value = Value::DoObject(class, ivals, return_from_index);
+                let self_value = Box::new(self.call_stack.self_value());
+                let value = Value::DoObject(class, ivals, return_from_index, self_value);
                 self.stack.push(value);
             }
             IR::Module(name) => {
@@ -571,6 +621,9 @@ impl<'a> Interpreter<'a> {
                 let args = self.stack.take(arity);
                 let result = f(target, args)?;
                 self.stack.push(result);
+            }
+            IR::SendNativeMore(f) => {
+                f.0(&mut self.stack, &mut self.call_stack)?;
             }
             IR::Return => self.call_stack.do_return(),
             IR::Loop => self.call_stack.do_loop(),

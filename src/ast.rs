@@ -3,7 +3,7 @@ use std::{cell::RefCell, collections::HashMap, rc::Rc};
 use crate::{
     compiler::{CompileIR, Compiler, IRBuilder, IVals},
     parser::{Parse, ParseError},
-    runtime::{Address, Class, Param, Selector, IR},
+    runtime::{Address, Class, Param, Selector, Value, IR},
 };
 
 #[derive(Debug, Clone, PartialEq)]
@@ -451,6 +451,15 @@ pub fn frame_class(selector: String, pairs: &Vec<(String, Expr)>) -> Rc<Class> {
         builder.push(IR::Local(0));
         builder.push(IR::Send(selector.to_string(), pairs.len()));
         builder.to_vec()
+    });
+
+    // equality
+    // TODO: is this "cheating"
+    class.add_native("=:", vec![Param::Value], |target, args| {
+        Ok(Value::Bool(target == args[0]))
+    });
+    class.add_native("!=:", vec![Param::Value], |target, args| {
+        Ok(Value::Bool(target != args[0]))
     });
 
     if pairs.len() == 0 {
