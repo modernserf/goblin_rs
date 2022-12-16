@@ -461,6 +461,18 @@ pub fn frame_class(selector: String, pairs: &Vec<(String, Expr)>) -> Rc<Class> {
                 builder.push(IR::NewSelf(pairs.len()));
                 builder.to_vec()
             });
+            // update
+            class.add_handler(
+                format!("-> {}:", &key),
+                vec![Param::Do],
+                vec![
+                    IR::IVal(i),
+                    IR::Local(0),
+                    IR::Send(":".to_string(), 1),
+                    IR::SelfRef,
+                    IR::Send(format!("{}:", &key), 1),
+                ],
+            );
         }
     }
 

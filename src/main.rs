@@ -104,10 +104,10 @@ mod test {
         run(include_str!("./stdlib/string.test.gob"));
     }
 
-    // #[test]
-    // fn frames() {
-    //     run(include_str!("./stdlib/frame.test.gob"));
-    // }
+    #[test]
+    fn frames() {
+        run(include_str!("./stdlib/frame.test.gob"));
+    }
 
     // #[test]
     // fn do_block() {

@@ -6,14 +6,8 @@ let f := [x]
 # match
 let result := f{:[
   on {x} 1
-  else 2
 ]}
 Assert{: result = 1}
-let result := f{:[
-  on {y} 1
-  else 2 
-]}
-Assert{: result = 2}
 
 # fold
 Assert{
@@ -38,23 +32,16 @@ Assert{received: f{->x: [+: 10]} expected: [x: 11 y: 2]}
 let result := f{:[
   on {x: x y: y}
     x + y
-  else 0
 ]}
 Assert{: result = 3}
 
 # utilities
 
-# equality
-Assert{: [x] = [x]}
-Assert{: [x] != [y]}
-Assert{: [x] != [x: 1]}
-Assert{: [x] != ()}
-Assert{: [x: 1 y: 2] = [x: 1 y: 2]}
-Assert{: [x: 1 y: 2] != [x: 1 y: 2 z: 3]}
-Assert{: [x: 1 y: 2] != [x: 1]}
-Assert{: [x: 1 y: 2] != [x: 1 y: 3]}
-Assert{: [x: ()] != [x: 1]}
-# TODO: how could this not panic?
-Assert{panics: [{} 
-  [x: 1] != [x: ()]
-]}
+# # equality
+# Assert{: [x] = [x]}
+# Assert{: [x] != [y]}
+# Assert{: [x] != [x: 1]}
+# Assert{: [x: 1 y: 2] = [x: 1 y: 2]}
+# Assert{: [x: 1 y: 2] != [x: 1 y: 2 z: 3]}
+# Assert{: [x: 1 y: 2] != [x: 1]}
+# Assert{: [x: 1 y: 2] != [x: 1 y: 3]}
