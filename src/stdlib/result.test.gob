@@ -1,12 +1,22 @@
-import [_Assert_] := "core"
-import [_Result_] := "core/result"
+import [_Assert_ _Result_ _Option_] := "core"
 
-Assert{: Result{ok: 1}{ok!} = 1}
-Assert{: Result{error: [foo]}{error!} = [foo]}
+Assert{received: Result{ok: 1}{ok!}       expected: 1}
+Assert{received: Result{error: 2}{error!} expected: 2}
 Assert{: Result{ok: 1}{is ok}}
-Assert{: Result{error: [foo]}{is error}}
+Assert{: Result{error: 2}{is error}}
 
-Assert{: Result{ok: 1}{map: [+: 1]}{ok!} = 2}
-Assert{: Result{error: [foo]}{map: [+: 1]}{error!} = [foo]}
-Assert{: Result{ok: 1}{map error: [+: 1]}{ok!} = 1}
-Assert{: Result{error: [foo]}{map error: {: __} [bar]}{error!} = [bar]}
+Assert{received: Result{ok: 1}{to Option}     expected: Option{some: 1}}
+Assert{received: Result{error: 1}{to Option}  expected: Option{none}}
+
+Assert{
+  received: Result{ok: 1}{map: [+: 1]}{ok!} 
+  expected: 2}
+Assert{
+  received: Result{error: 2}{map: [+: 1]}{error!} 
+  expected: 2}
+Assert{
+  received: Result{ok: 1}{map error: [+: 1]}{ok!} 
+  expected: 1}
+Assert{
+  received: Result{error: 2}{map error: [+: 1]}{error!} 
+  expected: 3}
