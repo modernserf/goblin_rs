@@ -99,10 +99,10 @@ mod test {
         run(include_str!("./stdlib/option.test.gob"));
     }
 
-    // #[test]
-    // fn strings() {
-    //     run(include_str!("./stdlib/string.test.gob"));
-    // }
+    #[test]
+    fn strings() {
+        run(include_str!("./stdlib/string.test.gob"));
+    }
 
     // #[test]
     // fn frames() {

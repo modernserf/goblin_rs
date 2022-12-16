@@ -7,6 +7,11 @@ export let Assert := [
     native{expected: true received: value}
 ]
 
+export let String := [
+  on {from char code: code}
+    native{string from char code: code}
+]
+
 export import [_Ord_] := "core/ord"
 export import [_Option_] := "core/option"
 export import [_Result_] := "core/result"

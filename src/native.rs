@@ -6,6 +6,19 @@ fn expected<T>(t: &str) -> Runtime<T> {
     Err(RuntimeError::ExpectedType(t.to_string()))
 }
 
+fn at_wrap(length: Value, args: Vec<Value>) -> Runtime<Value> {
+    let length = length.as_int();
+    match &args[0] {
+        Value::Integer(at) => {
+            if length == 0 || *at < -length || *at >= length {
+                return Err(RuntimeError::Panic("index out of range".to_string()));
+            }
+            Ok(Value::Integer(at.rem_euclid(length)))
+        }
+        _ => expected("integer"),
+    }
+}
+
 fn build_bool_class() -> Rc<Class> {
     let send_true = {
         let mut class = Class::new();
@@ -106,6 +119,10 @@ fn build_int_class() -> Rc<Class> {
 
 fn build_string_class() -> Rc<Class> {
     let mut class = Class::new();
+    class.add_native("length", vec![], |target, _| {
+        Ok(Value::Integer(target.as_string().len() as i64))
+    });
+
     class.add_handler(
         "++:".to_string(),
         vec![Param::Value],
@@ -121,6 +138,53 @@ fn build_string_class() -> Rc<Class> {
                         str
                     )))),
                     _ => expected("string"),
+                },
+                1,
+            ),
+        ],
+    );
+
+    class.add_native("=:", vec![Param::Value], |target, args| match &args[0] {
+        Value::String(arg) => Ok(Value::Bool(target.as_string() == *arg)),
+        _ => Ok(Value::Bool(false)),
+    });
+    class.add_native("!=:", vec![Param::Value], |target, args| match &args[0] {
+        Value::String(arg) => Ok(Value::Bool(target.as_string() != *arg)),
+        _ => Ok(Value::Bool(true)),
+    });
+
+    fn code_at_unchecked(target: Value, mut args: Vec<Value>) -> Runtime<Value> {
+        let idx = args.pop().unwrap().as_int();
+        let ch = target.as_string().chars().nth(idx as usize).unwrap();
+        Ok(Value::Integer(ch as i64))
+    }
+
+    class.add_handler(
+        "code at:".to_string(),
+        vec![Param::Value],
+        vec![
+            IR::Local(0),
+            IR::SelfRef,
+            IR::Send("length".to_string(), 0),
+            IR::SendNative(at_wrap, 1),
+            IR::SelfRef,
+            IR::SendNative(code_at_unchecked, 1),
+        ],
+    );
+    class.add_handler(
+        "at:".to_string(),
+        vec![Param::Value],
+        vec![
+            IR::Local(0),
+            IR::SelfRef,
+            IR::Send("length".to_string(), 0),
+            IR::SendNative(at_wrap, 1),
+            IR::SelfRef,
+            IR::SendNative(
+                |target, mut args| {
+                    let idx = args.pop().unwrap().as_int();
+                    let ch = target.as_string().chars().nth(idx as usize).unwrap();
+                    Ok(Value::String(Rc::new(ch.to_string())))
                 },
                 1,
             ),
@@ -159,6 +223,19 @@ fn build_native_module() -> Rc<Class> {
         "loop:".to_string(),
         vec![Param::Do],
         vec![IR::Local(0), IR::Send("".to_string(), 0), IR::Loop],
+    );
+    class.add_handler(
+        "string from char code:".to_string(),
+        vec![Param::Value],
+        vec![IR::SendNative(
+            |code, _| match code {
+                Value::Integer(int) => Ok(Value::String(Rc::new(
+                    char::from_u32(int as u32).unwrap().to_string(),
+                ))),
+                _ => expected("integer"),
+            },
+            0,
+        )],
     );
     class.rc()
 }
