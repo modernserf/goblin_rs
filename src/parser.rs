@@ -261,12 +261,11 @@ impl Parser {
                     _ => Err(ParseError::Expected("else | end".to_string())),
                 }
             }
-            // TODO: blocks & unit
             Token::OpenParen => {
                 self.advance();
-                let expr = expect("expr", self.expr())?;
+                let body = self.body()?;
                 self.expect_token(Token::CloseParen)?;
-                Ok(Some(expr))
+                Ok(Some(Expr::Paren(body)))
             }
             _ => Ok(None),
         }

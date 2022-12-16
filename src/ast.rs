@@ -208,6 +208,7 @@ pub enum Expr {
     DoArg(Object),
     Frame(Selector, Vec<(String, Expr)>),
     If(Box<Expr>, Vec<Stmt>, Vec<Stmt>),
+    Paren(Vec<Stmt>),
 }
 
 impl Expr {
@@ -278,6 +279,26 @@ impl Expr {
                 })],
             )
             .compile(compiler),
+            Self::Paren(body) => {
+                if body.is_empty() {
+                    return Ok(IRBuilder::from(vec![IR::Unit]));
+                }
+                if body.len() == 1 {
+                    if let Stmt::Expr(expr) = &body[0] {
+                        return expr.clone().compile(compiler);
+                    }
+                }
+                Self::Send(
+                    "".to_string(),
+                    Box::new({
+                        let mut obj = Object::new();
+                        obj.add_handler("".to_string(), vec![], body).unwrap();
+                        Expr::DoArg(obj)
+                    }),
+                    vec![],
+                )
+                .compile(compiler)
+            }
             Self::VarArg(_) => unreachable!(),
             Self::DoArg(_) => unreachable!(),
         }

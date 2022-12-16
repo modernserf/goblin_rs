@@ -14,9 +14,10 @@ export let Control := [
   on {: do f}
     native{loop: {}
       f{while}{:
-        on {true} f{do: 0} ? f{do}
+        on {true} f{do: ()} ? f{do}
         on {false} return
-        on {some: value} f{do: value} ? f{do}
+        on {some: value} f
+        {do: value} ? f{do}
         on {none} return 
         on {ok: value} f{do: value} ? f{do}
         on {error: err} return err
