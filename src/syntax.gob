@@ -44,3 +44,5 @@ if false then 123 else if true then 456 else 789 end
 let x := 123{unknown} ? 456
 
 let str := "Hello, " ++ 123 ++ " world"
+
+let obj := [{} 1]{}

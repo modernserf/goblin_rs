@@ -139,6 +139,13 @@ impl Parser {
 
     fn object_body(&mut self) -> Parse<Object> {
         let mut object = Object::new();
+        // single handler shorthand
+        if let Token::OpenBrace = self.peek() {
+            // brace consumed by handler
+            self.handler(&mut object)?;
+            return Ok(object);
+        }
+
         loop {
             match self.peek() {
                 Token::On => {
@@ -202,7 +209,7 @@ impl Parser {
             Token::OpenBracket => {
                 self.advance();
                 match self.peek() {
-                    Token::On => {
+                    Token::On | Token::OpenBrace => {
                         let object = self.object_body()?;
                         self.expect_token(Token::CloseBracket)?;
                         return Ok(Some(Expr::Object(object)));
@@ -335,7 +342,7 @@ impl Parser {
                 }
                 return Err(ParseError::Expected("var".to_string()));
             }
-            Token::On => {
+            Token::On | Token::OpenBrace => {
                 // object_body accepts On tokens
                 let object = self.object_body()?;
                 return Ok(Expr::DoArg(object));
