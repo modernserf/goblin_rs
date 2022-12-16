@@ -80,6 +80,10 @@ fn build_int_class() -> Rc<Class> {
         Value::Integer(arg) => Ok(Value::Integer(target.as_int() - *arg)),
         _ => expected("number"),
     });
+    class.add_native("*:", vec![Param::Value], |target, args| match &args[0] {
+        Value::Integer(arg) => Ok(Value::Integer(target.as_int() * *arg)),
+        _ => expected("number"),
+    });
     class.add_native("%:", vec![Param::Value], |target, args| match &args[0] {
         Value::Integer(arg) => Ok(Value::Integer(target.as_int().rem_euclid(*arg))),
         _ => expected("number"),

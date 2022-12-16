@@ -40,6 +40,7 @@ fn build_stdlib() -> runtime::ModuleLoader {
         "core/slice",
         compile_module(include_str!("./stdlib/slice.gob")),
     );
+    modules.add_init("parse", compile_module(include_str!("./stdlib/parse.gob")));
     modules
 }
 
@@ -145,5 +146,10 @@ mod test {
     #[test]
     fn slice() {
         run(include_str!("./stdlib/slice.test.gob"));
+    }
+
+    #[test]
+    fn parse() {
+        run(include_str!("./stdlib/parse.test.gob"));
     }
 }

@@ -121,6 +121,7 @@ impl BindingRecord {
     fn var_arg(self, key: String) -> CompileIR {
         let ir = match self {
             Self::Var(address) => IR::Local(address),
+            Self::VarIVal(index) => IR::IVal(index),
             _ => return Err(CompileError::InvalidVarArg(key)),
         };
         Ok(IRBuilder::from(vec![ir]))

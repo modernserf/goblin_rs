@@ -76,7 +76,7 @@ fn is_operator(ch: char) -> bool {
 
 thread_local! {
   static KEYWORD_TOKENS: KeywordTokens = keyword_tokens();
-  static OPERATORS: HashSet<char> = HashSet::from_iter("~!@$%^&*-+=|/,<>".chars());
+  static OPERATORS: HashSet<char> = HashSet::from_iter("~!@$%^&*-+=|/.,<>".chars());
 }
 
 impl Token {

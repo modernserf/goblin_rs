@@ -1,0 +1,57 @@
+import [_Result_ _Assert_ _Slice_] := "core"
+import [_Parser_] := "parse"
+
+Assert{
+  received: Parser{parse: "" with: Parser{end}}
+  expected: Result{ok: ()}
+}
+Assert{
+  received: Parser{parse: "h" with: Parser{token: "h"}}
+  expected: Result{ok: "h"}
+}
+Assert{
+  received: Parser{parse: Slice{}, 3 with: Parser{match: [>: 1]}}
+  expected: Result{ok: 3}
+}
+Assert{
+  received: Parser{parse: Slice{}, 0 with: Parser{match: [>: 1]}}
+  expected: Result{error: [expected: [match: [>: 1]] received: 0]}
+}
+Assert{
+  received: Parser{parse: "1" with: Parser{digit}}
+  expected: Result{ok: 1}
+}
+Assert{
+  received: Parser{parse: "c" with: Parser{digit}}
+  expected: Result{error: [expected: [digit] received: "c"]}
+}
+Assert{
+  received: Parser{parse: "123" with: Parser{integer}}
+  expected: Result{ok: 123}
+}
+Assert{
+  received: Parser{parse: "123" with: Parser{integer} |>> [*: 2]}
+  expected: Result{ok: 246}
+}
+Assert{
+  received: Parser{parse: "123,45" with: Parser{integer} .>> Parser{token: ","} .>>. Parser{integer}}
+  expected: Result{ok: [0: 123 1: 45]}
+}
+
+Assert{
+  received: Parser{parse: "a" with: Parser{token: "a"} | Parser{token: "b"}}
+  expected: Result{ok: "a"}
+}
+Assert{
+  received: Parser{parse: "b" with: Parser{token: "a"} | Parser{token: "b"}}
+  expected: Result{ok: "b"}
+}
+
+Assert{
+  received: Parser{parse: "hello" with: Parser{string: "hello"}}
+  expected: Result{ok: "hello"}
+}
+# Assert{
+#   received: Parser{parse: "help me" with: Parser{string: "hello"}}
+#   expected: Result{error: [expected: [string: "hello"] received: "help"]}
+# }
