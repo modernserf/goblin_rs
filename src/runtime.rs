@@ -40,6 +40,7 @@ pub enum IR {
     SendNative(NativeFn, Arity), // (...args target -- result)
     Drop,                        // (value --)
     Return,
+    Loop,
 }
 
 type Body = Rc<Vec<IR>>;
@@ -94,29 +95,7 @@ impl Value {
     ) -> Runtime<()> {
         match self {
             Value::Unit => Err(RuntimeError::DoesNotUnderstand(selector.to_string())),
-            Value::Integer(_) => {
-                let class = int_class();
-                let handler = class.get(selector)?;
-                let local_offset = stack.size();
-                for (i, param) in handler.params.iter().enumerate() {
-                    stack.check_arg(local_offset - arity + i, *param)?;
-                }
-
-                call_stack.call(handler, arity, local_offset, self);
-                Ok(())
-            }
-            Value::String(_) => {
-                let class = string_class();
-                let handler = class.get(selector)?;
-                let local_offset = stack.size();
-                for (i, param) in handler.params.iter().enumerate() {
-                    stack.check_arg(local_offset - arity + i, *param)?;
-                }
-
-                call_stack.call(handler, arity, local_offset, self);
-                Ok(())
-            }
-            Value::Object(_, _) => {
+            Value::Integer(_) | Value::String(_) | Value::Object(_, _) => {
                 let class = self.class();
                 let handler = class.get(selector)?;
                 let local_offset = stack.size();
@@ -375,6 +354,12 @@ impl Frame {
             } => *return_from_index,
         }
     }
+    fn do_loop(&mut self) {
+        match self {
+            Frame::Root { ip, .. } => *ip = 0,
+            Frame::Handler { ip, .. } => *ip = 0,
+        }
+    }
 }
 
 enum NextState {
@@ -462,6 +447,9 @@ impl CallStack {
     }
     fn do_return(&mut self) {
         self.next_state = NextState::Return
+    }
+    fn do_loop(&mut self) {
+        self.top_mut().do_loop()
     }
 }
 
@@ -571,6 +559,7 @@ impl<'a> Interpreter<'a> {
                 self.stack.push(result);
             }
             IR::Return => self.call_stack.do_return(),
+            IR::Loop => self.call_stack.do_loop(),
             IR::Drop => {
                 self.stack.pop();
             }

@@ -74,6 +74,11 @@ fn build_native_module() -> Rc<Class> {
             ),
         ],
     );
+    class.add_handler(
+        "loop:".to_string(),
+        vec![Param::Do],
+        vec![IR::Local(0), IR::Send("".to_string(), 0), IR::Loop],
+    );
     class.rc()
 }
 
