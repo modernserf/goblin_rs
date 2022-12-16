@@ -20,10 +20,10 @@ fn build_stdlib() -> runtime::ModuleLoader {
         compile_module(include_str!("./stdlib/bool.gob")),
     );
     modules.add_init("core/ord", compile_module(include_str!("./stdlib/ord.gob")));
-    // modules.add_init(
-    //     "core/option",
-    //     compile_module(include_str!("./stdlib/option.gob")),
-    // );
+    modules.add_init(
+        "core/option",
+        compile_module(include_str!("./stdlib/option.gob")),
+    );
     // modules.add_init(
     //     "core/result",
     //     compile_module(include_str!("./stdlib/result.gob")),
@@ -116,10 +116,10 @@ mod test {
     //     run(include_str!("./stdlib/do_block.test.gob"));
     // }
 
-    // #[test]
-    // fn option() {
-    //     run(include_str!("./stdlib/option.test.gob"));
-    // }
+    #[test]
+    fn option() {
+        run(include_str!("./stdlib/option.test.gob"));
+    }
 
     // #[test]
     // fn result() {

@@ -1,11 +1,10 @@
-import [_Panic_ _true_ _false_] := "native"
+import [_true_ _false_] := "core/bool"
 import [_Ord_] := "core/ord"
 
 export let Option := [
   on {some: value} [
     on {: do f} f{some: value}
     on {some!} value
-    on {some!: __} value
     on {is some} true
     on {is none} false
     on {map: do f} Option{some: f{: value}}
@@ -13,61 +12,15 @@ export let Option := [
     on {chain none: do f} self
     on {or: default} value
     on {or do: do f} value
-    on {=: other} other{:
-      on {some: x} x = value
-      else false
-    }
-    on {!=: other} !(self = other)
-    # 'dynamic' boolean logic, does not check other operand
-    on {&&: other} other
-    on {||: other} self
-    # ordering {none} < any {some: value}
-    on {order: other}
-      other{:
-        on {some: x}
-          value{order: x}
-        on {none}
-          Ord{>}
-      }
-    on {<: val}   <self{order: val}
-    on {<=: val} <=self{order: val}
-    on {>=: val} >=self{order: val}
-    on {>: val}   >self{order: val}
-    on {to Result}
-      import [_Result_] := "core/result"
-      Result{ok: value}
   ]
   on {none} [
     on {: do f} f{none}
-    on {some!} Panic{: "unwrapped a none value"}
-    on {some!: message} Panic{: message} 
     on {is some} false
     on {is none} true
     on {map: do f} self
     on {chain: do f} self
     on {chain none: do f} f{}
     on {or: default} default
-    on {or do: do f} f{}
-    on {=: other} other{:
-      on {none} true
-      else false
-    }
-    on {!=: other} !(self = other)
-    on {&&: other} self
-    on {||: other} other
-    on {order: other}
-      other{:
-        on {some: __}
-          Ord{<}
-        on {none}
-          Ord{==}
-      }
-    on {<: val}   <self{order: val}
-    on {<=: val} <=self{order: val}
-    on {>=: val} >=self{order: val}
-    on {>: val}   >self{order: val}
-    on {to Result}
-      import [_Result_] := "core/result"
-      Result{error: ()}
+    on {or do: do f} f{}    
   ]
 ]
