@@ -22,19 +22,19 @@ fn at_wrap(length: Value, args: Vec<Value>) -> Runtime<Value> {
 fn build_bool_class() -> Rc<Class> {
     let send_true = {
         let mut class = Class::new();
-        class.add_handler(
-            ":".to_string(),
+        class.add(
+            ":",
             vec![Param::Do],
-            vec![IR::Local(0), IR::Send("true".to_string(), 0)],
+            vec![IR::Local(0), IR::send("true", 0)],
         );
         IR::Object(class.rc(), 0)
     };
     let send_false = {
         let mut class = Class::new();
-        class.add_handler(
-            ":".to_string(),
+        class.add(
+            ":",
             vec![Param::Do],
-            vec![IR::Local(0), IR::Send("false".to_string(), 0)],
+            vec![IR::Local(0), IR::send("false", 0)],
         );
         IR::Object(class.rc(), 0)
     };
@@ -70,26 +70,26 @@ fn build_bool_class() -> Rc<Class> {
         Value::Bool(arg) => Ok(Value::Bool(target.as_bool() == *arg)),
         _ => Ok(Value::Bool(false)),
     });
-    class.add_handler(
-        "!=:".to_string(),
+    class.add(
+        "!=:",
         vec![Param::Value],
         vec![
             IR::Local(0),
             IR::SelfRef,
-            IR::Send("=:".to_string(), 1),
-            IR::Send("!".to_string(), 0),
+            IR::send("=:", 1),
+            IR::send("!", 0),
         ],
     );
-    class.add_handler(
-        ":".to_string(),
+    class.add(
+        ":",
         vec![Param::Do],
         vec![
             IR::Local(0),
             send_false,
             send_true,
             IR::SelfRef,
-            IR::Send("false:true:".to_string(), 2),
-            IR::Send(":".to_string(), 1),
+            IR::send("false:true:", 2),
+            IR::send(":", 1),
         ],
     );
     class.rc()
@@ -123,12 +123,12 @@ fn build_string_class() -> Rc<Class> {
         Ok(Value::Integer(target.as_string().len() as i64))
     });
 
-    class.add_handler(
-        "++:".to_string(),
+    class.add(
+        "++:",
         vec![Param::Value],
         vec![
             IR::Local(0),
-            IR::Send("to String".to_string(), 0),
+            IR::send("to String", 0),
             IR::SelfRef,
             IR::SendNative(
                 |target, args| match &args[0] {
@@ -159,25 +159,25 @@ fn build_string_class() -> Rc<Class> {
         Ok(Value::Integer(ch as i64))
     }
 
-    class.add_handler(
-        "code at:".to_string(),
+    class.add(
+        "code at:",
         vec![Param::Value],
         vec![
             IR::Local(0),
             IR::SelfRef,
-            IR::Send("length".to_string(), 0),
+            IR::send("length", 0),
             IR::SendNative(at_wrap, 1),
             IR::SelfRef,
             IR::SendNative(code_at_unchecked, 1),
         ],
     );
-    class.add_handler(
-        "at:".to_string(),
+    class.add(
+        "at:",
         vec![Param::Value],
         vec![
             IR::Local(0),
             IR::SelfRef,
-            IR::Send("length".to_string(), 0),
+            IR::send("length", 0),
             IR::SendNative(at_wrap, 1),
             IR::SelfRef,
             IR::SendNative(
@@ -191,15 +191,15 @@ fn build_string_class() -> Rc<Class> {
         ],
     );
 
-    class.add_handler("to String".to_string(), vec![], vec![IR::SelfRef]);
+    class.add("to String", vec![], vec![IR::SelfRef]);
 
     class.rc()
 }
 
 fn build_native_module() -> Rc<Class> {
     let mut class = Class::new();
-    class.add_handler(
-        "expected:received:".to_string(),
+    class.add(
+        "expected:received:",
         vec![Param::Value, Param::Value],
         vec![
             IR::Local(0),
@@ -219,13 +219,13 @@ fn build_native_module() -> Rc<Class> {
             ),
         ],
     );
-    class.add_handler(
-        "loop:".to_string(),
+    class.add(
+        "loop:",
         vec![Param::Do],
-        vec![IR::Local(0), IR::Send("".to_string(), 0), IR::Loop],
+        vec![IR::Local(0), IR::send("", 0), IR::Loop],
     );
-    class.add_handler(
-        "string from char code:".to_string(),
+    class.add(
+        "string from char code:",
         vec![Param::Value],
         vec![IR::SendNative(
             |code, _| match code {

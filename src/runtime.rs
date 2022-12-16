@@ -44,6 +44,12 @@ pub enum IR {
     Loop,
 }
 
+impl IR {
+    pub fn send(selector: &str, arity: usize) -> Self {
+        Self::Send(selector.to_string(), arity)
+    }
+}
+
 type Body = Rc<Vec<IR>>;
 type Instance = Rc<Vec<Value>>;
 type ParentFrameIndex = usize;
@@ -151,7 +157,6 @@ impl Class {
             handlers: HashMap::new(),
         }
     }
-    #[cfg(test)]
     pub fn add(&mut self, selector: &str, params: Vec<Param>, body: Vec<IR>) {
         self.add_handler(selector.to_string(), params, body)
     }
@@ -592,7 +597,7 @@ mod test {
     }
 
     fn add() -> IR {
-        IR::Send("+:".to_string(), 1)
+        IR::send("+:", 1)
     }
 
     #[test]
@@ -606,7 +611,7 @@ mod test {
     #[test]
     fn does_not_understand() {
         assert_err(
-            vec![IR::Integer(1), IR::Send("foobar".to_string(), 0)],
+            vec![IR::Integer(1), IR::send("foobar", 0)],
             RuntimeError::DoesNotUnderstand("foobar".to_string()),
         )
     }
@@ -663,10 +668,7 @@ mod test {
     fn object_does_not_understand() {
         let empty_class = Class::new().rc();
         assert_err(
-            vec![
-                IR::Object(empty_class, 0),
-                IR::Send("foobar".to_string(), 0),
-            ],
+            vec![IR::Object(empty_class, 0), IR::send("foobar", 0)],
             RuntimeError::DoesNotUnderstand("foobar".to_string()),
         )
     }
@@ -683,9 +685,9 @@ mod test {
             vec![
                 IR::Object(record, 0), // 0
                 IR::Local(0),
-                IR::Send("x".to_string(), 0),
+                IR::send("x", 0),
                 IR::Local(0),
-                IR::Send("y".to_string(), 0),
+                IR::send("y", 0),
                 add(),
             ],
             Value::Integer(3),
@@ -715,7 +717,7 @@ mod test {
                 IR::Integer(420),   // 1
                 IR::Object(foo, 0), // 2
                 IR::Local(2),
-                IR::Send("foo".to_string(), 0),
+                IR::send("foo", 0),
             ],
             Value::Integer(223),
         )
@@ -749,7 +751,7 @@ mod test {
                 IR::Integer(420),   // 1
                 IR::Object(foo, 0), // 2
                 IR::Local(2),
-                IR::Send("foo".to_string(), 0),
+                IR::send("foo", 0),
             ],
             Value::Integer(323),
         )
@@ -780,7 +782,7 @@ mod test {
                 IR::Object(double_then_add_10, 0), // $1
                 IR::Local(0),
                 IR::Local(1),
-                IR::Send("foo:".to_string(), 1), // $1{foo: $0}
+                IR::send("foo:", 1), // $1{foo: $0}
             ],
             Value::Integer(110),
         )
@@ -812,7 +814,7 @@ mod test {
                 IR::Object(double_then_add_10, 0), // $1
                 IR::Local(0),
                 IR::Local(1),
-                IR::Send("foo:".to_string(), 1), // $2 = $1{foo: $0}
+                IR::send("foo:", 1), // $2 = $1{foo: $0}
                 IR::Local(2),
             ],
             Value::Integer(110),
@@ -846,7 +848,7 @@ mod test {
                 IR::Integer(100),                 // $1
                 IR::Var(1),
                 IR::Local(0),
-                IR::Send("foo:".to_string(), 1), // $0{foo: var $1}
+                IR::send("foo:", 1), // $0{foo: var $1}
                 IR::Local(1),
             ],
             Value::Integer(110),
@@ -871,9 +873,9 @@ mod test {
                 IR::Integer(4),
                 IR::Object(pair, 2), // $1 = [x: 3 y: 4]
                 IR::Local(0),
-                IR::Send("x".to_string(), 0),
+                IR::send("x", 0),
                 IR::Local(1),
-                IR::Send("y".to_string(), 0),
+                IR::send("y", 0),
                 add(), // $0{x} + $1{y}
             ],
             Value::Integer(5),
@@ -908,7 +910,7 @@ mod test {
                 ), // $1
                 IR::Integer(20),
                 IR::Local(1),
-                IR::Send("add to var:".to_string(), 1),
+                IR::send("add to var:", 1),
                 IR::Local(0),
             ],
             Value::Integer(120),
@@ -934,11 +936,7 @@ mod test {
             class.rc()
         };
         assert_ok(
-            vec![
-                IR::Integer(3),
-                IR::Object(obj, 0),
-                IR::Send("add 10:".to_string(), 1),
-            ],
+            vec![IR::Integer(3), IR::Object(obj, 0), IR::send("add 10:", 1)],
             Value::Integer(13),
         );
     }
@@ -992,7 +990,7 @@ mod test {
                                             vec![
                                                 IR::Integer(50),
                                                 IR::Local(0),
-                                                IR::Send("some:".to_string(), 1),
+                                                IR::send("some:", 1),
                                                 // unreachable if do block returns early
                                                 IR::Integer(456),
                                             ],
@@ -1021,7 +1019,7 @@ mod test {
                                     0,
                                 ),
                                 IR::Local(0),
-                                IR::Send("match:".to_string(), 1),
+                                IR::send("match:", 1),
                                 // unreachable if match do arg returns early
                                 IR::Integer(789),
                             ],
@@ -1030,7 +1028,7 @@ mod test {
                     },
                     0,
                 ),
-                IR::Send("run".to_string(), 0),
+                IR::send("run", 0),
             ],
             Value::Integer(100),
         );
@@ -1049,7 +1047,7 @@ mod test {
                     },
                     0,
                 ),
-                IR::Send("foo:".to_string(), 1),
+                IR::send("foo:", 1),
             ],
             RuntimeError::ExpectedVarArg,
         );
@@ -1064,7 +1062,7 @@ mod test {
                     },
                     0,
                 ),
-                IR::Send("foo:".to_string(), 1),
+                IR::send("foo:", 1),
             ],
             RuntimeError::DidNotExpectDoArg,
         );
@@ -1088,7 +1086,7 @@ mod test {
                 IR::Object(class.clone(), 1),
                 IR::Integer(456),
                 IR::Local(0),
-                IR::Send("value:".to_string(), 1),
+                IR::send("value:", 1),
             ],
             Value::Object(class.clone(), Rc::new(vec![Value::Integer(456)])),
         )
@@ -1099,16 +1097,12 @@ mod test {
         let class = {
             let mut class = Class::new();
             class.add("x", vec![], vec![IR::Integer(123)]);
-            class.add(
-                "x1",
-                vec![],
-                vec![IR::SelfRef, IR::Send("x".to_string(), 0)],
-            );
+            class.add("x1", vec![], vec![IR::SelfRef, IR::send("x", 0)]);
             class.rc()
         };
 
         assert_ok(
-            vec![IR::Object(class, 0), IR::Send("x1".to_string(), 0)],
+            vec![IR::Object(class, 0), IR::send("x1", 0)],
             Value::Integer(123),
         )
     }

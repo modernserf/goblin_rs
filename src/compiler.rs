@@ -14,6 +14,7 @@ pub enum CompileError {
     DuplicateExport(String),
     InvalidExport(String),
 }
+
 pub type Compile<T> = Result<T, CompileError>;
 pub type CompileIR = Compile<IRBuilder>;
 
@@ -487,11 +488,7 @@ mod test {
     fn send_values() {
         assert_ok(
             vec![Stmt::Expr(send(int(123), "+:", vec![int(456)]))],
-            vec![
-                IR::Integer(456),
-                IR::Integer(123),
-                IR::Send("+:".to_string(), 1),
-            ],
+            vec![IR::Integer(456), IR::Integer(123), IR::send("+:", 1)],
         );
     }
 
@@ -608,7 +605,7 @@ mod test {
                                 IR::Integer(789),
                                 IR::Local(1),
                                 IR::Local(0),
-                                IR::Send("+:".to_string(), 1),
+                                IR::send("+:", 1),
                             ],
                         );
 
@@ -644,7 +641,7 @@ mod test {
                         class.add(
                             "handler:",
                             vec![Param::Value],
-                            vec![IR::Local(0), IR::IVal(0), IR::Send("+:".to_string(), 1)],
+                            vec![IR::Local(0), IR::IVal(0), IR::send("+:", 1)],
                         );
                         class.rc()
                     },
@@ -698,7 +695,7 @@ mod test {
                         class.add(
                             "handler:",
                             vec![Param::Value],
-                            vec![IR::Local(0), IR::IVal(0), IR::Send("+:".to_string(), 1)],
+                            vec![IR::Local(0), IR::IVal(0), IR::send("+:", 1)],
                         );
                         class.add("other", vec![], vec![IR::IVal(0)]);
 
@@ -753,7 +750,7 @@ mod test {
                 IR::Var(1),
                 IR::Local(2),
                 IR::Local(0),
-                IR::Send("handler:".to_string(), 1),
+                IR::send("handler:", 1),
                 IR::Drop,
                 IR::Local(2),
                 IR::Deref,
@@ -819,17 +816,13 @@ mod test {
                 IR::Object(
                     {
                         let mut class = Class::new();
-                        class.add(
-                            ":",
-                            vec![Param::Do],
-                            vec![IR::Local(0), IR::Send("foo".to_string(), 0)],
-                        );
+                        class.add(":", vec![Param::Do], vec![IR::Local(0), IR::send("foo", 0)]);
 
                         class.rc()
                     },
                     0,
                 ),
-                IR::Send(":".to_string(), 1),
+                IR::send(":", 1),
             ],
         )
     }
@@ -876,17 +869,13 @@ mod test {
                 IR::Object(
                     {
                         let mut class = Class::new();
-                        class.add(
-                            ":",
-                            vec![Param::Do],
-                            vec![IR::Local(0), IR::Send("foo".to_string(), 0)],
-                        );
+                        class.add(":", vec![Param::Do], vec![IR::Local(0), IR::send("foo", 0)]);
 
                         class.rc()
                     },
                     0,
                 ),
-                IR::Send(":".to_string(), 1),
+                IR::send(":", 1),
             ],
         )
     }
@@ -942,17 +931,13 @@ mod test {
                             IR::DoObject(
                                 {
                                     let mut class = Class::new();
-                                    class.add(
-                                        "foo",
-                                        vec![],
-                                        vec![IR::IVal(0), IR::Send("foo".to_string(), 0)],
-                                    );
+                                    class.add("foo", vec![], vec![IR::IVal(0), IR::send("foo", 0)]);
                                     class.rc()
                                 },
                                 1,
                             ),
                             IR::Object(Class::new().rc(), 0),
-                            IR::Send(":".to_string(), 1),
+                            IR::send(":", 1),
                         ],
                     );
                     class.rc()
@@ -1020,12 +1005,7 @@ mod test {
                 ),
                 Stmt::Expr(ident("x")),
             ],
-            vec![
-                IR::Unit,
-                IR::Local(0),
-                IR::Send("get x".to_string(), 0),
-                IR::Local(1),
-            ],
+            vec![IR::Unit, IR::Local(0), IR::send("get x", 0), IR::Local(1)],
         )
     }
 
@@ -1050,7 +1030,7 @@ mod test {
                     class.add(
                         "foo:",
                         vec![Param::Value],
-                        vec![IR::Local(0), IR::Send("get x".to_string(), 0), IR::Local(1)],
+                        vec![IR::Local(0), IR::send("get x", 0), IR::Local(1)],
                     );
 
                     class.rc()
@@ -1083,7 +1063,7 @@ mod test {
                         class.add(
                             "x",
                             vec![],
-                            vec![IR::SelfRef, IR::Local(0), IR::Send("x".to_string(), 0)],
+                            vec![IR::SelfRef, IR::Local(0), IR::send("x", 0)],
                         );
                         class.rc()
                     },

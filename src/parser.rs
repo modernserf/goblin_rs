@@ -13,13 +13,19 @@ pub enum ParseError {
     MixedKeyPair(String),
 }
 
+impl ParseError {
+    pub fn expected(str: &str) -> Self {
+        Self::Expected(str.to_string())
+    }
+}
+
 pub type Parse<T> = Result<T, ParseError>;
 pub type ParseOpt<T> = Result<Option<T>, ParseError>;
 
 fn expect<T>(name: &str, value: ParseOpt<T>) -> Parse<T> {
     match value {
         Ok(Some(value)) => Ok(value),
-        _ => Err(ParseError::Expected(name.to_string())),
+        _ => Err(ParseError::expected(name)),
     }
 }
 
@@ -258,7 +264,7 @@ impl Parser {
                             }
                         }
                     }
-                    _ => Err(ParseError::Expected("else | end".to_string())),
+                    _ => Err(ParseError::expected("else | end")),
                 }
             }
             Token::OpenParen => {
@@ -316,7 +322,7 @@ impl Parser {
                             let or_else = expect("expr", self.unary_op_expr())?;
                             left = Expr::TrySend(selector, target, args, Box::new(or_else));
                         } else {
-                            return Err(ParseError::Expected("try send".to_string()));
+                            return Err(ParseError::expected("try send"));
                         }
                     }
                     _ => return Ok(Some(left)),
@@ -347,7 +353,7 @@ impl Parser {
                 if let Some(key) = self.ident()? {
                     return Ok(Expr::VarArg(key));
                 }
-                return Err(ParseError::Expected("var".to_string()));
+                return Err(ParseError::expected("var"));
             }
             Token::On | Token::OpenBrace => {
                 // object_body accepts On tokens
@@ -374,7 +380,7 @@ impl Parser {
                 self.expect_token(Token::CloseBracket)?;
                 Ok(Binding::Destructure(result.items))
             }
-            _ => Err(ParseError::Expected("binding".to_string())),
+            _ => Err(ParseError::expected("binding")),
         }
     }
 
@@ -385,14 +391,14 @@ impl Parser {
                 if let Some(key) = self.ident()? {
                     return Ok(Binding::VarIdentifier(key));
                 }
-                return Err(ParseError::Expected("var param".to_string()));
+                return Err(ParseError::expected("var param"));
             }
             Token::Do => {
                 self.advance();
                 if let Some(key) = self.ident()? {
                     return Ok(Binding::DoIdentifier(key));
                 }
-                return Err(ParseError::Expected("do param".to_string()));
+                return Err(ParseError::expected("do param"));
             }
             _ => self.binding(),
         }
@@ -403,7 +409,7 @@ impl Parser {
             self.advance();
             Ok(str)
         } else {
-            Err(ParseError::Expected("import source".to_string()))
+            Err(ParseError::expected("import source"))
         }
     }
 
@@ -462,7 +468,7 @@ impl Parser {
                         let source = self.import_source()?;
                         Ok(Some(Stmt::Import(binding, source, true)))
                     }
-                    _ => Err(ParseError::Expected("export".to_string())),
+                    _ => Err(ParseError::expected("export")),
                 }
             }
             Token::Return => {
@@ -547,7 +553,7 @@ mod test {
     fn unexpected_end_of_input() {
         assert_err(
             vec![Let, ident("x"), ColonEquals],
-            ParseError::Expected("expr".to_string()),
+            ParseError::expected("expr"),
         )
     }
 

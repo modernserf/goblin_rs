@@ -2,7 +2,7 @@ use std::{cell::RefCell, collections::HashMap, rc::Rc};
 
 use crate::{
     compiler::{CompileIR, Compiler, IRBuilder, IVals},
-    parser::Parse,
+    parser::{Parse, ParseError},
     runtime::{Address, Class, Param, Selector, IR},
 };
 
@@ -212,6 +212,9 @@ pub enum Expr {
 }
 
 impl Expr {
+    fn send(selector: &str, target: Expr, args: Vec<Expr>) -> Self {
+        Self::Send(selector.to_string(), Box::new(target), args)
+    }
     fn compile(self, compiler: &mut Compiler) -> CompileIR {
         self.compile_base(compiler, None)
     }
@@ -245,8 +248,7 @@ impl Expr {
                 ir.append(
                     Self::DoArg({
                         let mut obj = Object::new();
-                        obj.add_handler("".to_string(), vec![], vec![Stmt::Expr(*or_else)])
-                            .unwrap();
+                        obj.add("", vec![], vec![Stmt::Expr(*or_else)]);
                         obj
                     })
                     .compile_arg(compiler)?,
@@ -266,15 +268,13 @@ impl Expr {
                 ir.push(IR::Object(class, arity));
                 Ok(ir)
             }
-            Self::If(cond, if_true, if_false) => Self::Send(
-                ":".to_string(),
-                cond,
+            Self::If(cond, if_true, if_false) => Self::send(
+                ":",
+                *cond,
                 vec![Self::DoArg({
                     let mut obj = Object::new();
-                    obj.add_handler("true".to_string(), vec![], if_true)
-                        .unwrap();
-                    obj.add_handler("false".to_string(), vec![], if_false)
-                        .unwrap();
+                    obj.add("true", vec![], if_true);
+                    obj.add("false", vec![], if_false);
                     obj
                 })],
             )
@@ -288,13 +288,13 @@ impl Expr {
                         return expr.clone().compile(compiler);
                     }
                 }
-                Self::Send(
-                    "".to_string(),
-                    Box::new({
+                Self::send(
+                    "",
+                    {
                         let mut obj = Object::new();
-                        obj.add_handler("".to_string(), vec![], body).unwrap();
+                        obj.add("", vec![], body);
                         Expr::DoArg(obj)
-                    }),
+                    },
                     vec![],
                 )
                 .compile(compiler)
@@ -321,18 +321,14 @@ impl Expr {
     pub fn as_binding(self) -> Parse<Binding> {
         match self {
             Self::Identifier(name) => Ok(Binding::Identifier(name)),
-            _ => Err(crate::parser::ParseError::Expected(
-                "set binding".to_string(),
-            )),
+            _ => Err(ParseError::expected("set binding")),
         }
     }
     pub fn set_target(&self) -> Parse<Binding> {
         match self {
             Self::Identifier(name) => Ok(Binding::Identifier(name.to_string())),
             Self::Send(_, target, _) => target.set_target(),
-            _ => Err(crate::parser::ParseError::Expected(
-                "set target".to_string(),
-            )),
+            _ => Err(ParseError::expected("set target")),
         }
     }
 }
@@ -353,7 +349,6 @@ impl Object {
             handlers: HashMap::new(),
         }
     }
-    #[cfg(test)]
     pub fn add(&mut self, selector: &str, params: Vec<Binding>, body: Vec<Stmt>) {
         self.add_handler(selector.to_string(), params, body)
             .unwrap()
@@ -448,7 +443,7 @@ pub fn frame_class(selector: String, pairs: &Vec<(String, Expr)>) -> Rc<Class> {
 
     let mut class = Class::new();
     // match
-    class.add_handler(":".to_string(), vec![Param::Do], {
+    class.add(":", vec![Param::Do], {
         let mut builder = IRBuilder::new();
         for i in 0..pairs.len() {
             builder.push(IR::IVal(i));
@@ -460,8 +455,8 @@ pub fn frame_class(selector: String, pairs: &Vec<(String, Expr)>) -> Rc<Class> {
 
     if pairs.len() == 0 {
         // fold
-        class.add_handler(
-            ":into:".to_string(),
+        class.add(
+            ":into:",
             vec![Param::Value, Param::Value],
             vec![IR::Send(format!("{}:", &selector), 1)],
         );
@@ -489,7 +484,7 @@ pub fn frame_class(selector: String, pairs: &Vec<(String, Expr)>) -> Rc<Class> {
                 vec![
                     IR::IVal(i),
                     IR::Local(0),
-                    IR::Send(":".to_string(), 1),
+                    IR::send(":", 1),
                     IR::SelfRef,
                     IR::Send(format!("{}:", &key), 1),
                 ],
