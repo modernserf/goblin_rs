@@ -1,6 +1,6 @@
-use std::{cell::RefCell, rc::Rc};
+use std::{cell::RefCell, ops::Deref, rc::Rc};
 
-use crate::runtime::{Class, MoreFn, Param, Runtime, RuntimeError, Value, IR};
+use crate::runtime::{Class, Param, Runtime, RuntimeError, Value, IR};
 
 fn expected<T>(t: &str) -> Runtime<T> {
     Err(RuntimeError::ExpectedType(t.to_string()))
@@ -344,6 +344,17 @@ fn build_native_module() -> Rc<Class> {
         println!("{:?}", args[0]);
         Ok(Value::Unit)
     });
+    class.add_native(
+        "read text sync:",
+        vec![Param::Value],
+        |_, args| match &args[0] {
+            Value::String(path) => match std::fs::read_to_string(path.deref()) {
+                Ok(str) => Ok(Value::String(Rc::new(str))),
+                Err(_) => Err(RuntimeError::Panic("failed to read file".to_string())),
+            },
+            _ => expected("string"),
+        },
+    );
     class.rc()
 }
 

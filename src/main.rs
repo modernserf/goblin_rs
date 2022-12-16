@@ -152,4 +152,9 @@ mod test {
     fn parse() {
         run(include_str!("./stdlib/parse.test.gob"));
     }
+
+    #[test]
+    fn day_1() {
+        run(include_str!("./aoc-2022/day-1.gob"));
+    }
 }

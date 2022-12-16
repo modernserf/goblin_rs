@@ -10,6 +10,15 @@ export let Assert := [
 export let String := [
   on {from char code: code}
     native{string from char code: code}
+  on {newline} 
+    native{string from char code: 10}
+  on {tab} 
+    native{string from char code: 9}
+]
+
+export let File := [
+  on {read text sync: path}
+    native{read text sync: path}
 ]
 
 export import [_Ord_] := "core/ord"
