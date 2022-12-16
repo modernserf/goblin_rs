@@ -32,6 +32,8 @@ pub enum Token {
     Then,
     Else,
     End,
+    True,
+    False,
     EndOfInput,
 }
 
@@ -52,6 +54,8 @@ fn keyword_tokens() -> KeywordTokens {
         (Token::Then, "then"),
         (Token::Else, "else"),
         (Token::End, "end"),
+        (Token::True, "true"),
+        (Token::False, "false"),
     ];
 
     Rc::new((

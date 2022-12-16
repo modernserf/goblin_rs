@@ -1,4 +1,3 @@
-import [_true_ _false_] := "core/bool"
 import [_Ord_] := "core/ord"
 
 export let Option := [

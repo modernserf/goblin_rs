@@ -15,10 +15,10 @@ fn build_stdlib() -> runtime::ModuleLoader {
     let mut modules = runtime::ModuleLoader::new();
     modules.add_ready("native", native::native_module());
     modules.add_init("core", compile_module(include_str!("./stdlib/core.gob")));
-    modules.add_init(
-        "core/bool",
-        compile_module(include_str!("./stdlib/bool.gob")),
-    );
+    // modules.add_init(
+    //     "core/bool",
+    //     compile_module(include_str!("./stdlib/bool.gob")),
+    // );
     modules.add_init("core/ord", compile_module(include_str!("./stdlib/ord.gob")));
     modules.add_init(
         "core/option",
@@ -90,15 +90,17 @@ mod test {
     fn syntax() {
         run(include_str!("./syntax.gob"))
     }
-
     #[test]
     fn bool() {
         run(include_str!("./stdlib/bool.test.gob"))
     }
-
     #[test]
     fn ord() {
         run(include_str!("./stdlib/ord.test.gob"));
+    }
+    #[test]
+    fn option() {
+        run(include_str!("./stdlib/option.test.gob"));
     }
 
     // #[test]
@@ -115,11 +117,6 @@ mod test {
     // fn do_block() {
     //     run(include_str!("./stdlib/do_block.test.gob"));
     // }
-
-    #[test]
-    fn option() {
-        run(include_str!("./stdlib/option.test.gob"));
-    }
 
     // #[test]
     // fn result() {

@@ -1,4 +1,4 @@
-import [_true_ _false_ _Assert_ _Log_ _loop_] := "native"
+import [_Assert_ _Log_ _loop_] := "native"
 import [_Control_] := "core/control"
 
 let result := [{}

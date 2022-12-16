@@ -1,4 +1,4 @@
-import [_true_ _false_ _Assert_] := "core"
+import [_Assert_] := "core"
 
 Assert{
   received: true{true: 123 false: 456}

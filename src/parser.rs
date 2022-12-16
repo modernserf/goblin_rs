@@ -190,6 +190,14 @@ impl Parser {
                 self.advance();
                 Ok(Some(Expr::SelfRef))
             }
+            Token::True => {
+                self.advance();
+                Ok(Some(Expr::Bool(true)))
+            }
+            Token::False => {
+                self.advance();
+                Ok(Some(Expr::Bool(false)))
+            }
             Token::Integer(value) => {
                 self.advance();
                 Ok(Some(Expr::Integer(value)))

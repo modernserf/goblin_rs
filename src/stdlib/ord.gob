@@ -1,5 +1,3 @@
-import [_true_ _false_] := "core/bool"
-
 # - orderable objects respond to {order: other} with an Ord instance
 # - operators (note: prefix!) can be used for quickly deriving relevant methods from {order: other}
 export let Ord := [

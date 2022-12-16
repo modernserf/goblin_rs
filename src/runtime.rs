@@ -1,6 +1,6 @@
 use std::{collections::HashMap, rc::Rc};
 
-use crate::native::{int_class, string_class};
+use crate::native::{bool_class, int_class, string_class};
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum RuntimeError {
@@ -23,6 +23,7 @@ pub type NativeFn = fn(Value, Vec<Value>) -> Runtime<Value>;
 #[derive(Debug, Clone, PartialEq)]
 pub enum IR {
     Unit,                        // (-- value)
+    Bool(bool),                  // (-- value)
     Integer(i64),                // (-- value)
     String(Rc<String>),          // (-- value)
     Local(Address),              // ( -- *address)
@@ -50,6 +51,7 @@ type ParentFrameIndex = usize;
 #[derive(Debug, Clone, PartialEq)]
 pub enum Value {
     Unit,
+    Bool(bool),
     Integer(i64),
     String(Rc<String>),
     Object(Rc<Class>, Instance),
@@ -58,6 +60,12 @@ pub enum Value {
 }
 
 impl Value {
+    pub fn as_bool(self) -> bool {
+        match self {
+            Value::Bool(val) => val,
+            _ => panic!("cannot cast to bool"),
+        }
+    }
     pub fn as_int(self) -> i64 {
         match self {
             Value::Integer(val) => val,
@@ -74,14 +82,14 @@ impl Value {
         match self {
             Value::Integer(_) => int_class(),
             Value::String(_) => string_class(),
+            Value::Bool(_) => bool_class(),
             Value::Object(class, _) => class.clone(),
             _ => todo!(),
         }
     }
     fn ivals(&self) -> Instance {
         match self {
-            Value::Integer(_) => Rc::new(vec![]),
-            Value::String(_) => Rc::new(vec![]),
+            Value::Bool(_) | Value::Integer(_) | Value::String(_) => Rc::new(vec![]),
             Value::Object(_, ivals) => ivals.clone(),
             _ => todo!(),
         }
@@ -95,7 +103,7 @@ impl Value {
     ) -> Runtime<()> {
         match self {
             Value::Unit => Err(RuntimeError::DoesNotUnderstand(selector.to_string())),
-            Value::Integer(_) | Value::String(_) | Value::Object(_, _) => {
+            Value::Bool(_) | Value::Integer(_) | Value::String(_) | Value::Object(_, _) => {
                 let class = self.class();
                 let handler = class.get(selector)?;
                 let local_offset = stack.size();
@@ -491,6 +499,7 @@ impl<'a> Interpreter<'a> {
         match ir {
             IR::Unit => self.stack.push(Value::Unit),
             IR::SelfRef => self.stack.push(self.call_stack.self_value()),
+            IR::Bool(value) => self.stack.push(Value::Bool(value)),
             IR::Integer(value) => self.stack.push(Value::Integer(value)),
             IR::String(str) => self.stack.push(Value::String(str)),
             IR::Local(address) => {

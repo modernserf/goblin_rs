@@ -197,6 +197,7 @@ impl Stmt {
 pub enum Expr {
     Unit,
     SelfRef,
+    Bool(bool),
     Integer(i64),
     String(String),
     Identifier(String),
@@ -220,6 +221,7 @@ impl Expr {
         match self {
             Self::Unit => Ok(IRBuilder::from(vec![IR::Unit])),
             Self::SelfRef => Ok(IRBuilder::from(vec![IR::SelfRef])),
+            Self::Bool(value) => Ok(IRBuilder::from(vec![IR::Bool(value)])),
             Self::Integer(value) => Ok(IRBuilder::from(vec![IR::Integer(value)])),
             Self::String(str) => Ok(IRBuilder::from(vec![IR::String(Rc::new(str))])),
             Self::Identifier(name) => compiler.identifier(name),

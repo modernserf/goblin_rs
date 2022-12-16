@@ -1,4 +1,4 @@
-import [_true_ _false_ _Panic_ _Log_] := "native"
+import [_Panic_ _Log_] := "native"
 import [_Option_] := "core/option"
 import [_Control_] := "core/control"
 

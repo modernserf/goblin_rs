@@ -53,7 +53,6 @@ Assert{panics: [{}
   }
 ]}
 
-import [_true_ _false_] := "core"
 
 let obj := [
   on {some: value} [

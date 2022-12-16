@@ -1,4 +1,4 @@
-import [_Assert_ _true_ _false_ _Ord_] := "core"
+import [_Assert_ _Ord_] := "core"
 
 # bools
 Assert{true: true}
