@@ -1,18 +1,17 @@
-import [_Assert_ _Log_ _loop_] := "native"
-import [_Control_] := "core/control"
+import [_Assert_ _Control_] := "core"
 
 let result := [{}
   var count := 0
   Control{loop: {}
     if count = 10 then return count end
-    set count{+: 1}
+    set count + 1
   }
 ]{}
 Assert{: result = 10}
 
 var sum := 0
 Control{times: 3 do: {: i}
-  set sum{+: i}
+  set sum + i
 }
 Assert{: sum = 3}
 
@@ -29,7 +28,7 @@ Control{:
 }
 Assert{: sum = 5}
 
-import [_Option_] := "core/option"
+import [_Option_] := "core"
 var should_continue := Option{some: 1}
 Control{:
   on {while} should_continue
@@ -39,4 +38,4 @@ Control{:
       set should_continue := Option{none}
     end
 }
-Assert{: should_continue = Option{none}}
+Assert{: should_continue{is none}}

@@ -1,23 +1,23 @@
-import [_loop_] := "native"
+import native := "native"
 
 export let Control := [
   on {loop: do f}
-    loop{: f}
+    native{loop: f}
   on {times: times do: do f}
     var i := 0
-    loop{: {}
-      if i >= times then return end
+    native{loop: {}
+      if i = times then return end
       f{: i} ? f{}
-      set i{+: 1}
+      set i + 1
     }
   # this is maybe a bit too clever
   on {: do f}
-    loop{: {}
+    native{loop: {}
       f{while}{:
-        on {true} 1{do: ()} ? f{do}
-        on {false} return ()
+        on {true} f{do: 0} ? f{do}
+        on {false} return
         on {some: value} f{do: value} ? f{do}
-        on {none} return ()
+        on {none} return 
         on {ok: value} f{do: value} ? f{do}
         on {error: err} return err
       }

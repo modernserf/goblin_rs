@@ -268,7 +268,7 @@ impl Expr {
             Self::If(cond, if_true, if_false) => Self::Send(
                 ":".to_string(),
                 cond,
-                vec![Self::Object({
+                vec![Self::DoArg({
                     let mut obj = Object::new();
                     obj.add_handler("true".to_string(), vec![], if_true)
                         .unwrap();
@@ -295,6 +295,23 @@ impl Expr {
             Self::DoArg(obj) => obj.compile_do(compiler),
             Self::Identifier(name) => compiler.target_identifier(name),
             _ => self.compile(compiler),
+        }
+    }
+    pub fn as_binding(self) -> Parse<Binding> {
+        match self {
+            Self::Identifier(name) => Ok(Binding::Identifier(name)),
+            _ => Err(crate::parser::ParseError::Expected(
+                "set binding".to_string(),
+            )),
+        }
+    }
+    pub fn set_target(&self) -> Parse<Binding> {
+        match self {
+            Self::Identifier(name) => Ok(Binding::Identifier(name.to_string())),
+            Self::Send(_, target, _) => target.set_target(),
+            _ => Err(crate::parser::ParseError::Expected(
+                "set target".to_string(),
+            )),
         }
     }
 }

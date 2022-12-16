@@ -96,6 +96,11 @@ fn build_int_class() -> Rc<Class> {
         Ok(Value::String(Rc::new(target.as_int().to_string())))
     });
 
+    class.add_native("=:", vec![Param::Value], |target, args| match &args[0] {
+        Value::Integer(arg) => Ok(Value::Bool(target.as_int() == *arg)),
+        _ => Ok(Value::Bool(false)),
+    });
+
     class.rc()
 }
 

@@ -428,11 +428,15 @@ impl Parser {
             }
             Token::Set => {
                 self.advance();
-                let binding = self.binding()?;
-                self.expect_token(Token::ColonEquals)?;
-                let expr = expect("expr", self.expr())?;
-
-                Ok(Some(Stmt::Set(binding, expr)))
+                let target = expect("set target", self.expr())?;
+                if self.expect_token(Token::ColonEquals).is_ok() {
+                    let binding = target.as_binding()?;
+                    let expr = expect("expr", self.expr())?;
+                    Ok(Some(Stmt::Set(binding, expr)))
+                } else {
+                    let binding = target.set_target()?;
+                    Ok(Some(Stmt::Set(binding, target)))
+                }
             }
             Token::Import => {
                 self.advance();
