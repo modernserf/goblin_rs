@@ -1,6 +1,7 @@
 use std::{cell::RefCell, rc::Rc};
 
-use crate::runtime::{Class, Interpreter, Runtime, RuntimeError, Value};
+use crate::native::{array_class, bool_class, int_class, string_class, unit_class};
+use crate::runtime::{Class, Interpreter, Runtime, RuntimeError};
 
 pub type Address = usize;
 pub type Selector = String;
@@ -78,7 +79,10 @@ impl IR {
                 ctx.push(value);
             }
             IR::NewSelf(arity) => {
-                let class = ctx.self_value().class();
+                let class = match ctx.self_value() {
+                    Value::Object(class, _) => class,
+                    _ => panic!("cannot get class"),
+                };
                 let ivals = Rc::new(ctx.take(arity));
                 let value = Value::Object(class, ivals);
                 ctx.push(value);
@@ -132,6 +136,76 @@ impl IR {
             }
         }
         Ok(())
+    }
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub enum Value {
+    Unit,
+    Bool(bool),
+    Integer(i64),
+    String(Rc<String>),
+    Object(Rc<Class>, Instance),
+    DoObject(Rc<Class>, Instance, ParentFrameIndex, Box<Value>),
+    Pointer(Address),
+    MutArray(Rc<RefCell<Vec<Value>>>),
+}
+
+pub type Instance = Rc<Vec<Value>>;
+pub type ParentFrameIndex = usize;
+
+impl Value {
+    pub fn as_bool(self) -> bool {
+        match self {
+            Value::Bool(val) => val,
+            _ => panic!("cannot cast to bool"),
+        }
+    }
+    pub fn as_int(self) -> i64 {
+        match self {
+            Value::Integer(val) => val,
+            _ => panic!("cannot cast to int"),
+        }
+    }
+    pub fn as_string(self) -> Rc<String> {
+        match self {
+            Value::String(str) => str,
+            _ => panic!("cannot cast to string"),
+        }
+    }
+    pub fn as_array(self) -> Rc<RefCell<Vec<Value>>> {
+        match self {
+            Value::MutArray(arr) => arr,
+            _ => panic!("cannot cast to array"),
+        }
+    }
+    pub fn as_pointer(self) -> usize {
+        match self {
+            Value::Pointer(address) => address,
+            _ => panic!("deref a non-pointer"),
+        }
+    }
+
+    pub fn class(&self) -> Rc<Class> {
+        match self {
+            Value::Pointer(_) => panic!("must deref pointer before sending message"),
+            Value::Unit => unit_class(),
+            Value::Integer(_) => int_class(),
+            Value::String(_) => string_class(),
+            Value::Bool(_) => bool_class(),
+            Value::MutArray(_) => array_class(),
+            Value::Object(class, _) => class.clone(),
+            Value::DoObject(class, _, _, _) => class.clone(),
+        }
+    }
+    pub fn ivals(&self) -> Instance {
+        match self {
+            Value::Bool(_) | Value::Integer(_) | Value::String(_) | Value::MutArray(_) => {
+                Rc::new(vec![])
+            }
+            Value::Object(_, ivals) => ivals.clone(),
+            _ => todo!(),
+        }
     }
 }
 

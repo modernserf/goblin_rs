@@ -1,9 +1,6 @@
-use std::{cell::RefCell, collections::HashMap, rc::Rc};
+use std::{collections::HashMap, rc::Rc};
 
-use crate::{
-    ir::{Address, Index, Param, Selector, IR},
-    native::{array_class, bool_class, int_class, string_class},
-};
+use crate::ir::{Address, Index, Instance, Param, Selector, Value, IR};
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum RuntimeError {
@@ -33,121 +30,6 @@ impl PartialEq for MoreFn {
 }
 
 type Body = Rc<Vec<IR>>;
-type Instance = Rc<Vec<Value>>;
-type ParentFrameIndex = usize;
-
-#[derive(Debug, Clone, PartialEq)]
-pub enum Value {
-    Unit,
-    Bool(bool),
-    Integer(i64),
-    String(Rc<String>),
-    Object(Rc<Class>, Instance),
-    DoObject(Rc<Class>, Instance, ParentFrameIndex, Box<Value>),
-    Pointer(Address),
-    MutArray(Rc<RefCell<Vec<Value>>>),
-}
-
-impl Value {
-    pub fn as_bool(self) -> bool {
-        match self {
-            Value::Bool(val) => val,
-            _ => panic!("cannot cast to bool"),
-        }
-    }
-    pub fn as_int(self) -> i64 {
-        match self {
-            Value::Integer(val) => val,
-            _ => panic!("cannot cast to int"),
-        }
-    }
-    pub fn as_string(self) -> Rc<String> {
-        match self {
-            Value::String(str) => str,
-            _ => panic!("cannot cast to string"),
-        }
-    }
-    pub fn as_array(self) -> Rc<RefCell<Vec<Value>>> {
-        match self {
-            Value::MutArray(arr) => arr,
-            _ => panic!("cannot cast to array"),
-        }
-    }
-    pub fn class(&self) -> Rc<Class> {
-        match self {
-            Value::Integer(_) => int_class(),
-            Value::String(_) => string_class(),
-            Value::Bool(_) => bool_class(),
-            Value::MutArray(_) => array_class(),
-            Value::Object(class, _) => class.clone(),
-            _ => todo!(),
-        }
-    }
-    fn ivals(&self) -> Instance {
-        match self {
-            Value::Bool(_) | Value::Integer(_) | Value::String(_) | Value::MutArray(_) => {
-                Rc::new(vec![])
-            }
-            Value::Object(_, ivals) => ivals.clone(),
-            _ => todo!(),
-        }
-    }
-    fn send(
-        self,
-        selector: &str,
-        arity: usize,
-        stack: &mut Stack,
-        call_stack: &mut CallStack,
-    ) -> Runtime<()> {
-        match self {
-            Value::Unit => Err(RuntimeError::DoesNotUnderstand(selector.to_string())),
-            Value::Bool(_)
-            | Value::Integer(_)
-            | Value::String(_)
-            | Value::Object(_, _)
-            | Value::MutArray(_) => {
-                let class = self.class();
-                let handler = class.get(selector)?;
-                let local_offset = stack.size();
-                for (i, param) in handler.params.iter().enumerate() {
-                    stack.check_arg(local_offset - arity + i, *param)?;
-                }
-
-                call_stack.call(handler, arity, local_offset, self);
-                Ok(())
-            }
-            Value::DoObject(class, ivals, return_from_index, self_value) => {
-                let handler = class.get(selector)?;
-                let local_offset = stack.size();
-                for (i, param) in handler.params.iter().enumerate() {
-                    stack.check_arg(local_offset - arity + i, *param)?;
-                }
-                call_stack.call_do(
-                    handler,
-                    arity,
-                    local_offset,
-                    ivals,
-                    return_from_index,
-                    *self_value,
-                );
-                Ok(())
-            }
-            Value::Pointer(_) => panic!("must deref pointer before sending message"),
-        }
-    }
-    fn deref(self, stack: &Stack) -> Value {
-        match self {
-            Value::Pointer(address) => stack.get(address),
-            _ => panic!("deref a non-pointer"),
-        }
-    }
-    fn set(self, value: Value, stack: &mut Stack) {
-        match self {
-            Value::Pointer(address) => stack.set(address, value),
-            _ => panic!("assign a non-pointer"),
-        }
-    }
-}
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct Class {
@@ -508,16 +390,37 @@ impl<'a> Interpreter<'a> {
         self.stack.take(count)
     }
     pub fn send(&mut self, selector: &str, target: Value, arity: usize) -> Runtime<()> {
-        target.send(&selector, arity, &mut self.stack, &mut self.call_stack)
+        let class = target.class();
+        let handler = class.get(selector)?;
+        let local_offset = self.stack.size();
+        for (i, param) in handler.params.iter().enumerate() {
+            self.stack.check_arg(local_offset - arity + i, *param)?;
+        }
+        match target {
+            Value::DoObject(_, ivals, return_from_index, self_value) => {
+                self.call_stack.call_do(
+                    handler,
+                    arity,
+                    local_offset,
+                    ivals,
+                    return_from_index,
+                    *self_value,
+                );
+            }
+            _ => {
+                self.call_stack.call(&handler, arity, local_offset, target);
+            }
+        };
+        Ok(())
     }
     pub fn load_module(&mut self, module: &str) -> Runtime<Value> {
         self.modules.load(module)
     }
     pub fn deref_pointer(&self, pointer: Value) -> Value {
-        pointer.deref(&self.stack)
+        self.stack.get(pointer.as_pointer())
     }
     pub fn set_pointer(&mut self, pointer: Value, value: Value) {
-        pointer.set(value, &mut self.stack)
+        self.stack.set(pointer.as_pointer(), value)
     }
     pub fn return_from_index(&self) -> usize {
         self.call_stack.return_from_index()

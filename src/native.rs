@@ -1,8 +1,8 @@
 use std::{cell::RefCell, ops::Deref, rc::Rc};
 
 use crate::{
-    ir::{Param, IR},
-    runtime::{Class, Runtime, RuntimeError, Value},
+    ir::{Param, Value, IR},
+    runtime::{Class, Runtime, RuntimeError},
 };
 
 fn expected<T>(t: &str) -> Runtime<T> {
@@ -362,6 +362,7 @@ fn build_native_module() -> Rc<Class> {
 }
 
 thread_local! {
+    static UNIT_CLASS: Rc<Class> = Class::new().rc();
     static BOOL_CLASS: Rc<Class> = build_bool_class();
     static INT_CLASS: Rc<Class> = build_int_class();
     static STRING_CLASS: Rc<Class> = build_string_class();
@@ -369,6 +370,9 @@ thread_local! {
     static NATIVE_MODULE: Rc<Class> = build_native_module();
 }
 
+pub fn unit_class() -> Rc<Class> {
+    UNIT_CLASS.with(|c| c.clone())
+}
 pub fn bool_class() -> Rc<Class> {
     BOOL_CLASS.with(|c| c.clone())
 }
