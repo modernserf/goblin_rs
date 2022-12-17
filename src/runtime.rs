@@ -40,7 +40,8 @@ pub enum IR {
     Send(Selector, Arity),       // (...args target -- result)
     TrySend(Selector, Arity),    // (...args target -- result)
     SendNative(NativeFn, Arity), // (...args target -- result)
-    SendNativeMore(MoreFn),      // (...)
+    #[allow(unused)]
+    SendNativeMore(MoreFn), // (...)
     SendBool,                    // (target bool -- result)
     Drop,                        // (value --)
     Return,

@@ -2,7 +2,7 @@ use std::collections::HashMap;
 
 use crate::{
     ast::{Binding, Expr, Object, Stmt},
-    lexer::Token,
+    grammar::Token,
 };
 
 #[derive(Debug, Clone, PartialEq)]
@@ -105,6 +105,33 @@ impl Parser {
         }
     }
 
+    fn build_structure<T>(
+        &mut self,
+        parse_item: fn(&mut Parser) -> Parse<T>,
+    ) -> Parse<SelectorBuilderResult<T>> {
+        let mut builder = SelectorBuilder::new();
+        loop {
+            match self.peek() {
+                Token::QuotedIdentifier(key) => {
+                    // token is read twice: first as key, then as value
+                    let item = parse_item(self)?;
+                    builder.add(key, item)?;
+                }
+                _ => {
+                    let key = self.key()?;
+                    if self.expect_token(Token::Colon).is_ok() {
+                        let item = parse_item(self)?;
+                        builder.add(key, item)?;
+                    } else {
+                        return builder.resolve(key);
+                    }
+                }
+            }
+        }
+    }
+
+    ///
+
     fn key(&mut self) -> Parse<String> {
         let mut parts = vec![];
         loop {
@@ -169,31 +196,6 @@ impl Parser {
                 }
                 _ => {
                     return Ok(object);
-                }
-            }
-        }
-    }
-
-    fn build_structure<T>(
-        &mut self,
-        parse_item: fn(&mut Parser) -> Parse<T>,
-    ) -> Parse<SelectorBuilderResult<T>> {
-        let mut builder = SelectorBuilder::new();
-        loop {
-            match self.peek() {
-                Token::QuotedIdentifier(key) => {
-                    // token is read twice: first as key, then as value
-                    let item = parse_item(self)?;
-                    builder.add(key, item)?;
-                }
-                _ => {
-                    let key = self.key()?;
-                    if self.expect_token(Token::Colon).is_ok() {
-                        let item = parse_item(self)?;
-                        builder.add(key, item)?;
-                    } else {
-                        return builder.resolve(key);
-                    }
                 }
             }
         }
