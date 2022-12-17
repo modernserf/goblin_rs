@@ -130,6 +130,14 @@ impl Parser {
         }
     }
 
+    fn repeat<T>(&mut self, parse_item: fn(&mut Parser) -> Parse<Option<T>>) -> Parse<Vec<T>> {
+        let mut out = vec![];
+        while let Some(val) = parse_item(self)? {
+            out.push(val);
+        }
+        Ok(out)
+    }
+
     ///
 
     fn key(&mut self) -> Parse<String> {
@@ -361,15 +369,11 @@ impl Parser {
         match self.peek() {
             Token::Var => {
                 self.advance();
-                if let Some(key) = self.ident()? {
-                    return Ok(Expr::VarArg(key));
-                }
-                return Err(ParseError::expected("var"));
+                Ok(Expr::VarArg(expect("var", self.ident())?))
             }
             Token::On | Token::OpenBrace => {
                 // object_body accepts On tokens
-                let object = self.object_body()?;
-                return Ok(Expr::DoArg(object));
+                Ok(Expr::DoArg(self.object_body()?))
             }
             _ => expect("arg", self.expr()),
         }
@@ -399,17 +403,11 @@ impl Parser {
         match self.peek() {
             Token::Var => {
                 self.advance();
-                if let Some(key) = self.ident()? {
-                    return Ok(Binding::VarIdentifier(key));
-                }
-                return Err(ParseError::expected("var param"));
+                Ok(Binding::VarIdentifier(expect("var param", self.ident())?))
             }
             Token::Do => {
                 self.advance();
-                if let Some(key) = self.ident()? {
-                    return Ok(Binding::DoIdentifier(key));
-                }
-                return Err(ParseError::expected("do param"));
+                Ok(Binding::DoIdentifier(expect("do param", self.ident())?))
             }
             _ => self.binding(),
         }
@@ -501,11 +499,7 @@ impl Parser {
     }
 
     fn body(&mut self) -> Parse<Vec<Stmt>> {
-        let mut out = vec![];
-        while let Some(stmt) = self.stmt()? {
-            out.push(stmt);
-        }
-        Ok(out)
+        self.repeat(|p| p.stmt())
     }
 
     fn program(&mut self) -> Parse<Vec<Stmt>> {
