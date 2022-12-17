@@ -186,7 +186,7 @@ impl Stmt {
             Self::Expr(_) => self.compile_base(compiler),
             _ => {
                 let mut ir = self.compile_base(compiler)?;
-                ir.push(IR::Unit);
+                ir.push(IR::unit());
                 Ok(ir)
             }
         }
@@ -223,11 +223,11 @@ impl Expr {
     }
     fn compile_base(self, compiler: &mut Compiler, binding: Option<&Binding>) -> CompileIR {
         match self {
-            Self::Unit => Ok(IRBuilder::from(vec![IR::Unit])),
+            Self::Unit => Ok(IRBuilder::from(vec![IR::unit()])),
             Self::SelfRef => Ok(IRBuilder::from(vec![IR::SelfRef])),
-            Self::Bool(value) => Ok(IRBuilder::from(vec![IR::Bool(value)])),
-            Self::Integer(value) => Ok(IRBuilder::from(vec![IR::Integer(value)])),
-            Self::String(str) => Ok(IRBuilder::from(vec![IR::String(Rc::new(str))])),
+            Self::Bool(value) => Ok(IRBuilder::from(vec![IR::bool(value)])),
+            Self::Integer(value) => Ok(IRBuilder::from(vec![IR::int(value)])),
+            Self::String(str) => Ok(IRBuilder::from(vec![IR::string(str)])),
             Self::Identifier(name) => compiler.identifier(name),
             Self::Send(selector, target, args) => {
                 let mut ir = IRBuilder::new();
@@ -281,7 +281,7 @@ impl Expr {
             .compile(compiler),
             Self::Paren(body) => {
                 if body.is_empty() {
-                    return Ok(IRBuilder::from(vec![IR::Unit]));
+                    return Ok(IRBuilder::from(vec![IR::unit()]));
                 }
                 if body.len() == 1 {
                     if let Stmt::Expr(expr) = &body[0] {

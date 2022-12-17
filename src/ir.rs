@@ -11,13 +11,22 @@ pub type Arity = usize;
 pub type NativeFn = fn(Value, Vec<Value>) -> Runtime<Value>;
 pub type Body = Rc<Vec<IR>>;
 
+#[derive(Clone)]
+pub struct MoreFn(fn(&mut Interpreter) -> Runtime<()>);
+impl std::fmt::Debug for MoreFn {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str("<more fn>")
+    }
+}
+impl PartialEq for MoreFn {
+    fn eq(&self, other: &Self) -> bool {
+        self.0 as usize == other.0 as usize
+    }
+}
+
 #[derive(Debug, Clone, PartialEq)]
 pub enum IR {
-    Unit,                        // (-- value)
-    Bool(bool),                  // (-- value)
-    Integer(i64),                // (-- value)
-    String(Rc<String>),          // (-- value)
-    MutArray,                    // (-- array)
+    Constant(Value),             // (-- value)
     Local(Address),              // ( -- *address)
     Var(Address),                // ( -- address)
     IVal(Index),                 // ( -- instance[index])
@@ -38,19 +47,29 @@ pub enum IR {
 }
 
 impl IR {
+    pub fn unit() -> Self {
+        IR::Constant(Value::Unit)
+    }
+    pub fn int(value: i64) -> Self {
+        IR::Constant(Value::Integer(value))
+    }
+    pub fn bool(value: bool) -> Self {
+        IR::Constant(Value::Bool(value))
+    }
+    pub fn string(value: String) -> Self {
+        IR::Constant(Value::String(Rc::new(value)))
+    }
     pub fn send(selector: &str, arity: usize) -> Self {
-        Self::Send(selector.to_string(), arity)
+        IR::Send(selector.to_string(), arity)
     }
 
     pub fn eval(self, ctx: &mut Interpreter) -> Runtime<()> {
         match self {
-            IR::Unit => ctx.push(Value::Unit),
-            IR::MutArray => ctx.push(Value::MutArray(Rc::new(RefCell::new(Vec::new())))),
+            IR::Constant(value) => ctx.push(value),
             IR::SelfRef => {
                 let value = ctx.self_value();
                 ctx.push(value)
             }
-            IR::Bool(value) => ctx.push(Value::Bool(value)),
             IR::SendBool => {
                 let bool = ctx.pop().as_bool();
                 let target = ctx.pop();
@@ -60,8 +79,7 @@ impl IR {
                     ctx.send("false", target, 0)?;
                 }
             }
-            IR::Integer(value) => ctx.push(Value::Integer(value)),
-            IR::String(str) => ctx.push(Value::String(str)),
+            // IR::String(str) => ctx.push(Value::String(str)),
             IR::Local(address) => {
                 let local_offset = ctx.local_offset();
                 let value = ctx.get_stack(address + local_offset);
@@ -157,6 +175,10 @@ pub type Instance = Rc<Vec<Value>>;
 pub type ParentFrameIndex = usize;
 
 impl Value {
+    pub fn mut_array(vec: Vec<Value>) -> Self {
+        Value::MutArray(Rc::new(RefCell::new(vec)))
+    }
+
     pub fn as_bool(self) -> bool {
         match self {
             Value::Bool(val) => val,

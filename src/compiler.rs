@@ -329,7 +329,7 @@ impl Compiler {
     pub fn body(&mut self, mut body: Vec<Stmt>) -> CompileIR {
         let mut builder = IRBuilder::new();
         if body.len() == 0 {
-            builder.push(IR::Unit);
+            builder.push(IR::unit());
             return Ok(builder);
         }
 
@@ -457,12 +457,12 @@ mod test {
 
     #[test]
     fn empty() {
-        assert_ok(vec![], vec![IR::Unit]);
+        assert_ok(vec![], vec![IR::unit()]);
     }
 
     #[test]
     fn integer() {
-        assert_ok(vec![Stmt::Expr(int(123))], vec![IR::Integer(123)])
+        assert_ok(vec![Stmt::Expr(int(123))], vec![IR::int(123)])
     }
 
     #[test]
@@ -473,7 +473,7 @@ mod test {
                 let_(b_ident("bar"), int(456)),
                 Stmt::Expr(ident("foo")),
             ],
-            vec![IR::Integer(123), IR::Integer(456), IR::Local(0)],
+            vec![IR::int(123), IR::int(456), IR::Local(0)],
         )
     }
 
@@ -489,7 +489,7 @@ mod test {
     fn send_values() {
         assert_ok(
             vec![Stmt::Expr(send(int(123), "+:", vec![int(456)]))],
-            vec![IR::Integer(456), IR::Integer(123), IR::send("+:", 1)],
+            vec![IR::int(456), IR::int(123), IR::send("+:", 1)],
         );
     }
 
@@ -503,10 +503,10 @@ mod test {
                 Stmt::Expr(ident("bar")),
             ],
             vec![
-                IR::Integer(456),
-                IR::Integer(123),
+                IR::int(456),
+                IR::int(123),
                 IR::Var(1),
-                IR::Integer(789),
+                IR::int(789),
                 IR::Local(2),
                 IR::SetVar,
                 IR::Local(2),
@@ -559,12 +559,12 @@ mod test {
                 })),
             ],
             vec![
-                IR::Integer(123),
-                IR::Integer(456),
+                IR::int(123),
+                IR::int(456),
                 IR::Object(
                     {
                         let mut class = Class::new();
-                        class.add("handler", vec![], vec![IR::Integer(789), IR::Local(0)]);
+                        class.add("handler", vec![], vec![IR::int(789), IR::Local(0)]);
 
                         class.rc()
                     },
@@ -594,20 +594,15 @@ mod test {
                 })),
             ],
             vec![
-                IR::Integer(123),
-                IR::Integer(456),
+                IR::int(123),
+                IR::int(456),
                 IR::Object(
                     {
                         let mut class = Class::new();
                         class.add(
                             "handler:",
                             vec![Param::Value],
-                            vec![
-                                IR::Integer(789),
-                                IR::Local(1),
-                                IR::Local(0),
-                                IR::send("+:", 1),
-                            ],
+                            vec![IR::int(789), IR::Local(1), IR::Local(0), IR::send("+:", 1)],
                         );
 
                         class.rc()
@@ -634,7 +629,7 @@ mod test {
                 })),
             ],
             vec![
-                IR::Integer(123),
+                IR::int(123),
                 IR::Local(0),
                 IR::Object(
                     {
@@ -688,7 +683,7 @@ mod test {
                 })),
             ],
             vec![
-                IR::Integer(123),
+                IR::int(123),
                 IR::Local(0),
                 IR::Object(
                     {
@@ -737,17 +732,17 @@ mod test {
                             vec![Param::Var],
                             vec![
                                 IR::SelfRef,
-                                IR::Integer(10),
+                                IR::int(10),
                                 IR::Local(0),
                                 IR::SetVar,
-                                IR::Unit,
+                                IR::unit(),
                             ],
                         );
                         class.rc()
                     },
                     0,
                 ),
-                IR::Integer(5),
+                IR::int(5),
                 IR::Var(1),
                 IR::Local(2),
                 IR::Local(0),
@@ -808,7 +803,7 @@ mod test {
                 IR::DoObject(
                     {
                         let mut class = Class::new();
-                        class.add("foo", vec![], vec![IR::Integer(123)]);
+                        class.add("foo", vec![], vec![IR::int(123)]);
 
                         class.rc()
                     },
@@ -852,7 +847,7 @@ mod test {
                 )),
             ],
             vec![
-                IR::Integer(123),
+                IR::int(123),
                 IR::Var(0),
                 IR::Local(1),
                 IR::DoObject(
@@ -861,7 +856,7 @@ mod test {
                         class.add(
                             "foo",
                             vec![],
-                            vec![IR::Integer(456), IR::IVal(0), IR::SetVar, IR::Unit],
+                            vec![IR::int(456), IR::IVal(0), IR::SetVar, IR::unit()],
                         );
                         class.rc()
                     },
@@ -953,8 +948,8 @@ mod test {
         assert_eq!(
             Compiler::module(vec![Stmt::Let(b_ident("foo"), Expr::Integer(123), true),]),
             Ok(vec![
-                IR::Integer(123),
-                IR::Unit,
+                IR::int(123),
+                IR::unit(),
                 IR::Local(0),
                 IR::Object(
                     {
@@ -1006,7 +1001,7 @@ mod test {
                 ),
                 Stmt::Expr(ident("x")),
             ],
-            vec![IR::Unit, IR::Local(0), IR::send("get x", 0), IR::Local(1)],
+            vec![IR::unit(), IR::Local(0), IR::send("get x", 0), IR::Local(1)],
         )
     }
 
@@ -1070,7 +1065,7 @@ mod test {
                     },
                     0,
                 ),
-                IR::Unit,
+                IR::unit(),
             ],
         )
     }

@@ -14,19 +14,6 @@ pub enum RuntimeError {
 }
 pub type Runtime<T> = Result<T, RuntimeError>;
 
-#[derive(Clone)]
-pub struct MoreFn(fn(&mut Stack, &mut CallStack) -> Runtime<()>);
-impl std::fmt::Debug for MoreFn {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.write_str("<more fn>")
-    }
-}
-impl PartialEq for MoreFn {
-    fn eq(&self, other: &Self) -> bool {
-        self.0 as usize == other.0 as usize
-    }
-}
-
 #[derive(Debug, Clone)]
 enum ModuleLoadState {
     Init(Vec<IR>),
@@ -404,16 +391,13 @@ mod test {
 
     #[test]
     fn addition() {
-        assert_ok(
-            vec![IR::Integer(1), IR::Integer(2), add()],
-            Value::Integer(3),
-        )
+        assert_ok(vec![IR::int(1), IR::int(2), add()], Value::Integer(3))
     }
 
     #[test]
     fn does_not_understand() {
         assert_err(
-            vec![IR::Integer(1), IR::send("foobar", 0)],
+            vec![IR::int(1), IR::send("foobar", 0)],
             RuntimeError::DoesNotUnderstand("foobar".to_string()),
         )
     }
@@ -422,11 +406,11 @@ mod test {
     fn locals() {
         assert_ok(
             vec![
-                IR::Integer(123), // 0
-                IR::Integer(456), // 1
-                IR::Integer(789), // 2
+                IR::int(123), // 0
+                IR::int(456), // 1
+                IR::int(789), // 2
                 IR::Local(1),
-                IR::Integer(10),
+                IR::int(10),
                 add(),
             ],
             Value::Integer(466),
@@ -437,8 +421,8 @@ mod test {
     fn variables() {
         assert_ok(
             vec![
-                IR::Integer(123), // 0
-                IR::Integer(1),
+                IR::int(123), // 0
+                IR::int(1),
                 IR::Local(0),
                 add(),
                 IR::Var(0),
@@ -459,7 +443,7 @@ mod test {
         assert_ok(
             vec![
                 IR::Object(empty_class.clone(), 0), // 0
-                IR::Integer(1),                     // 1
+                IR::int(1),                         // 1
                 IR::Local(0),
             ],
             Value::Object(empty_class, empty()),
@@ -479,8 +463,8 @@ mod test {
     fn simple_handlers() {
         let record = {
             let mut class = Class::new();
-            class.add("x", vec![], vec![IR::Integer(1)]);
-            class.add("y", vec![], vec![IR::Integer(2)]);
+            class.add("x", vec![], vec![IR::int(1)]);
+            class.add("y", vec![], vec![IR::int(2)]);
             class.rc()
         };
         assert_ok(
@@ -504,8 +488,8 @@ mod test {
                 "foo",
                 vec![],
                 vec![
-                    IR::Integer(123), // 0,
-                    IR::Integer(100), // 1,
+                    IR::int(123), // 0,
+                    IR::int(100), // 1,
                     IR::Local(0),
                     IR::Local(1),
                     add(),
@@ -515,8 +499,8 @@ mod test {
         };
         assert_ok(
             vec![
-                IR::Integer(69),    // 0
-                IR::Integer(420),   // 1
+                IR::int(69),        // 0
+                IR::int(420),       // 1
                 IR::Object(foo, 0), // 2
                 IR::Local(2),
                 IR::send("foo", 0),
@@ -533,8 +517,8 @@ mod test {
                 "foo",
                 vec![],
                 vec![
-                    IR::Integer(123), // 0,
-                    IR::Integer(100), // 1,
+                    IR::int(123), // 0,
+                    IR::int(100), // 1,
                     IR::Local(0),
                     IR::Local(1),
                     add(),
@@ -549,8 +533,8 @@ mod test {
         };
         assert_ok(
             vec![
-                IR::Integer(69),    // 0
-                IR::Integer(420),   // 1
+                IR::int(69),        // 0
+                IR::int(420),       // 1
                 IR::Object(foo, 0), // 2
                 IR::Local(2),
                 IR::send("foo", 0),
@@ -571,7 +555,7 @@ mod test {
                     IR::Local(0),
                     add(), // let $1 = $0 + $0
                     IR::Local(1),
-                    IR::Integer(10),
+                    IR::int(10),
                     add(), // return $1 + 10
                 ],
             );
@@ -580,7 +564,7 @@ mod test {
         };
         assert_ok(
             vec![
-                IR::Integer(50),                   // $0
+                IR::int(50),                       // $0
                 IR::Object(double_then_add_10, 0), // $1
                 IR::Local(0),
                 IR::Local(1),
@@ -602,7 +586,7 @@ mod test {
                     IR::Local(0),
                     add(), // let $1 = $0 + $0
                     IR::Local(1),
-                    IR::Integer(10),
+                    IR::int(10),
                     add(), // return $1 + 10
                 ],
             );
@@ -612,7 +596,7 @@ mod test {
 
         assert_ok(
             vec![
-                IR::Integer(50),                   // $0
+                IR::int(50),                       // $0
                 IR::Object(double_then_add_10, 0), // $1
                 IR::Local(0),
                 IR::Local(1),
@@ -631,13 +615,13 @@ mod test {
                 "foo:",
                 vec![Param::Var],
                 vec![
-                    IR::Integer(10),
+                    IR::int(10),
                     IR::Local(0),
                     IR::Deref,
                     add(),
                     IR::Local(0),
-                    IR::SetVar,     // $0 = *$0 + 10
-                    IR::Integer(0), // (ignore return value)
+                    IR::SetVar, // $0 = *$0 + 10
+                    IR::int(0), // (ignore return value)
                 ],
             );
 
@@ -647,7 +631,7 @@ mod test {
         assert_ok(
             vec![
                 IR::Object(add_10_to_var_arg, 0), // $0
-                IR::Integer(100),                 // $1
+                IR::int(100),                     // $1
                 IR::Var(1),
                 IR::Local(0),
                 IR::send("foo:", 1), // $0{foo: var $1}
@@ -668,11 +652,11 @@ mod test {
 
         assert_ok(
             vec![
-                IR::Integer(1),
-                IR::Integer(2),
+                IR::int(1),
+                IR::int(2),
                 IR::Object(pair.clone(), 2), // $0 = [x: 1 y: 2]
-                IR::Integer(3),
-                IR::Integer(4),
+                IR::int(3),
+                IR::int(4),
                 IR::Object(pair, 2), // $1 = [x: 3 y: 4]
                 IR::Local(0),
                 IR::send("x", 0),
@@ -688,7 +672,7 @@ mod test {
     fn set_instance_value_var() {
         assert_ok(
             vec![
-                IR::Integer(100), // $0
+                IR::int(100), // $0
                 IR::Var(0),
                 IR::Object(
                     {
@@ -703,14 +687,14 @@ mod test {
                                 add(),
                                 IR::IVal(0),
                                 IR::SetVar,
-                                IR::Integer(0),
+                                IR::int(0),
                             ],
                         );
                         class.rc()
                     },
                     1,
                 ), // $1
-                IR::Integer(20),
+                IR::int(20),
                 IR::Local(1),
                 IR::send("add to var:", 1),
                 IR::Local(0),
@@ -727,18 +711,18 @@ mod test {
                 "add 10:",
                 vec![Param::Value],
                 vec![
-                    IR::Integer(10),
+                    IR::int(10),
                     IR::Local(0),
                     add(),
                     IR::Return,
                     // should be unreachable
-                    IR::Integer(20),
+                    IR::int(20),
                 ],
             );
             class.rc()
         };
         assert_ok(
-            vec![IR::Integer(3), IR::Object(obj, 0), IR::send("add 10:", 1)],
+            vec![IR::int(3), IR::Object(obj, 0), IR::send("add 10:", 1)],
             Value::Integer(13),
         );
     }
@@ -747,10 +731,10 @@ mod test {
     fn return_from_root() {
         assert_ok(
             vec![
-                IR::Integer(3),
+                IR::int(3),
                 IR::Return,
                 // should be unreachable
-                IR::Integer(4),
+                IR::int(4),
             ],
             Value::Integer(3),
         );
@@ -790,11 +774,11 @@ mod test {
                                             "match:",
                                             vec![Param::Do],
                                             vec![
-                                                IR::Integer(50),
+                                                IR::int(50),
                                                 IR::Local(0),
                                                 IR::send("some:", 1),
                                                 // unreachable if do block returns early
-                                                IR::Integer(456),
+                                                IR::int(456),
                                             ],
                                         );
                                         class.rc()
@@ -813,7 +797,7 @@ mod test {
                                                 add(),
                                                 IR::Return,
                                                 // unreachable
-                                                IR::Integer(123),
+                                                IR::int(123),
                                             ],
                                         );
                                         class.rc()
@@ -823,7 +807,7 @@ mod test {
                                 IR::Local(0),
                                 IR::send("match:", 1),
                                 // unreachable if match do arg returns early
-                                IR::Integer(789),
+                                IR::int(789),
                             ],
                         );
                         class.rc()
@@ -840,11 +824,11 @@ mod test {
     fn arg_type_error() {
         assert_err(
             vec![
-                IR::Integer(1),
+                IR::int(1),
                 IR::Object(
                     {
                         let mut class = Class::new();
-                        class.add("foo:", vec![Param::Var], vec![IR::Unit]);
+                        class.add("foo:", vec![Param::Var], vec![IR::unit()]);
                         class.rc()
                     },
                     0,
@@ -859,7 +843,7 @@ mod test {
                 IR::Object(
                     {
                         let mut class = Class::new();
-                        class.add("foo:", vec![Param::Value], vec![IR::Unit]);
+                        class.add("foo:", vec![Param::Value], vec![IR::unit()]);
                         class.rc()
                     },
                     0,
@@ -884,9 +868,9 @@ mod test {
 
         assert_ok(
             vec![
-                IR::Integer(123),
+                IR::int(123),
                 IR::Object(class.clone(), 1),
-                IR::Integer(456),
+                IR::int(456),
                 IR::Local(0),
                 IR::send("value:", 1),
             ],
@@ -898,7 +882,7 @@ mod test {
     fn self_ref() {
         let class = {
             let mut class = Class::new();
-            class.add("x", vec![], vec![IR::Integer(123)]);
+            class.add("x", vec![], vec![IR::int(123)]);
             class.add("x1", vec![], vec![IR::SelfRef, IR::send("x", 0)]);
             class.rc()
         };
@@ -913,7 +897,7 @@ mod test {
     fn native_fn() {
         assert_ok(
             vec![
-                IR::Integer(2),
+                IR::int(2),
                 IR::SendNative(|x, _| Ok(Value::Integer(x.as_int() << 2)), 0),
             ],
             Value::Integer(8),
@@ -957,12 +941,12 @@ mod test {
                 IR::DoObject(
                     {
                         let mut class = Class::new();
-                        class.add("", vec![], vec![IR::Integer(123)]);
+                        class.add("", vec![], vec![IR::int(123)]);
                         class.rc()
                     },
                     0,
                 ),
-                IR::Integer(1),
+                IR::int(1),
                 IR::TrySend("unknown".to_string(), 0),
             ],
             Value::Integer(123),

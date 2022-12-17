@@ -1,4 +1,4 @@
-use std::{cell::RefCell, ops::Deref, rc::Rc};
+use std::{ops::Deref, rc::Rc};
 
 use crate::{
     ir::{Class, Param, Value, IR},
@@ -280,7 +280,7 @@ fn build_array_class() -> Rc<Class> {
                     let to = args.pop().unwrap().as_int() as usize;
                     let from = args.pop().unwrap().as_int() as usize;
                     let slice = target.as_array().borrow()[from..to].to_vec();
-                    Ok(Value::MutArray(Rc::new(RefCell::new(slice))))
+                    Ok(Value::mut_array(slice))
                 },
                 2,
             ),
@@ -342,7 +342,11 @@ fn build_native_module() -> Rc<Class> {
             0,
         )],
     );
-    class.add("new Array", vec![], vec![IR::MutArray]);
+    class.add(
+        "new Array",
+        vec![],
+        vec![IR::Constant(Value::mut_array(vec![]))],
+    );
     class.add_native("debug:", vec![Param::Value], |_, args| {
         println!("{:?}", args[0]);
         Ok(Value::Unit)
