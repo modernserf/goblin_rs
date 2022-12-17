@@ -1,7 +1,7 @@
 use std::{cell::RefCell, collections::HashMap, rc::Rc};
 
 use crate::{
-    ir::{Address, Index, Selector, IR},
+    ir::{Address, Index, Param, Selector, IR},
     native::{array_class, bool_class, int_class, string_class},
 };
 
@@ -195,24 +195,6 @@ impl Class {
 struct Handler {
     params: Vec<Param>,
     body: Body,
-}
-
-#[derive(Debug, Copy, Clone, PartialEq)]
-pub enum Param {
-    Value,
-    Var,
-    Do,
-}
-impl Param {
-    fn check_arg(&self, arg: &Value) -> Runtime<()> {
-        match (self, arg) {
-            (Param::Var, Value::Pointer(_)) => Ok(()),
-            (Param::Var, _) => Err(RuntimeError::ExpectedVarArg),
-            (Param::Do, Value::DoObject(..)) => Ok(()),
-            (_, Value::DoObject(..)) => Err(RuntimeError::DidNotExpectDoArg),
-            _ => Ok(()),
-        }
-    }
 }
 
 #[derive(Debug, Clone)]

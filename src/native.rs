@@ -1,8 +1,8 @@
 use std::{cell::RefCell, ops::Deref, rc::Rc};
 
 use crate::{
-    ir::IR,
-    runtime::{Class, Param, Runtime, RuntimeError, Value},
+    ir::{Param, IR},
+    runtime::{Class, Runtime, RuntimeError, Value},
 };
 
 fn expected<T>(t: &str) -> Runtime<T> {

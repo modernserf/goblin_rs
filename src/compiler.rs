@@ -416,7 +416,8 @@ impl Compiler {
 mod test {
     use crate::{
         ast::{Binding, Expr, Object},
-        runtime::{Class, Param},
+        ir::Param,
+        runtime::Class,
     };
 
     use super::*;

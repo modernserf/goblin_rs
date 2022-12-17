@@ -1,6 +1,6 @@
 use std::{cell::RefCell, rc::Rc};
 
-use crate::runtime::{Class, Interpreter, Runtime, Value};
+use crate::runtime::{Class, Interpreter, Runtime, RuntimeError, Value};
 
 pub type Address = usize;
 pub type Selector = String;
@@ -132,5 +132,23 @@ impl IR {
             }
         }
         Ok(())
+    }
+}
+
+#[derive(Debug, Copy, Clone, PartialEq)]
+pub enum Param {
+    Value,
+    Var,
+    Do,
+}
+impl Param {
+    pub fn check_arg(&self, arg: &Value) -> Runtime<()> {
+        match (self, arg) {
+            (Param::Var, Value::Pointer(_)) => Ok(()),
+            (Param::Var, _) => Err(RuntimeError::ExpectedVarArg),
+            (Param::Do, Value::DoObject(..)) => Ok(()),
+            (_, Value::DoObject(..)) => Err(RuntimeError::DidNotExpectDoArg),
+            _ => Ok(()),
+        }
     }
 }
