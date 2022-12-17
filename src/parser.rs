@@ -142,30 +142,12 @@ impl Parser {
 
     fn key(&mut self) -> Parse<String> {
         let mut parts = vec![];
-        loop {
-            match self.peek() {
-                Token::Identifier(key) => {
-                    self.advance();
-                    parts.push(key);
-                }
-                Token::Operator(key) => {
-                    self.advance();
-                    parts.push(key);
-                }
-                Token::Integer(num) => {
-                    self.advance();
-                    parts.push(num.to_string());
-                }
-                tok => {
-                    if let Some(str) = tok.to_keyword() {
-                        self.advance();
-                        parts.push(str)
-                    } else {
-                        return Ok(parts.join(" "));
-                    }
-                }
-            }
+        while let Some(part) = self.peek().key_part() {
+            self.advance();
+            parts.push(part)
         }
+
+        return Ok(parts.join(" "));
     }
 
     fn handler(&mut self, object: &mut Object) -> Parse<()> {

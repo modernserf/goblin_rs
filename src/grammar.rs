@@ -51,12 +51,27 @@ impl Token {
             .unwrap_or_else(|| Token::Identifier(str))
     }
 
-    pub fn to_keyword(&self) -> Option<String> {
+    fn to_keyword(&self) -> Option<String> {
         KEYWORD_TOKENS
             .with(|pair| pair.clone())
             .1
             .get(self)
             .map(|s| s.to_string())
+    }
+
+    pub fn key_part(self) -> Option<String> {
+        match self {
+            Token::Identifier(key) => Some(key),
+            Token::Operator(key) => Some(key),
+            Token::Integer(num) => Some(num.to_string()),
+            tok => {
+                if let Some(str) = tok.to_keyword() {
+                    Some(str)
+                } else {
+                    None
+                }
+            }
+        }
     }
 }
 type KeywordTokens = Rc<(HashMap<String, Token>, HashMap<Token, String>)>;
