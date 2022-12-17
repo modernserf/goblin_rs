@@ -1,6 +1,6 @@
 use std::{collections::HashMap, rc::Rc};
 
-use crate::ir::{Address, Body, Handler, Selector, Value, IR};
+use crate::ir::{Address, Handler, Selector, Value, IR};
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum RuntimeError {
@@ -64,11 +64,11 @@ impl ModuleLoader {
 
 enum Frame {
     Root {
-        body: Body,
+        body: Vec<IR>,
         ip: usize,
     },
     Handler {
-        body: Body,
+        handler: Rc<Handler>,
         ip: usize,
         local_offset: usize,
         self_value: Value,
@@ -79,10 +79,7 @@ enum Frame {
 
 impl Frame {
     fn root(code: Vec<IR>) -> Self {
-        Frame::Root {
-            body: Rc::new(code),
-            ip: 0,
-        }
+        Frame::Root { body: code, ip: 0 }
     }
     fn local_offset(&self) -> usize {
         match self {
@@ -113,15 +110,15 @@ impl Frame {
                 res
             }
             Frame::Handler {
-                body,
+                handler,
                 ip,
                 local_offset,
                 ..
             } => {
-                if *ip >= body.len() {
+                if *ip >= handler.body.len() {
                     return NextResult::Return(*local_offset);
                 }
-                let res = NextResult::IR(body[*ip].clone());
+                let res = NextResult::IR(handler.body[*ip].clone());
                 *ip += 1;
                 res
             }
@@ -224,7 +221,7 @@ impl<'a> Interpreter<'a> {
         match target {
             Value::DoObject(_, return_from_index, ref self_value) => {
                 self.frames.push(Frame::Handler {
-                    body: handler.body.clone(),
+                    handler,
                     ip: 0,
                     local_offset: local_offset - arity,
                     self_value: *self_value.clone(),
@@ -235,7 +232,7 @@ impl<'a> Interpreter<'a> {
             _ => {
                 let return_from_index = self.frames.len();
                 self.frames.push(Frame::Handler {
-                    body: handler.body.clone(),
+                    handler,
                     ip: 0,
                     local_offset: local_offset - arity,
                     target_value: target.clone(),
@@ -257,7 +254,7 @@ impl<'a> Interpreter<'a> {
         match target {
             Value::DoObject(_, return_from_index, ref self_value) => {
                 self.frames.push(Frame::Handler {
-                    body: handler.body.clone(),
+                    handler,
                     ip: 0,
                     local_offset: local_offset - arity,
                     self_value: *self_value.clone(),
@@ -268,7 +265,7 @@ impl<'a> Interpreter<'a> {
             _ => {
                 let return_from_index = self.frames.len();
                 self.frames.push(Frame::Handler {
-                    body: handler.body.clone(),
+                    handler,
                     ip: 0,
                     local_offset: local_offset - arity,
                     self_value: target.clone(),

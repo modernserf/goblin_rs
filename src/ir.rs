@@ -9,7 +9,6 @@ pub type Selector = String;
 pub type Index = usize;
 pub type Arity = usize;
 pub type NativeFn = fn(Value, Vec<Value>) -> Runtime<Value>;
-pub type Body = Rc<Vec<IR>>;
 
 type MoreFnInner = fn(&mut Interpreter) -> Runtime<()>;
 
@@ -272,13 +271,8 @@ impl Class {
         self.add_handler(selector.to_string(), params, body)
     }
     pub fn add_handler(&mut self, selector: String, params: Vec<Param>, body: Vec<IR>) {
-        self.handlers.insert(
-            selector,
-            Rc::new(Handler {
-                body: Rc::new(body),
-                params,
-            }),
-        );
+        self.handlers
+            .insert(selector, Rc::new(Handler { body, params }));
     }
     pub fn add_native(&mut self, selector: &str, params: Vec<Param>, f: NativeFn) {
         let arity = params.len();
@@ -302,7 +296,7 @@ impl Class {
 #[derive(Debug, Clone, PartialEq)]
 pub struct Handler {
     pub params: Vec<Param>,
-    pub body: Body,
+    pub body: Vec<IR>,
 }
 
 #[derive(Debug, Copy, Clone, PartialEq)]
