@@ -265,7 +265,7 @@ impl Expr {
                 for (_, expr) in pairs {
                     ir.append(expr.compile_arg(compiler)?);
                 }
-                ir.push(IR::Object(class, arity));
+                ir.push(IR::object(class, arity));
                 Ok(ir)
             }
             Self::If(cond, if_true, if_false) => Self::send(
@@ -398,7 +398,7 @@ impl Object {
         }
         let arity = ivals.count();
         let mut out = ivals.compile()?;
-        out.push(IR::Object(class.rc(), arity));
+        out.push(IR::object(class.rc(), arity));
         Ok(out)
     }
     fn compile_do(self, compiler: &mut Compiler) -> CompileIR {

@@ -65,7 +65,7 @@ impl Exports {
             ir.push(IR::Local(addr));
             class.add_handler(key, vec![], vec![IR::IVal(i)]);
         }
-        ir.push(IR::Object(class.rc(), arity));
+        ir.push(IR::object(class.rc(), arity));
         Ok(ir)
     }
 }
@@ -538,7 +538,7 @@ mod test {
     fn empty_object() {
         assert_ok(
             vec![Stmt::Expr(Expr::Object(Object::new()))],
-            vec![IR::Object(Class::new().rc(), 0)],
+            vec![IR::object(Class::new().rc(), 0)],
         )
     }
 
@@ -561,7 +561,7 @@ mod test {
             vec![
                 IR::int(123),
                 IR::int(456),
-                IR::Object(
+                IR::object(
                     {
                         let mut class = Class::new();
                         class.add("handler", vec![], vec![IR::int(789), IR::Local(0)]);
@@ -596,7 +596,7 @@ mod test {
             vec![
                 IR::int(123),
                 IR::int(456),
-                IR::Object(
+                IR::object(
                     {
                         let mut class = Class::new();
                         class.add(
@@ -631,7 +631,7 @@ mod test {
             vec![
                 IR::int(123),
                 IR::Local(0),
-                IR::Object(
+                IR::object(
                     {
                         let mut class = Class::new();
                         class.add(
@@ -685,7 +685,7 @@ mod test {
             vec![
                 IR::int(123),
                 IR::Local(0),
-                IR::Object(
+                IR::object(
                     {
                         let mut class = Class::new();
                         class.add(
@@ -724,7 +724,7 @@ mod test {
                 Stmt::Expr(ident("foo")),
             ],
             vec![
-                IR::Object(
+                IR::object(
                     {
                         let mut class = Class::new();
                         class.add(
@@ -809,7 +809,7 @@ mod test {
                     },
                     0,
                 ),
-                IR::Object(
+                IR::object(
                     {
                         let mut class = Class::new();
                         class.add(":", vec![Param::Do], vec![IR::Local(0), IR::send("foo", 0)]);
@@ -862,7 +862,7 @@ mod test {
                     },
                     1,
                 ),
-                IR::Object(
+                IR::object(
                     {
                         let mut class = Class::new();
                         class.add(":", vec![Param::Do], vec![IR::Local(0), IR::send("foo", 0)]);
@@ -916,7 +916,7 @@ mod test {
                 );
                 obj
             }))],
-            vec![IR::Object(
+            vec![IR::object(
                 {
                     let mut class = Class::new();
                     class.add(
@@ -932,7 +932,7 @@ mod test {
                                 },
                                 1,
                             ),
-                            IR::Object(Class::new().rc(), 0),
+                            IR::object(Class::new().rc(), 0),
                             IR::send(":", 1),
                         ],
                     );
@@ -951,7 +951,7 @@ mod test {
                 IR::int(123),
                 IR::unit(),
                 IR::Local(0),
-                IR::Object(
+                IR::object(
                     {
                         let mut class = Class::new();
                         class.add("foo", vec![], vec![IR::IVal(0)]);
@@ -1020,7 +1020,7 @@ mod test {
                 );
                 obj
             }))],
-            vec![IR::Object(
+            vec![IR::object(
                 {
                     let mut class = Class::new();
                     class.add(
@@ -1053,7 +1053,7 @@ mod test {
                 false,
             )],
             vec![
-                IR::Object(
+                IR::object(
                     {
                         let mut class = Class::new();
                         class.add(

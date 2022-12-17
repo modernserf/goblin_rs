@@ -357,7 +357,7 @@ mod test {
         let empty_class = Class::new().rc();
         assert_ok(
             vec![
-                IR::Object(empty_class.clone(), 0), // 0
+                IR::object(empty_class.clone(), 0), // 0
                 IR::int(1),                         // 1
                 IR::Local(0),
             ],
@@ -369,7 +369,7 @@ mod test {
     fn object_does_not_understand() {
         let empty_class = Class::new().rc();
         assert_err(
-            vec![IR::Object(empty_class, 0), IR::send("foobar", 0)],
+            vec![IR::object(empty_class, 0), IR::send("foobar", 0)],
             RuntimeError::DoesNotUnderstand("foobar".to_string()),
         )
     }
@@ -384,7 +384,7 @@ mod test {
         };
         assert_ok(
             vec![
-                IR::Object(record, 0), // 0
+                IR::object(record, 0), // 0
                 IR::Local(0),
                 IR::send("x", 0),
                 IR::Local(0),
@@ -416,7 +416,7 @@ mod test {
             vec![
                 IR::int(69),        // 0
                 IR::int(420),       // 1
-                IR::Object(foo, 0), // 2
+                IR::object(foo, 0), // 2
                 IR::Local(2),
                 IR::send("foo", 0),
             ],
@@ -450,7 +450,7 @@ mod test {
             vec![
                 IR::int(69),        // 0
                 IR::int(420),       // 1
-                IR::Object(foo, 0), // 2
+                IR::object(foo, 0), // 2
                 IR::Local(2),
                 IR::send("foo", 0),
             ],
@@ -480,7 +480,7 @@ mod test {
         assert_ok(
             vec![
                 IR::int(50),                       // $0
-                IR::Object(double_then_add_10, 0), // $1
+                IR::object(double_then_add_10, 0), // $1
                 IR::Local(0),
                 IR::Local(1),
                 IR::send("foo:", 1), // $1{foo: $0}
@@ -512,7 +512,7 @@ mod test {
         assert_ok(
             vec![
                 IR::int(50),                       // $0
-                IR::Object(double_then_add_10, 0), // $1
+                IR::object(double_then_add_10, 0), // $1
                 IR::Local(0),
                 IR::Local(1),
                 IR::send("foo:", 1), // $2 = $1{foo: $0}
@@ -545,7 +545,7 @@ mod test {
 
         assert_ok(
             vec![
-                IR::Object(add_10_to_var_arg, 0), // $0
+                IR::object(add_10_to_var_arg, 0), // $0
                 IR::int(100),                     // $1
                 IR::Var(1),
                 IR::Local(0),
@@ -569,10 +569,10 @@ mod test {
             vec![
                 IR::int(1),
                 IR::int(2),
-                IR::Object(pair.clone(), 2), // $0 = [x: 1 y: 2]
+                IR::object(pair.clone(), 2), // $0 = [x: 1 y: 2]
                 IR::int(3),
                 IR::int(4),
-                IR::Object(pair, 2), // $1 = [x: 3 y: 4]
+                IR::object(pair, 2), // $1 = [x: 3 y: 4]
                 IR::Local(0),
                 IR::send("x", 0),
                 IR::Local(1),
@@ -589,7 +589,7 @@ mod test {
             vec![
                 IR::int(100), // $0
                 IR::Var(0),
-                IR::Object(
+                IR::object(
                     {
                         let mut class = Class::new();
                         class.add(
@@ -637,7 +637,7 @@ mod test {
             class.rc()
         };
         assert_ok(
-            vec![IR::int(3), IR::Object(obj, 0), IR::send("add 10:", 1)],
+            vec![IR::int(3), IR::object(obj, 0), IR::send("add 10:", 1)],
             Value::Integer(13),
         );
     }
@@ -675,14 +675,14 @@ mod test {
         */
         assert_ok(
             vec![
-                IR::Object(
+                IR::object(
                     {
                         let mut class = Class::new();
                         class.add(
                             "run",
                             vec![],
                             vec![
-                                IR::Object(
+                                IR::object(
                                     {
                                         let mut class = Class::new();
                                         class.add(
@@ -740,7 +740,7 @@ mod test {
         assert_err(
             vec![
                 IR::int(1),
-                IR::Object(
+                IR::object(
                     {
                         let mut class = Class::new();
                         class.add("foo:", vec![Param::Var], vec![IR::unit()]);
@@ -755,7 +755,7 @@ mod test {
         assert_err(
             vec![
                 IR::DoObject(Class::new().rc(), 0),
-                IR::Object(
+                IR::object(
                     {
                         let mut class = Class::new();
                         class.add("foo:", vec![Param::Value], vec![IR::unit()]);
@@ -784,7 +784,7 @@ mod test {
         assert_ok(
             vec![
                 IR::int(123),
-                IR::Object(class.clone(), 1),
+                IR::object(class.clone(), 1),
                 IR::int(456),
                 IR::Local(0),
                 IR::send("value:", 1),
@@ -803,7 +803,7 @@ mod test {
         };
 
         assert_ok(
-            vec![IR::Object(class, 0), IR::send("x1", 0)],
+            vec![IR::object(class, 0), IR::send("x1", 0)],
             Value::Integer(123),
         )
     }

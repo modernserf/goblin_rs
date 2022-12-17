@@ -67,7 +67,20 @@ fn build_bool_class() -> Rc<Class> {
     class.add(
         ":",
         vec![Param::Do],
-        vec![IR::Local(0), IR::SelfRef, IR::SendBool],
+        vec![
+            IR::Local(0),
+            IR::SelfRef,
+            IR::native(|ctx| {
+                let bool = ctx.pop().as_bool();
+                let target = ctx.pop();
+                if bool {
+                    ctx.send("true", target, 0)?;
+                } else {
+                    ctx.send("false", target, 0)?;
+                }
+                Ok(())
+            }),
+        ],
     );
     class.rc()
 }

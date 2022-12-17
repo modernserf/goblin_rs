@@ -11,8 +11,10 @@ pub type Arity = usize;
 pub type NativeFn = fn(Value, Vec<Value>) -> Runtime<Value>;
 pub type Body = Rc<Vec<IR>>;
 
+type MoreFnInner = fn(&mut Interpreter) -> Runtime<()>;
+
 #[derive(Clone)]
-pub struct MoreFn(fn(&mut Interpreter) -> Runtime<()>);
+pub struct MoreFn(MoreFnInner);
 impl std::fmt::Debug for MoreFn {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.write_str("<more fn>")
@@ -40,7 +42,7 @@ pub enum IR {
     Send(Selector, Arity),       // (...args target -- result)
     TrySend(Selector, Arity),    // (...args target -- result)
     SendNative(NativeFn, Arity), // (...args target -- result)
-    SendBool,                    // (target bool -- result)
+    Native(MoreFn),              // (...)
     Drop,                        // (value --)
     Return,
     Loop,
@@ -62,24 +64,25 @@ impl IR {
     pub fn send(selector: &str, arity: usize) -> Self {
         IR::Send(selector.to_string(), arity)
     }
+    pub fn native(f: MoreFnInner) -> Self {
+        IR::Native(MoreFn(f))
+    }
+    pub fn object(class: Rc<Class>, arity: usize) -> Self {
+        if arity == 0 {
+            IR::Constant(Value::Object(class, Rc::new(vec![])))
+        } else {
+            IR::Object(class, arity)
+        }
+    }
 
     pub fn eval(self, ctx: &mut Interpreter) -> Runtime<()> {
         match self {
             IR::Constant(value) => ctx.push(value),
+            IR::Native(f) => return f.0(ctx),
             IR::SelfRef => {
                 let value = ctx.self_value();
                 ctx.push(value)
             }
-            IR::SendBool => {
-                let bool = ctx.pop().as_bool();
-                let target = ctx.pop();
-                if bool {
-                    ctx.send("true", target, 0)?;
-                } else {
-                    ctx.send("false", target, 0)?;
-                }
-            }
-            // IR::String(str) => ctx.push(Value::String(str)),
             IR::Local(address) => {
                 let local_offset = ctx.local_offset();
                 let value = ctx.get_stack(address + local_offset);
