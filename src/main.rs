@@ -1,12 +1,13 @@
 mod ast;
 mod compiler;
 mod grammar;
+mod ir;
 mod lexer;
 mod native;
 mod parser;
 mod runtime;
 
-fn compile_module(code: &str) -> Vec<runtime::IR> {
+fn compile_module(code: &str) -> Vec<ir::IR> {
     let tokens = lexer::Lexer::lex(code.to_string());
     let ast = parser::Parser::parse(tokens).unwrap();
     compiler::Compiler::module(ast).unwrap()

@@ -1,6 +1,9 @@
 use std::{cell::RefCell, ops::Deref, rc::Rc};
 
-use crate::runtime::{Class, Param, Runtime, RuntimeError, Value, IR};
+use crate::{
+    ir::IR,
+    runtime::{Class, Param, Runtime, RuntimeError, Value},
+};
 
 fn expected<T>(t: &str) -> Runtime<T> {
     Err(RuntimeError::ExpectedType(t.to_string()))

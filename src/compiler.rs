@@ -1,6 +1,7 @@
 use crate::{
     ast::Stmt,
-    runtime::{Address, Class, Index, IR},
+    ir::{Address, Index, IR},
+    runtime::Class,
 };
 use std::collections::HashMap;
 

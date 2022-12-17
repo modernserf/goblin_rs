@@ -2,8 +2,9 @@ use std::{cell::RefCell, collections::HashMap, rc::Rc};
 
 use crate::{
     compiler::{CompileIR, Compiler, IRBuilder, IVals},
+    ir::{Address, Selector, IR},
     parser::{Parse, ParseError},
-    runtime::{Address, Class, Param, Selector, Value, IR},
+    runtime::{Class, Param, Value},
 };
 
 #[derive(Debug, Clone, PartialEq)]
