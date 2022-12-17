@@ -2,7 +2,8 @@ use std::{cell::RefCell, collections::HashMap, rc::Rc};
 
 use crate::{
     compiler::{CompileIR, Compiler, IRBuilder, IVals},
-    ir::{Address, Class, Param, Selector, Value, IR},
+    ir::{Address, Class, Handler as IRHandler, Param, Selector, Value, IR},
+    native::{bool_class, int_class, string_class},
     parser::{Parse, ParseError},
 };
 
@@ -221,6 +222,21 @@ impl Expr {
     fn compile_with_binding(self, compiler: &mut Compiler, binding: &Binding) -> CompileIR {
         self.compile_base(compiler, Some(binding))
     }
+    fn get_direct_handler(&self, selector: &str) -> Option<Rc<IRHandler>> {
+        match self {
+            Self::Integer(_) => int_class().get(selector).ok(),
+            Self::Bool(_) => bool_class().get(selector).ok(),
+            Self::String(_) => string_class().get(selector).ok(),
+            _ => None,
+        }
+    }
+    fn compile_send(&self, selector: String, arity: usize) -> CompileIR {
+        match self.get_direct_handler(&selector) {
+            Some(handler) => Ok(IRBuilder::from(vec![IR::SendDirect(handler, arity)])),
+            None => Ok(IRBuilder::from(vec![IR::Send(selector, arity)])),
+        }
+    }
+
     fn compile_base(self, compiler: &mut Compiler, binding: Option<&Binding>) -> CompileIR {
         match self {
             Self::Unit => Ok(IRBuilder::from(vec![IR::unit()])),
@@ -235,8 +251,10 @@ impl Expr {
                 for arg in args {
                     ir.append(arg.compile_arg(compiler)?);
                 }
+
+                let send = target.compile_send(selector, arity)?;
                 ir.append(target.compile_target(compiler)?);
-                ir.push(IR::Send(selector, arity));
+                ir.append(send);
                 Ok(ir)
             }
             Self::TrySend(selector, target, args, or_else) => {

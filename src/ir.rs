@@ -28,22 +28,23 @@ impl PartialEq for MoreFn {
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum IR {
-    Constant(Value),             // ( -- value)
-    Local(Address),              // ( -- *address)
-    Var(Address),                // ( -- address)
-    IVal(Index),                 // ( -- instance[index])
-    SelfRef,                     // ( -- self_value)
-    Module(String),              // ( -- module)
-    Object(Rc<Class>, Arity),    // (...instance -- object)
-    DoObject(Rc<Class>, Arity),  // (...instance -- object)
-    NewSelf(Arity),              // (...instance -- object)
-    Deref,                       // (address -- *address)
-    SetVar,                      // (value address -- )
-    Send(Selector, Arity),       // (...args target -- result)
-    TrySend(Selector, Arity),    // (...args target -- result)
-    SendNative(NativeFn, Arity), // (...args target -- result)
-    Native(MoreFn),              // (...)
-    Drop,                        // (value --)
+    Constant(Value),                // ( -- value)
+    Local(Address),                 // ( -- *address)
+    Var(Address),                   // ( -- address)
+    IVal(Index),                    // ( -- instance[index])
+    SelfRef,                        // ( -- self_value)
+    Module(String),                 // ( -- module)
+    Object(Rc<Class>, Arity),       // (...instance -- object)
+    DoObject(Rc<Class>, Arity),     // (...instance -- object)
+    NewSelf(Arity),                 // (...instance -- object)
+    Deref,                          // (address -- *address)
+    SetVar,                         // (value address -- )
+    Send(Selector, Arity),          // (...args target -- result)
+    SendDirect(Rc<Handler>, Arity), // (...args target -- result)
+    TrySend(Selector, Arity),       // (...args target -- result)
+    SendNative(NativeFn, Arity),    // (...args target -- result)
+    Native(MoreFn),                 // (...)
+    Drop,                           // (value --)
     Return,
     Loop,
 }
@@ -134,6 +135,10 @@ impl IR {
             IR::Send(selector, arity) => {
                 let target = ctx.pop();
                 ctx.send(&selector, target, arity)?;
+            }
+            IR::SendDirect(handler, arity) => {
+                let target = ctx.pop();
+                ctx.send_direct(handler, target, arity)?;
             }
             IR::TrySend(selector, arity) => {
                 let target = ctx.pop();
@@ -238,7 +243,7 @@ impl Value {
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct Class {
-    handlers: HashMap<Selector, Handler>,
+    handlers: HashMap<Selector, Rc<Handler>>,
 }
 
 impl Class {
@@ -253,10 +258,10 @@ impl Class {
     pub fn add_handler(&mut self, selector: String, params: Vec<Param>, body: Vec<IR>) {
         self.handlers.insert(
             selector,
-            Handler {
+            Rc::new(Handler {
                 body: Rc::new(body),
                 params,
-            },
+            }),
         );
     }
     pub fn add_native(&mut self, selector: &str, params: Vec<Param>, f: NativeFn) {
@@ -267,9 +272,9 @@ impl Class {
             vec![IR::SelfRef, IR::SendNative(f, arity)],
         );
     }
-    pub fn get(&self, selector: &str) -> Runtime<&Handler> {
+    pub fn get(&self, selector: &str) -> Runtime<Rc<Handler>> {
         match self.handlers.get(selector) {
-            Some(handler) => Ok(handler),
+            Some(handler) => Ok(handler.clone()),
             None => Err(RuntimeError::DoesNotUnderstand(selector.to_string())),
         }
     }

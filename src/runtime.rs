@@ -1,6 +1,6 @@
 use std::{collections::HashMap, rc::Rc};
 
-use crate::ir::{Address, Body, Instance, Selector, Value, IR};
+use crate::ir::{Address, Body, Handler, Instance, Selector, Value, IR};
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum RuntimeError {
@@ -209,6 +209,42 @@ impl<'a> Interpreter<'a> {
     }
     fn top_mut(&mut self) -> &mut Frame {
         self.frames.last_mut().unwrap()
+    }
+
+    pub fn send_direct(
+        &mut self,
+        handler: Rc<Handler>,
+        target: Value,
+        arity: usize,
+    ) -> Runtime<()> {
+        let local_offset = self.stack.len();
+        for (i, param) in handler.params.iter().enumerate() {
+            param.check_arg(&self.stack[local_offset - arity + i])?;
+        }
+        match target {
+            Value::DoObject(_, ivals, return_from_index, self_value) => {
+                self.frames.push(Frame::Handler {
+                    body: handler.body.clone(),
+                    ip: 0,
+                    local_offset: local_offset - arity,
+                    self_value: *self_value,
+                    ivals,
+                    return_from_index,
+                })
+            }
+            _ => {
+                let return_from_index = self.frames.len();
+                self.frames.push(Frame::Handler {
+                    body: handler.body.clone(),
+                    ip: 0,
+                    local_offset: local_offset - arity,
+                    ivals: target.ivals(),
+                    self_value: target,
+                    return_from_index,
+                })
+            }
+        };
+        Ok(())
     }
 
     pub fn send(&mut self, selector: &str, target: Value, arity: usize) -> Runtime<()> {
