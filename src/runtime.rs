@@ -1,6 +1,6 @@
 use std::{collections::HashMap, rc::Rc};
 
-use crate::ir::{Address, Index, Instance, Param, Selector, Value, IR};
+use crate::ir::{Address, Body, Index, Instance, Param, Selector, Value, IR};
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum RuntimeError {
@@ -14,8 +14,6 @@ pub enum RuntimeError {
 }
 pub type Runtime<T> = Result<T, RuntimeError>;
 
-pub type NativeFn = fn(Value, Vec<Value>) -> Runtime<Value>;
-
 #[derive(Clone)]
 pub struct MoreFn(fn(&mut Stack, &mut CallStack) -> Runtime<()>);
 impl std::fmt::Debug for MoreFn {
@@ -27,56 +25,6 @@ impl PartialEq for MoreFn {
     fn eq(&self, other: &Self) -> bool {
         self.0 as usize == other.0 as usize
     }
-}
-
-type Body = Rc<Vec<IR>>;
-
-#[derive(Debug, Clone, PartialEq)]
-pub struct Class {
-    handlers: HashMap<Selector, Handler>,
-}
-
-impl Class {
-    pub fn new() -> Self {
-        Class {
-            handlers: HashMap::new(),
-        }
-    }
-    pub fn add(&mut self, selector: &str, params: Vec<Param>, body: Vec<IR>) {
-        self.add_handler(selector.to_string(), params, body)
-    }
-    pub fn add_handler(&mut self, selector: String, params: Vec<Param>, body: Vec<IR>) {
-        self.handlers.insert(
-            selector,
-            Handler {
-                body: Rc::new(body),
-                params,
-            },
-        );
-    }
-    pub fn add_native(&mut self, selector: &str, params: Vec<Param>, f: NativeFn) {
-        let arity = params.len();
-        self.add_handler(
-            selector.to_string(),
-            params,
-            vec![IR::SelfRef, IR::SendNative(f, arity)],
-        );
-    }
-    fn get(&self, selector: &str) -> Runtime<&Handler> {
-        match self.handlers.get(selector) {
-            Some(handler) => Ok(handler),
-            None => Err(RuntimeError::DoesNotUnderstand(selector.to_string())),
-        }
-    }
-    pub fn rc(self) -> Rc<Class> {
-        Rc::new(self)
-    }
-}
-
-#[derive(Debug, Clone, PartialEq)]
-struct Handler {
-    params: Vec<Param>,
-    body: Body,
 }
 
 #[derive(Debug, Clone)]
@@ -287,10 +235,10 @@ impl CallStack {
     fn top_mut(&mut self) -> &mut Frame {
         self.frames.last_mut().unwrap()
     }
-    fn call(&mut self, handler: &Handler, arity: usize, local_offset: usize, self_value: Value) {
+    fn call(&mut self, body: Body, arity: usize, local_offset: usize, self_value: Value) {
         let return_from_index = self.frames.len();
         self.frames.push(Frame::Handler {
-            body: handler.body.clone(),
+            body,
             ip: 0,
             local_offset: local_offset - arity,
             ivals: self_value.ivals(),
@@ -300,7 +248,7 @@ impl CallStack {
     }
     fn call_do(
         &mut self,
-        handler: &Handler,
+        body: Body,
         arity: usize,
         local_offset: usize,
         ivals: Instance,
@@ -308,7 +256,7 @@ impl CallStack {
         self_value: Value,
     ) {
         self.frames.push(Frame::Handler {
-            body: handler.body.clone(),
+            body,
             ip: 0,
             local_offset: local_offset - arity,
             self_value,
@@ -399,7 +347,7 @@ impl<'a> Interpreter<'a> {
         match target {
             Value::DoObject(_, ivals, return_from_index, self_value) => {
                 self.call_stack.call_do(
-                    handler,
+                    handler.body.clone(),
                     arity,
                     local_offset,
                     ivals,
@@ -408,7 +356,8 @@ impl<'a> Interpreter<'a> {
                 );
             }
             _ => {
-                self.call_stack.call(&handler, arity, local_offset, target);
+                self.call_stack
+                    .call(handler.body.clone(), arity, local_offset, target);
             }
         };
         Ok(())
@@ -435,6 +384,8 @@ impl<'a> Interpreter<'a> {
 
 #[cfg(test)]
 mod test {
+    use crate::ir::Class;
+
     use super::*;
 
     fn assert_ok(code: Vec<IR>, expected: Value) {

@@ -1,13 +1,15 @@
+use std::collections::HashMap;
 use std::{cell::RefCell, rc::Rc};
 
 use crate::native::{array_class, bool_class, int_class, string_class, unit_class};
-use crate::runtime::{Class, Interpreter, Runtime, RuntimeError};
+use crate::runtime::{Interpreter, Runtime, RuntimeError};
 
 pub type Address = usize;
 pub type Selector = String;
 pub type Index = usize;
 pub type Arity = usize;
 pub type NativeFn = fn(Value, Vec<Value>) -> Runtime<Value>;
+pub type Body = Rc<Vec<IR>>;
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum IR {
@@ -207,6 +209,54 @@ impl Value {
             _ => todo!(),
         }
     }
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct Class {
+    handlers: HashMap<Selector, Handler>,
+}
+
+impl Class {
+    pub fn new() -> Self {
+        Class {
+            handlers: HashMap::new(),
+        }
+    }
+    pub fn add(&mut self, selector: &str, params: Vec<Param>, body: Vec<IR>) {
+        self.add_handler(selector.to_string(), params, body)
+    }
+    pub fn add_handler(&mut self, selector: String, params: Vec<Param>, body: Vec<IR>) {
+        self.handlers.insert(
+            selector,
+            Handler {
+                body: Rc::new(body),
+                params,
+            },
+        );
+    }
+    pub fn add_native(&mut self, selector: &str, params: Vec<Param>, f: NativeFn) {
+        let arity = params.len();
+        self.add_handler(
+            selector.to_string(),
+            params,
+            vec![IR::SelfRef, IR::SendNative(f, arity)],
+        );
+    }
+    pub fn get(&self, selector: &str) -> Runtime<&Handler> {
+        match self.handlers.get(selector) {
+            Some(handler) => Ok(handler),
+            None => Err(RuntimeError::DoesNotUnderstand(selector.to_string())),
+        }
+    }
+    pub fn rc(self) -> Rc<Class> {
+        Rc::new(self)
+    }
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct Handler {
+    pub params: Vec<Param>,
+    pub body: Body,
 }
 
 #[derive(Debug, Copy, Clone, PartialEq)]

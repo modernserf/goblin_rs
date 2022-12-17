@@ -1,7 +1,6 @@
 use crate::{
     ast::Stmt,
-    ir::{Address, Index, IR},
-    runtime::Class,
+    ir::{Address, Class, Index, IR},
 };
 use std::collections::HashMap;
 
@@ -416,8 +415,7 @@ impl Compiler {
 mod test {
     use crate::{
         ast::{Binding, Expr, Object},
-        ir::Param,
-        runtime::Class,
+        ir::{Class, Param},
     };
 
     use super::*;
