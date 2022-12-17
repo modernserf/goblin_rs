@@ -50,19 +50,19 @@ impl<T> SelectorBuilder<T> {
         }
 
         self.items.insert(key, value);
-        return Ok(());
+        Ok(())
     }
     fn resolve(self, last_key: String) -> Parse<SelectorBuilderResult<T>> {
-        if self.items.len() > 0 {
-            if last_key.len() == 0 {
+        if !self.items.is_empty() {
+            if last_key.is_empty() {
                 return self.resolve_pairs();
             }
             return Err(ParseError::MixedKeyPair(last_key));
         }
-        return Ok(SelectorBuilderResult {
+        Ok(SelectorBuilderResult {
             selector: last_key,
             items: vec![],
-        });
+        })
     }
     fn resolve_pairs(self) -> Parse<SelectorBuilderResult<T>> {
         let mut items = self.items.into_iter().collect::<Vec<_>>();
@@ -147,7 +147,7 @@ impl Parser {
             parts.push(part)
         }
 
-        return Ok(parts.join(" "));
+        Ok(parts.join(" "))
     }
 
     fn handler(&mut self, object: &mut Object) -> Parse<()> {
@@ -227,12 +227,12 @@ impl Parser {
                     Token::On | Token::OpenBrace => {
                         let object = self.object_body()?;
                         self.expect_token(Token::CloseBracket)?;
-                        return Ok(Some(Expr::Object(object)));
+                        Ok(Some(Expr::Object(object)))
                     }
                     _ => {
                         let frame = self.build_structure(|p| p.arg())?;
                         self.expect_token(Token::CloseBracket)?;
-                        return Ok(Some(Expr::Frame(frame.selector, frame.items)));
+                        Ok(Some(Expr::Frame(frame.selector, frame.items)))
                     }
                 }
             }

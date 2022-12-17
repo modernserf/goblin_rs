@@ -32,10 +32,10 @@ impl IRBuilder {
         self.ir.push(item);
     }
     pub fn append(&mut self, other: IRBuilder) {
-        let mut other_ir = other.to_vec();
+        let mut other_ir = other.build();
         self.ir.append(&mut other_ir);
     }
-    pub fn to_vec(self) -> Vec<IR> {
+    pub fn build(self) -> Vec<IR> {
         self.ir
     }
 }
@@ -166,7 +166,7 @@ impl Locals {
         }
     }
     fn get(&self, key: &str) -> Option<BindingRecord> {
-        self.locals.get(key).map(|x| *x)
+        self.locals.get(key).copied()
     }
     fn add_anon(&mut self) -> usize {
         let address = self.next_index;
@@ -212,7 +212,7 @@ impl IVals {
         let next_index = self.ivals.len();
         self.ivals.push(value);
         let ival = value.as_handler_ival(next_index, &key)?;
-        if self.map.insert(key, ival.clone()).is_some() {
+        if self.map.insert(key, ival).is_some() {
             panic!("duplicate ival key")
         }
         Ok(ival)
@@ -221,7 +221,7 @@ impl IVals {
         let next_index = self.ivals.len();
         self.ivals.push(value);
         let ival = value.as_do_handler_ival(next_index);
-        if self.map.insert(key, ival.clone()).is_some() {
+        if self.map.insert(key, ival).is_some() {
             panic!("duplicate ival key")
         }
         Ok(ival)
@@ -313,13 +313,13 @@ impl Compiler {
     pub fn program(program: Vec<Stmt>) -> Compile<Vec<IR>> {
         let mut compiler = Compiler::new();
         let out = compiler.body(program)?;
-        Ok(out.to_vec())
+        Ok(out.build())
     }
     pub fn module(module: Vec<Stmt>) -> Compile<Vec<IR>> {
         let mut compiler = Compiler::new();
         let mut out = compiler.body(module)?;
         out.append(compiler.frames.pop().unwrap().compile_exports()?);
-        Ok(out.to_vec())
+        Ok(out.build())
     }
     fn new() -> Self {
         Compiler {
@@ -328,7 +328,7 @@ impl Compiler {
     }
     pub fn body(&mut self, mut body: Vec<Stmt>) -> CompileIR {
         let mut builder = IRBuilder::new();
-        if body.len() == 0 {
+        if body.is_empty() {
             builder.push(IR::unit());
             return Ok(builder);
         }

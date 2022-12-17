@@ -182,33 +182,33 @@ impl Value {
         Value::MutArray(Rc::new(RefCell::new(vec)))
     }
 
-    pub fn as_bool(self) -> bool {
+    pub fn as_bool(&self) -> bool {
         match self {
-            Value::Bool(val) => val,
+            Value::Bool(val) => *val,
             _ => panic!("cannot cast to bool"),
         }
     }
-    pub fn as_int(self) -> i64 {
+    pub fn as_int(&self) -> i64 {
         match self {
-            Value::Integer(val) => val,
+            Value::Integer(val) => *val,
             _ => panic!("cannot cast to int"),
         }
     }
-    pub fn as_string(self) -> Rc<String> {
+    pub fn as_string(&self) -> Rc<String> {
         match self {
-            Value::String(str) => str,
+            Value::String(str) => str.clone(),
             _ => panic!("cannot cast to string"),
         }
     }
-    pub fn as_array(self) -> Rc<RefCell<Vec<Value>>> {
+    pub fn as_array(&self) -> Rc<RefCell<Vec<Value>>> {
         match self {
-            Value::MutArray(arr) => arr,
+            Value::MutArray(arr) => arr.clone(),
             _ => panic!("cannot cast to array"),
         }
     }
-    pub fn as_pointer(self) -> usize {
+    pub fn as_pointer(&self) -> usize {
         match self {
-            Value::Pointer(address) => address,
+            Value::Pointer(address) => *address,
             _ => panic!("deref a non-pointer"),
         }
     }

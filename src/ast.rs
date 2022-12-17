@@ -393,7 +393,7 @@ impl Object {
 
             ir.append(compiler.body(handler.body)?);
 
-            class.add_handler(selector, params, ir.to_vec());
+            class.add_handler(selector, params, ir.build());
             ivals = compiler.end_handler();
         }
         let arity = ivals.count();
@@ -418,7 +418,7 @@ impl Object {
             }
             ir.append(compiler.body(handler.body)?);
 
-            class.add_handler(selector, params, ir.to_vec());
+            class.add_handler(selector, params, ir.build());
             ivals = compiler.end_handler();
         }
         let arity = ivals.count();
@@ -432,7 +432,7 @@ thread_local! {
     static FRAME_CACHE: RefCell<HashMap<String, Rc<Class>>> = RefCell::new(HashMap::new());
 }
 
-pub fn frame_class(selector: String, pairs: &Vec<(String, Expr)>) -> Rc<Class> {
+pub fn frame_class(selector: String, pairs: &[(String, Expr)]) -> Rc<Class> {
     let cached = FRAME_CACHE.with(|cell| {
         let map = cell.borrow();
         map.get(&selector).cloned()
@@ -450,7 +450,7 @@ pub fn frame_class(selector: String, pairs: &Vec<(String, Expr)>) -> Rc<Class> {
         }
         builder.push(IR::Local(0));
         builder.push(IR::Send(selector.to_string(), pairs.len()));
-        builder.to_vec()
+        builder.build()
     });
 
     // equality
@@ -462,7 +462,7 @@ pub fn frame_class(selector: String, pairs: &Vec<(String, Expr)>) -> Rc<Class> {
         Ok(Value::Bool(target != args[0]))
     });
 
-    if pairs.len() == 0 {
+    if pairs.is_empty() {
         // fold
         class.add(
             ":into:",
@@ -484,7 +484,7 @@ pub fn frame_class(selector: String, pairs: &Vec<(String, Expr)>) -> Rc<Class> {
                     }
                 }
                 builder.push(IR::NewSelf(pairs.len()));
-                builder.to_vec()
+                builder.build()
             });
             // update
             class.add_handler(

@@ -324,7 +324,7 @@ fn build_native_module() -> Rc<Class> {
             IR::Local(1),
             IR::SendNative(
                 |received, args| {
-                    if &args[0] == &received {
+                    if args[0] == received {
                         Ok(Value::Unit)
                     } else {
                         Err(RuntimeError::Panic(format!(

@@ -110,7 +110,7 @@ impl Frame {
                 }
                 let res = NextResult::IR(body[*ip].clone());
                 *ip += 1;
-                return res;
+                res
             }
             Frame::Handler {
                 body,
@@ -123,7 +123,7 @@ impl Frame {
                 }
                 let res = NextResult::IR(body[*ip].clone());
                 *ip += 1;
-                return res;
+                res
             }
         }
     }

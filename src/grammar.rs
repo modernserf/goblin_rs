@@ -48,7 +48,7 @@ impl Token {
             .0
             .get(&str)
             .cloned()
-            .unwrap_or_else(|| Token::Identifier(str))
+            .unwrap_or(Token::Identifier(str))
     }
 
     fn to_keyword(&self) -> Option<String> {
@@ -64,13 +64,7 @@ impl Token {
             Token::Identifier(key) => Some(key),
             Token::Operator(key) => Some(key),
             Token::Integer(num) => Some(num.to_string()),
-            tok => {
-                if let Some(str) = tok.to_keyword() {
-                    Some(str)
-                } else {
-                    None
-                }
-            }
+            tok => tok.to_keyword(),
         }
     }
 }
