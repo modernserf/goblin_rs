@@ -1,6 +1,6 @@
 use std::{collections::HashMap, rc::Rc};
 
-use crate::ir::{Address, Body, Instance, Param, Selector, Value, IR};
+use crate::ir::{Address, Body, Instance, Selector, Value, IR};
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum RuntimeError {
@@ -59,39 +59,6 @@ impl ModuleLoader {
             }
             None => Err(RuntimeError::UnknownModule(name.to_string())),
         }
-    }
-}
-struct Stack {
-    stack: Vec<Value>,
-}
-
-impl Stack {
-    fn new() -> Self {
-        Stack { stack: Vec::new() }
-    }
-    pub fn pop(&mut self) -> Value {
-        self.stack.pop().unwrap()
-    }
-    pub fn push(&mut self, value: Value) {
-        self.stack.push(value);
-    }
-    pub fn get(&self, index: Address) -> Value {
-        self.stack[index].clone()
-    }
-    fn set(&mut self, index: Address, value: Value) {
-        self.stack[index] = value
-    }
-    fn size(&self) -> usize {
-        self.stack.len()
-    }
-    fn truncate(&mut self, offset: usize) {
-        self.stack.truncate(offset);
-    }
-    pub fn take(&mut self, count: usize) -> Vec<Value> {
-        self.stack.split_off(self.stack.len() - count)
-    }
-    fn check_arg(&self, index: Address, param: Param) -> Runtime<()> {
-        param.check_arg(&self.stack[index])
     }
 }
 
@@ -188,7 +155,7 @@ enum NextResult {
 }
 
 pub struct Interpreter<'a> {
-    stack: Stack,
+    stack: Vec<Value>,
     frames: Vec<Frame>,
     next_state: NextState,
     modules: &'a mut ModuleLoader,
@@ -197,7 +164,7 @@ pub struct Interpreter<'a> {
 impl<'a> Interpreter<'a> {
     pub fn program(code: Vec<IR>, modules: &'a mut ModuleLoader) -> Runtime<Value> {
         let mut interpreter = Interpreter {
-            stack: Stack::new(),
+            stack: vec![],
             frames: vec![Frame::root(code)],
             next_state: NextState::Init,
             modules,
@@ -209,21 +176,47 @@ impl<'a> Interpreter<'a> {
             match self.next() {
                 NextResult::IR(ir) => ir.eval(self)?,
                 NextResult::Return(offset) => {
-                    let value = self.stack.pop();
+                    let value = self.pop();
                     self.stack.truncate(offset);
-                    self.stack.push(value);
+                    self.push(value);
                 }
-                NextResult::Done => return Ok(self.stack.pop()),
+                NextResult::Done => return Ok(self.pop()),
             };
         }
+    }
+    fn next(&mut self) -> NextResult {
+        if let NextState::Return = self.next_state {
+            self.next_state = NextState::Init;
+            let return_from_index = self.return_from_index();
+            if return_from_index == 0 {
+                return NextResult::Done;
+            }
+            self.frames.truncate(return_from_index + 1);
+            let last_frame = self.frames.pop().unwrap();
+            let offset = last_frame.local_offset();
+            return NextResult::Return(offset);
+        }
+
+        let frame = self.top_mut();
+        let res = frame.next();
+        if let NextResult::Return(_) = res {
+            self.frames.pop();
+        }
+        res
+    }
+    fn top(&self) -> &Frame {
+        self.frames.last().unwrap()
+    }
+    fn top_mut(&mut self) -> &mut Frame {
+        self.frames.last_mut().unwrap()
     }
 
     pub fn send(&mut self, selector: &str, target: Value, arity: usize) -> Runtime<()> {
         let class = target.class();
         let handler = class.get(selector)?;
-        let local_offset = self.stack.size();
+        let local_offset = self.stack.len();
         for (i, param) in handler.params.iter().enumerate() {
-            self.stack.check_arg(local_offset - arity + i, *param)?;
+            param.check_arg(&self.stack[local_offset - arity + i])?;
         }
         match target {
             Value::DoObject(_, ivals, return_from_index, self_value) => {
@@ -250,34 +243,29 @@ impl<'a> Interpreter<'a> {
         };
         Ok(())
     }
-    fn next(&mut self) -> NextResult {
-        if let NextState::Return = self.next_state {
-            self.next_state = NextState::Init;
-            let return_from_index = self.return_from_index();
-            if return_from_index == 0 {
-                return NextResult::Done;
-            }
-            self.frames.truncate(return_from_index + 1);
-            let last_frame = self.frames.pop().unwrap();
-            let offset = last_frame.local_offset();
-            return NextResult::Return(offset);
-        }
-
-        let frame = self.top_mut();
-        let res = frame.next();
-        if let NextResult::Return(_) = res {
-            self.frames.pop();
-        }
-        res
+    pub fn load_module(&mut self, module: &str) -> Runtime<Value> {
+        self.modules.load(module)
+    }
+    pub fn get_stack(&mut self, address: Address) -> Value {
+        self.stack[address].clone()
+    }
+    pub fn deref_pointer(&self, pointer: Value) -> Value {
+        self.stack[pointer.as_pointer()].clone()
+    }
+    pub fn set_pointer(&mut self, pointer: Value, value: Value) {
+        self.stack[pointer.as_pointer()] = value
+    }
+    pub fn pop(&mut self) -> Value {
+        self.stack.pop().unwrap()
+    }
+    pub fn push(&mut self, value: Value) {
+        self.stack.push(value);
+    }
+    pub fn take(&mut self, count: usize) -> Vec<Value> {
+        self.stack.split_off(self.stack.len() - count)
     }
     pub fn local_offset(&self) -> usize {
         self.top().local_offset()
-    }
-    fn top(&self) -> &Frame {
-        self.frames.last().unwrap()
-    }
-    fn top_mut(&mut self) -> &mut Frame {
-        self.frames.last_mut().unwrap()
     }
     pub fn self_value(&self) -> Value {
         self.top().self_value()
@@ -294,32 +282,11 @@ impl<'a> Interpreter<'a> {
     pub fn do_loop(&mut self) {
         self.top_mut().do_loop()
     }
-    pub fn push(&mut self, value: Value) {
-        self.stack.push(value)
-    }
-    pub fn pop(&mut self) -> Value {
-        self.stack.pop()
-    }
-    pub fn get_stack(&mut self, address: Address) -> Value {
-        self.stack.get(address)
-    }
-    pub fn take(&mut self, count: usize) -> Vec<Value> {
-        self.stack.take(count)
-    }
-    pub fn load_module(&mut self, module: &str) -> Runtime<Value> {
-        self.modules.load(module)
-    }
-    pub fn deref_pointer(&self, pointer: Value) -> Value {
-        self.stack.get(pointer.as_pointer())
-    }
-    pub fn set_pointer(&mut self, pointer: Value, value: Value) {
-        self.stack.set(pointer.as_pointer(), value)
-    }
 }
 
 #[cfg(test)]
 mod test {
-    use crate::ir::Class;
+    use crate::ir::{Class, Param};
 
     use super::*;
 
