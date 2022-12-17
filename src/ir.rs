@@ -70,7 +70,7 @@ impl IR {
     }
     pub fn object(class: Rc<Class>, arity: usize) -> Self {
         if arity == 0 {
-            IR::Constant(Value::Object(class, Rc::new(vec![])))
+            IR::Constant(Value::Object(Object::new(class, vec![]).rc()))
         } else {
             IR::Object(class, arity)
         }
@@ -98,24 +98,28 @@ impl IR {
                 ctx.push(Value::Pointer(absolute_address));
             }
             IR::Object(class, arity) => {
-                let ivals = Rc::new(ctx.take(arity));
-                let value = Value::Object(class, ivals);
+                let ivals = ctx.take(arity);
+                let value = Value::Object(Object::new(class, ivals).rc());
                 ctx.push(value);
             }
             IR::NewSelf(arity) => {
                 let class = match ctx.self_value() {
-                    Value::Object(class, _) => class,
+                    Value::Object(obj) => obj.class.clone(),
                     _ => panic!("cannot get class"),
                 };
-                let ivals = Rc::new(ctx.take(arity));
-                let value = Value::Object(class, ivals);
+                let ivals = ctx.take(arity);
+                let value = Value::Object(Object::new(class, ivals).rc());
                 ctx.push(value);
             }
             IR::DoObject(class, arity) => {
-                let ivals = Rc::new(ctx.take(arity));
+                let ivals = ctx.take(arity);
                 let return_from_index = ctx.return_from_index();
                 let self_value = Box::new(ctx.self_value());
-                let value = Value::DoObject(class, ivals, return_from_index, self_value);
+                let value = Value::DoObject(
+                    Object::new(class, ivals).rc(),
+                    return_from_index,
+                    self_value,
+                );
                 ctx.push(value);
             }
             IR::Module(name) => {
@@ -173,13 +177,27 @@ pub enum Value {
     Bool(bool),
     Integer(i64),
     String(Rc<String>),
-    Object(Rc<Class>, Instance),
-    DoObject(Rc<Class>, Instance, ParentFrameIndex, Box<Value>),
+    Object(Rc<Object>),
+    DoObject(Rc<Object>, ParentFrameIndex, Box<Value>),
     Pointer(Address),
     MutArray(Rc<RefCell<Vec<Value>>>),
 }
 
-pub type Instance = Rc<Vec<Value>>;
+#[derive(Debug, Clone, PartialEq)]
+pub struct Object {
+    pub class: Rc<Class>,
+    pub ivals: Vec<Value>,
+}
+
+impl Object {
+    pub fn new(class: Rc<Class>, ivals: Vec<Value>) -> Self {
+        Object { class, ivals }
+    }
+    pub fn rc(self) -> Rc<Self> {
+        Rc::new(self)
+    }
+}
+
 pub type ParentFrameIndex = usize;
 
 impl Value {
@@ -226,16 +244,14 @@ impl Value {
             Value::String(_) => string_class(),
             Value::Bool(_) => bool_class(),
             Value::MutArray(_) => array_class(),
-            Value::Object(class, _) => class.clone(),
-            Value::DoObject(class, _, _, _) => class.clone(),
+            Value::Object(obj) => obj.class.clone(),
+            Value::DoObject(obj, _, _) => obj.class.clone(),
         }
     }
-    pub fn ivals(&self) -> Instance {
+    pub fn ival(&self, index: Index) -> Value {
         match self {
-            Value::Bool(_) | Value::Integer(_) | Value::String(_) | Value::MutArray(_) => {
-                Rc::new(vec![])
-            }
-            Value::Object(_, ivals) => ivals.clone(),
+            Value::Object(obj) => obj.ivals[index].clone(),
+            Value::DoObject(obj, _, _) => obj.ivals[index].clone(),
             _ => todo!(),
         }
     }

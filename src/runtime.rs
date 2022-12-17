@@ -1,6 +1,6 @@
 use std::{collections::HashMap, rc::Rc};
 
-use crate::ir::{Address, Body, Handler, Instance, Selector, Value, IR};
+use crate::ir::{Address, Body, Handler, Selector, Value, IR};
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum RuntimeError {
@@ -72,7 +72,7 @@ enum Frame {
         ip: usize,
         local_offset: usize,
         self_value: Value,
-        ivals: Instance,
+        target_value: Value,
         return_from_index: usize,
     },
 }
@@ -99,7 +99,7 @@ impl Frame {
     fn ival(&self, index: usize) -> Value {
         match self {
             Frame::Root { .. } => panic!("root has no ivals"),
-            Frame::Handler { ivals, .. } => ivals[index].clone(),
+            Frame::Handler { target_value, .. } => target_value.ival(index),
         }
     }
     fn next(&mut self) -> NextResult {
@@ -222,13 +222,13 @@ impl<'a> Interpreter<'a> {
             param.check_arg(&self.stack[local_offset - arity + i])?;
         }
         match target {
-            Value::DoObject(_, ivals, return_from_index, self_value) => {
+            Value::DoObject(_, return_from_index, ref self_value) => {
                 self.frames.push(Frame::Handler {
                     body: handler.body.clone(),
                     ip: 0,
                     local_offset: local_offset - arity,
-                    self_value: *self_value,
-                    ivals,
+                    self_value: *self_value.clone(),
+                    target_value: target,
                     return_from_index,
                 })
             }
@@ -238,7 +238,7 @@ impl<'a> Interpreter<'a> {
                     body: handler.body.clone(),
                     ip: 0,
                     local_offset: local_offset - arity,
-                    ivals: target.ivals(),
+                    target_value: target.clone(),
                     self_value: target,
                     return_from_index,
                 })
@@ -255,13 +255,13 @@ impl<'a> Interpreter<'a> {
             param.check_arg(&self.stack[local_offset - arity + i])?;
         }
         match target {
-            Value::DoObject(_, ivals, return_from_index, self_value) => {
+            Value::DoObject(_, return_from_index, ref self_value) => {
                 self.frames.push(Frame::Handler {
                     body: handler.body.clone(),
                     ip: 0,
                     local_offset: local_offset - arity,
-                    self_value: *self_value,
-                    ivals,
+                    self_value: *self_value.clone(),
+                    target_value: target,
                     return_from_index,
                 })
             }
@@ -271,8 +271,8 @@ impl<'a> Interpreter<'a> {
                     body: handler.body.clone(),
                     ip: 0,
                     local_offset: local_offset - arity,
-                    ivals: target.ivals(),
-                    self_value: target,
+                    self_value: target.clone(),
+                    target_value: target,
                     return_from_index,
                 })
             }
@@ -322,7 +322,7 @@ impl<'a> Interpreter<'a> {
 
 #[cfg(test)]
 mod test {
-    use crate::ir::{Class, Param};
+    use crate::ir::{Class, Object, Param};
 
     use super::*;
 
@@ -381,23 +381,6 @@ mod test {
                 IR::Local(0),
             ],
             Value::Integer(124),
-        )
-    }
-
-    fn empty() -> Instance {
-        Rc::new(vec![])
-    }
-
-    #[test]
-    fn objects() {
-        let empty_class = Class::new().rc();
-        assert_ok(
-            vec![
-                IR::object(empty_class.clone(), 0), // 0
-                IR::int(1),                         // 1
-                IR::Local(0),
-            ],
-            Value::Object(empty_class, empty()),
         )
     }
 
@@ -825,7 +808,7 @@ mod test {
                 IR::Local(0),
                 IR::send("value:", 1),
             ],
-            Value::Object(class.clone(), Rc::new(vec![Value::Integer(456)])),
+            Value::Object(Object::new(class, vec![Value::Integer(456)]).rc()),
         )
     }
 

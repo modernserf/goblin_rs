@@ -1,7 +1,7 @@
 use std::{ops::Deref, rc::Rc};
 
 use crate::{
-    ir::{Class, Param, Value, IR},
+    ir::{Class, Object, Param, Value, IR},
     runtime::{Runtime, RuntimeError},
 };
 
@@ -404,5 +404,5 @@ pub fn array_class() -> Rc<Class> {
 }
 
 pub fn native_module() -> Value {
-    NATIVE_MODULE.with(|c| Value::Object(c.clone(), Rc::new(vec![])))
+    NATIVE_MODULE.with(|c| Value::Object(Object::new(c.clone(), vec![]).rc()))
 }
