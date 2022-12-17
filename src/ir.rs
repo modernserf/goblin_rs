@@ -26,7 +26,7 @@ impl PartialEq for MoreFn {
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum IR {
-    Constant(Value),             // (-- value)
+    Constant(Value),             // ( -- value)
     Local(Address),              // ( -- *address)
     Var(Address),                // ( -- address)
     IVal(Index),                 // ( -- instance[index])

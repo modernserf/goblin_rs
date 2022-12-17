@@ -1,6 +1,6 @@
 use std::{collections::HashMap, rc::Rc};
 
-use crate::ir::{Address, Body, Index, Instance, Param, Selector, Value, IR};
+use crate::ir::{Address, Body, Instance, Param, Selector, Value, IR};
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum RuntimeError {
@@ -181,17 +181,74 @@ enum NextState {
     Return,
 }
 
-struct CallStack {
-    frames: Vec<Frame>,
-    next_state: NextState,
+enum NextResult {
+    IR(IR),
+    Return(usize),
+    Done,
 }
 
-impl CallStack {
-    fn root(code: Vec<IR>) -> Self {
-        CallStack {
+pub struct Interpreter<'a> {
+    stack: Stack,
+    frames: Vec<Frame>,
+    next_state: NextState,
+    modules: &'a mut ModuleLoader,
+}
+
+impl<'a> Interpreter<'a> {
+    pub fn program(code: Vec<IR>, modules: &'a mut ModuleLoader) -> Runtime<Value> {
+        let mut interpreter = Interpreter {
+            stack: Stack::new(),
             frames: vec![Frame::root(code)],
             next_state: NextState::Init,
+            modules,
+        };
+        interpreter.run()
+    }
+    fn run(&mut self) -> Runtime<Value> {
+        loop {
+            match self.next() {
+                NextResult::IR(ir) => ir.eval(self)?,
+                NextResult::Return(offset) => {
+                    let value = self.stack.pop();
+                    self.stack.truncate(offset);
+                    self.stack.push(value);
+                }
+                NextResult::Done => return Ok(self.stack.pop()),
+            };
         }
+    }
+
+    pub fn send(&mut self, selector: &str, target: Value, arity: usize) -> Runtime<()> {
+        let class = target.class();
+        let handler = class.get(selector)?;
+        let local_offset = self.stack.size();
+        for (i, param) in handler.params.iter().enumerate() {
+            self.stack.check_arg(local_offset - arity + i, *param)?;
+        }
+        match target {
+            Value::DoObject(_, ivals, return_from_index, self_value) => {
+                self.frames.push(Frame::Handler {
+                    body: handler.body.clone(),
+                    ip: 0,
+                    local_offset: local_offset - arity,
+                    self_value: *self_value,
+                    ivals,
+                    return_from_index,
+                })
+            }
+            _ => {
+                let return_from_index = self.frames.len();
+                self.frames.push(Frame::Handler {
+                    body: handler.body.clone(),
+                    ip: 0,
+                    local_offset: local_offset - arity,
+                    ivals: target.ivals(),
+                    self_value: target,
+                    return_from_index,
+                })
+            }
+        };
+        Ok(())
     }
     fn next(&mut self) -> NextResult {
         if let NextState::Return = self.next_state {
@@ -222,39 +279,10 @@ impl CallStack {
     fn top_mut(&mut self) -> &mut Frame {
         self.frames.last_mut().unwrap()
     }
-    fn call(&mut self, body: Body, arity: usize, local_offset: usize, self_value: Value) {
-        let return_from_index = self.frames.len();
-        self.frames.push(Frame::Handler {
-            body,
-            ip: 0,
-            local_offset: local_offset - arity,
-            ivals: self_value.ivals(),
-            self_value,
-            return_from_index,
-        })
-    }
-    fn call_do(
-        &mut self,
-        body: Body,
-        arity: usize,
-        local_offset: usize,
-        ivals: Instance,
-        return_from_index: usize,
-        self_value: Value,
-    ) {
-        self.frames.push(Frame::Handler {
-            body,
-            ip: 0,
-            local_offset: local_offset - arity,
-            self_value,
-            ivals,
-            return_from_index,
-        })
-    }
     pub fn self_value(&self) -> Value {
         self.top().self_value()
     }
-    pub fn ival(&self, index: usize) -> Value {
+    pub fn get_ival(&self, index: usize) -> Value {
         self.top().ival(index)
     }
     pub fn return_from_index(&self) -> usize {
@@ -266,43 +294,6 @@ impl CallStack {
     pub fn do_loop(&mut self) {
         self.top_mut().do_loop()
     }
-}
-
-enum NextResult {
-    IR(IR),
-    Return(usize),
-    Done,
-}
-
-pub struct Interpreter<'a> {
-    stack: Stack,
-    call_stack: CallStack,
-    modules: &'a mut ModuleLoader,
-}
-
-impl<'a> Interpreter<'a> {
-    pub fn program(code: Vec<IR>, modules: &'a mut ModuleLoader) -> Runtime<Value> {
-        let mut interpreter = Interpreter {
-            stack: Stack::new(),
-            call_stack: CallStack::root(code),
-            modules,
-        };
-        interpreter.run()
-    }
-    fn run(&mut self) -> Runtime<Value> {
-        loop {
-            match self.call_stack.next() {
-                NextResult::IR(ir) => ir.eval(self)?,
-                NextResult::Return(offset) => {
-                    let value = self.stack.pop();
-                    self.stack.truncate(offset);
-                    self.stack.push(value);
-                }
-                NextResult::Done => return Ok(self.stack.pop()),
-            };
-        }
-    }
-
     pub fn push(&mut self, value: Value) {
         self.stack.push(value)
     }
@@ -312,42 +303,8 @@ impl<'a> Interpreter<'a> {
     pub fn get_stack(&mut self, address: Address) -> Value {
         self.stack.get(address)
     }
-    pub fn get_ival(&mut self, index: Index) -> Value {
-        self.call_stack.ival(index)
-    }
-    pub fn self_value(&mut self) -> Value {
-        self.call_stack.self_value()
-    }
-    pub fn local_offset(&mut self) -> usize {
-        self.call_stack.local_offset()
-    }
     pub fn take(&mut self, count: usize) -> Vec<Value> {
         self.stack.take(count)
-    }
-    pub fn send(&mut self, selector: &str, target: Value, arity: usize) -> Runtime<()> {
-        let class = target.class();
-        let handler = class.get(selector)?;
-        let local_offset = self.stack.size();
-        for (i, param) in handler.params.iter().enumerate() {
-            self.stack.check_arg(local_offset - arity + i, *param)?;
-        }
-        match target {
-            Value::DoObject(_, ivals, return_from_index, self_value) => {
-                self.call_stack.call_do(
-                    handler.body.clone(),
-                    arity,
-                    local_offset,
-                    ivals,
-                    return_from_index,
-                    *self_value,
-                );
-            }
-            _ => {
-                self.call_stack
-                    .call(handler.body.clone(), arity, local_offset, target);
-            }
-        };
-        Ok(())
     }
     pub fn load_module(&mut self, module: &str) -> Runtime<Value> {
         self.modules.load(module)
@@ -357,15 +314,6 @@ impl<'a> Interpreter<'a> {
     }
     pub fn set_pointer(&mut self, pointer: Value, value: Value) {
         self.stack.set(pointer.as_pointer(), value)
-    }
-    pub fn return_from_index(&self) -> usize {
-        self.call_stack.return_from_index()
-    }
-    pub fn do_return(&mut self) {
-        self.call_stack.do_return();
-    }
-    pub fn do_loop(&mut self) {
-        self.call_stack.do_loop();
     }
 }
 
