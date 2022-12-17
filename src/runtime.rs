@@ -73,7 +73,7 @@ impl Value {
             _ => panic!("cannot cast to array"),
         }
     }
-    fn class(&self) -> Rc<Class> {
+    pub fn class(&self) -> Rc<Class> {
         match self {
             Value::Integer(_) => int_class(),
             Value::String(_) => string_class(),
@@ -92,7 +92,7 @@ impl Value {
             _ => todo!(),
         }
     }
-    fn send(
+    pub fn send(
         self,
         selector: &str,
         arity: usize,
@@ -135,13 +135,13 @@ impl Value {
             Value::Pointer(_) => panic!("must deref pointer before sending message"),
         }
     }
-    fn deref(self, stack: &Stack) -> Value {
+    pub fn deref(self, stack: &Stack) -> Value {
         match self {
             Value::Pointer(address) => stack.get(address),
             _ => panic!("deref a non-pointer"),
         }
     }
-    fn set(self, value: Value, stack: &mut Stack) {
+    pub fn set(self, value: Value, stack: &mut Stack) {
         match self {
             Value::Pointer(address) => stack.set(address, value),
             _ => panic!("assign a non-pointer"),
@@ -262,7 +262,7 @@ impl ModuleLoader {
         }
     }
 }
-struct Stack {
+pub struct Stack {
     stack: Vec<Value>,
 }
 
@@ -270,13 +270,13 @@ impl Stack {
     fn new() -> Self {
         Stack { stack: Vec::new() }
     }
-    fn pop(&mut self) -> Value {
+    pub fn pop(&mut self) -> Value {
         self.stack.pop().unwrap()
     }
-    fn push(&mut self, value: Value) {
+    pub fn push(&mut self, value: Value) {
         self.stack.push(value);
     }
-    fn get(&self, index: Address) -> Value {
+    pub fn get(&self, index: Address) -> Value {
         self.stack[index].clone()
     }
     fn set(&mut self, index: Address, value: Value) {
@@ -288,7 +288,7 @@ impl Stack {
     fn truncate(&mut self, offset: usize) {
         self.stack.truncate(offset);
     }
-    fn take(&mut self, count: usize) -> Vec<Value> {
+    pub fn take(&mut self, count: usize) -> Vec<Value> {
         self.stack.split_off(self.stack.len() - count)
     }
     fn check_arg(&self, index: Address, param: Param) -> Runtime<()> {
@@ -382,7 +382,7 @@ enum NextState {
     Return,
 }
 
-struct CallStack {
+pub struct CallStack {
     frames: Vec<Frame>,
     next_state: NextState,
 }
@@ -414,7 +414,7 @@ impl CallStack {
         }
         res
     }
-    fn local_offset(&self) -> usize {
+    pub fn local_offset(&self) -> usize {
         self.top().local_offset()
     }
     fn top(&self) -> &Frame {
@@ -452,19 +452,19 @@ impl CallStack {
             return_from_index,
         })
     }
-    fn self_value(&self) -> Value {
+    pub fn self_value(&self) -> Value {
         self.top().self_value()
     }
-    fn ival(&self, index: usize) -> Value {
+    pub fn ival(&self, index: usize) -> Value {
         self.top().ival(index)
     }
-    fn return_from_index(&self) -> usize {
+    pub fn return_from_index(&self) -> usize {
         self.top().return_from_index()
     }
-    fn do_return(&mut self) {
+    pub fn do_return(&mut self) {
         self.next_state = NextState::Return
     }
-    fn do_loop(&mut self) {
+    pub fn do_loop(&mut self) {
         self.top_mut().do_loop()
     }
 }
@@ -476,9 +476,9 @@ enum NextResult {
 }
 
 pub struct Interpreter<'a> {
-    stack: Stack,
-    call_stack: CallStack,
-    modules: &'a mut ModuleLoader,
+    pub stack: Stack,
+    pub call_stack: CallStack,
+    pub modules: &'a mut ModuleLoader,
 }
 
 impl<'a> Interpreter<'a> {
@@ -493,7 +493,7 @@ impl<'a> Interpreter<'a> {
     fn run(&mut self) -> Runtime<Value> {
         loop {
             match self.call_stack.next() {
-                NextResult::IR(ir) => self.eval(ir)?,
+                NextResult::IR(ir) => ir.eval(self)?,
                 NextResult::Return(offset) => {
                     let value = self.stack.pop();
                     self.stack.truncate(offset);
@@ -502,102 +502,6 @@ impl<'a> Interpreter<'a> {
                 NextResult::Done => return Ok(self.stack.pop()),
             };
         }
-    }
-    fn eval(&mut self, ir: IR) -> Runtime<()> {
-        match ir {
-            IR::Unit => self.stack.push(Value::Unit),
-            IR::MutArray => self
-                .stack
-                .push(Value::MutArray(Rc::new(RefCell::new(Vec::new())))),
-            IR::SelfRef => self.stack.push(self.call_stack.self_value()),
-            IR::Bool(value) => self.stack.push(Value::Bool(value)),
-            IR::SendBool => {
-                let bool = self.stack.pop().as_bool();
-                let target = self.stack.pop();
-                if bool {
-                    target.send("true", 0, &mut self.stack, &mut self.call_stack)?;
-                } else {
-                    target.send("false", 0, &mut self.stack, &mut self.call_stack)?;
-                }
-            }
-            IR::Integer(value) => self.stack.push(Value::Integer(value)),
-            IR::String(str) => self.stack.push(Value::String(str)),
-            IR::Local(address) => {
-                let local_offset = self.call_stack.local_offset();
-                let value = self.stack.get(address + local_offset);
-                self.stack.push(value);
-            }
-            IR::IVal(index) => {
-                let value = self.call_stack.ival(index);
-                self.stack.push(value);
-            }
-            IR::Var(address) => {
-                let absolute_address = address + self.call_stack.local_offset();
-                self.stack.push(Value::Pointer(absolute_address));
-            }
-            IR::Object(class, arity) => {
-                let ivals = Rc::new(self.stack.take(arity));
-                let value = Value::Object(class, ivals);
-                self.stack.push(value);
-            }
-            IR::NewSelf(arity) => {
-                let class = self.call_stack.self_value().class();
-                let ivals = Rc::new(self.stack.take(arity));
-                let value = Value::Object(class, ivals);
-                self.stack.push(value);
-            }
-            IR::DoObject(class, arity) => {
-                let ivals = Rc::new(self.stack.take(arity));
-                let return_from_index = self.call_stack.return_from_index();
-                let self_value = Box::new(self.call_stack.self_value());
-                let value = Value::DoObject(class, ivals, return_from_index, self_value);
-                self.stack.push(value);
-            }
-            IR::Module(name) => {
-                let value = self.modules.load(&name)?;
-                self.stack.push(value);
-            }
-            IR::Deref => {
-                let pointer = self.stack.pop();
-                let value = pointer.deref(&self.stack);
-                self.stack.push(value);
-            }
-            IR::SetVar => {
-                let pointer = self.stack.pop();
-                let value = self.stack.pop();
-                pointer.set(value, &mut self.stack);
-            }
-            IR::Send(selector, arity) => {
-                let target = self.stack.pop();
-                target.send(&selector, arity, &mut self.stack, &mut self.call_stack)?;
-            }
-            IR::TrySend(selector, arity) => {
-                let target = self.stack.pop();
-                let or_else = self.stack.pop();
-                match target.send(&selector, arity, &mut self.stack, &mut self.call_stack) {
-                    Ok(_) => {}
-                    Err(_) => {
-                        self.stack.take(arity);
-                        or_else.send("", 0, &mut self.stack, &mut self.call_stack)?;
-                    }
-                }
-            }
-            IR::SendNative(f, arity) => {
-                let target = self.stack.pop();
-                let args = self.stack.take(arity);
-                let result = f(target, args)?;
-                self.stack.push(result);
-            }
-            IR::SendNativeMore(f) => {
-                f.0(&mut self.stack, &mut self.call_stack)?;
-            }
-            IR::Return => self.call_stack.do_return(),
-            IR::Loop => self.call_stack.do_loop(),
-            IR::Drop => {
-                self.stack.pop();
-            }
-        }
-        Ok(())
     }
 }
 
