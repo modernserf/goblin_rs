@@ -1,7 +1,7 @@
 use std::{cell::RefCell, collections::HashMap, rc::Rc};
 
 use crate::{
-    ir::{Address, Selector, IR},
+    ir::{Address, Index, Selector, IR},
     native::{array_class, bool_class, int_class, string_class},
 };
 
@@ -92,7 +92,7 @@ impl Value {
             _ => todo!(),
         }
     }
-    pub fn send(
+    fn send(
         self,
         selector: &str,
         arity: usize,
@@ -135,13 +135,13 @@ impl Value {
             Value::Pointer(_) => panic!("must deref pointer before sending message"),
         }
     }
-    pub fn deref(self, stack: &Stack) -> Value {
+    fn deref(self, stack: &Stack) -> Value {
         match self {
             Value::Pointer(address) => stack.get(address),
             _ => panic!("deref a non-pointer"),
         }
     }
-    pub fn set(self, value: Value, stack: &mut Stack) {
+    fn set(self, value: Value, stack: &mut Stack) {
         match self {
             Value::Pointer(address) => stack.set(address, value),
             _ => panic!("assign a non-pointer"),
@@ -262,7 +262,7 @@ impl ModuleLoader {
         }
     }
 }
-pub struct Stack {
+struct Stack {
     stack: Vec<Value>,
 }
 
@@ -382,7 +382,7 @@ enum NextState {
     Return,
 }
 
-pub struct CallStack {
+struct CallStack {
     frames: Vec<Frame>,
     next_state: NextState,
 }
@@ -476,9 +476,9 @@ enum NextResult {
 }
 
 pub struct Interpreter<'a> {
-    pub stack: Stack,
-    pub call_stack: CallStack,
-    pub modules: &'a mut ModuleLoader,
+    stack: Stack,
+    call_stack: CallStack,
+    modules: &'a mut ModuleLoader,
 }
 
 impl<'a> Interpreter<'a> {
@@ -502,6 +502,49 @@ impl<'a> Interpreter<'a> {
                 NextResult::Done => return Ok(self.stack.pop()),
             };
         }
+    }
+
+    pub fn push(&mut self, value: Value) {
+        self.stack.push(value)
+    }
+    pub fn pop(&mut self) -> Value {
+        self.stack.pop()
+    }
+    pub fn get_stack(&mut self, address: Address) -> Value {
+        self.stack.get(address)
+    }
+    pub fn get_ival(&mut self, index: Index) -> Value {
+        self.call_stack.ival(index)
+    }
+    pub fn self_value(&mut self) -> Value {
+        self.call_stack.self_value()
+    }
+    pub fn local_offset(&mut self) -> usize {
+        self.call_stack.local_offset()
+    }
+    pub fn take(&mut self, count: usize) -> Vec<Value> {
+        self.stack.take(count)
+    }
+    pub fn send(&mut self, selector: &str, target: Value, arity: usize) -> Runtime<()> {
+        target.send(&selector, arity, &mut self.stack, &mut self.call_stack)
+    }
+    pub fn load_module(&mut self, module: &str) -> Runtime<Value> {
+        self.modules.load(module)
+    }
+    pub fn deref_pointer(&self, pointer: Value) -> Value {
+        pointer.deref(&self.stack)
+    }
+    pub fn set_pointer(&mut self, pointer: Value, value: Value) {
+        pointer.set(value, &mut self.stack)
+    }
+    pub fn return_from_index(&self) -> usize {
+        self.call_stack.return_from_index()
+    }
+    pub fn do_return(&mut self) {
+        self.call_stack.do_return();
+    }
+    pub fn do_loop(&mut self) {
+        self.call_stack.do_loop();
     }
 }
 

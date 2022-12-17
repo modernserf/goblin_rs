@@ -41,93 +41,94 @@ impl IR {
 
     pub fn eval(self, ctx: &mut Interpreter) -> Runtime<()> {
         match self {
-            IR::Unit => ctx.stack.push(Value::Unit),
-            IR::MutArray => ctx
-                .stack
-                .push(Value::MutArray(Rc::new(RefCell::new(Vec::new())))),
-            IR::SelfRef => ctx.stack.push(ctx.call_stack.self_value()),
-            IR::Bool(value) => ctx.stack.push(Value::Bool(value)),
+            IR::Unit => ctx.push(Value::Unit),
+            IR::MutArray => ctx.push(Value::MutArray(Rc::new(RefCell::new(Vec::new())))),
+            IR::SelfRef => {
+                let value = ctx.self_value();
+                ctx.push(value)
+            }
+            IR::Bool(value) => ctx.push(Value::Bool(value)),
             IR::SendBool => {
-                let bool = ctx.stack.pop().as_bool();
-                let target = ctx.stack.pop();
+                let bool = ctx.pop().as_bool();
+                let target = ctx.pop();
                 if bool {
-                    target.send("true", 0, &mut ctx.stack, &mut ctx.call_stack)?;
+                    ctx.send("true", target, 0)?;
                 } else {
-                    target.send("false", 0, &mut ctx.stack, &mut ctx.call_stack)?;
+                    ctx.send("false", target, 0)?;
                 }
             }
-            IR::Integer(value) => ctx.stack.push(Value::Integer(value)),
-            IR::String(str) => ctx.stack.push(Value::String(str)),
+            IR::Integer(value) => ctx.push(Value::Integer(value)),
+            IR::String(str) => ctx.push(Value::String(str)),
             IR::Local(address) => {
-                let local_offset = ctx.call_stack.local_offset();
-                let value = ctx.stack.get(address + local_offset);
-                ctx.stack.push(value);
+                let local_offset = ctx.local_offset();
+                let value = ctx.get_stack(address + local_offset);
+                ctx.push(value);
             }
             IR::IVal(index) => {
-                let value = ctx.call_stack.ival(index);
-                ctx.stack.push(value);
+                let value = ctx.get_ival(index);
+                ctx.push(value);
             }
             IR::Var(address) => {
-                let absolute_address = address + ctx.call_stack.local_offset();
-                ctx.stack.push(Value::Pointer(absolute_address));
+                let absolute_address = address + ctx.local_offset();
+                ctx.push(Value::Pointer(absolute_address));
             }
             IR::Object(class, arity) => {
-                let ivals = Rc::new(ctx.stack.take(arity));
+                let ivals = Rc::new(ctx.take(arity));
                 let value = Value::Object(class, ivals);
-                ctx.stack.push(value);
+                ctx.push(value);
             }
             IR::NewSelf(arity) => {
-                let class = ctx.call_stack.self_value().class();
-                let ivals = Rc::new(ctx.stack.take(arity));
+                let class = ctx.self_value().class();
+                let ivals = Rc::new(ctx.take(arity));
                 let value = Value::Object(class, ivals);
-                ctx.stack.push(value);
+                ctx.push(value);
             }
             IR::DoObject(class, arity) => {
-                let ivals = Rc::new(ctx.stack.take(arity));
-                let return_from_index = ctx.call_stack.return_from_index();
-                let self_value = Box::new(ctx.call_stack.self_value());
+                let ivals = Rc::new(ctx.take(arity));
+                let return_from_index = ctx.return_from_index();
+                let self_value = Box::new(ctx.self_value());
                 let value = Value::DoObject(class, ivals, return_from_index, self_value);
-                ctx.stack.push(value);
+                ctx.push(value);
             }
             IR::Module(name) => {
-                let value = ctx.modules.load(&name)?;
-                ctx.stack.push(value);
+                let value = ctx.load_module(&name)?;
+                ctx.push(value);
             }
             IR::Deref => {
-                let pointer = ctx.stack.pop();
-                let value = pointer.deref(&ctx.stack);
-                ctx.stack.push(value);
+                let pointer = ctx.pop();
+                let value = ctx.deref_pointer(pointer);
+                ctx.push(value);
             }
             IR::SetVar => {
-                let pointer = ctx.stack.pop();
-                let value = ctx.stack.pop();
-                pointer.set(value, &mut ctx.stack);
+                let pointer = ctx.pop();
+                let value = ctx.pop();
+                ctx.set_pointer(pointer, value);
             }
             IR::Send(selector, arity) => {
-                let target = ctx.stack.pop();
-                target.send(&selector, arity, &mut ctx.stack, &mut ctx.call_stack)?;
+                let target = ctx.pop();
+                ctx.send(&selector, target, arity)?;
             }
             IR::TrySend(selector, arity) => {
-                let target = ctx.stack.pop();
-                let or_else = ctx.stack.pop();
-                match target.send(&selector, arity, &mut ctx.stack, &mut ctx.call_stack) {
+                let target = ctx.pop();
+                let or_else = ctx.pop();
+                match ctx.send(&selector, target, arity) {
                     Ok(_) => {}
                     Err(_) => {
-                        ctx.stack.take(arity);
-                        or_else.send("", 0, &mut ctx.stack, &mut ctx.call_stack)?;
+                        ctx.take(arity);
+                        ctx.send("", or_else, 0)?;
                     }
                 }
             }
             IR::SendNative(f, arity) => {
-                let target = ctx.stack.pop();
-                let args = ctx.stack.take(arity);
+                let target = ctx.pop();
+                let args = ctx.take(arity);
                 let result = f(target, args)?;
-                ctx.stack.push(result);
+                ctx.push(result);
             }
-            IR::Return => ctx.call_stack.do_return(),
-            IR::Loop => ctx.call_stack.do_loop(),
+            IR::Return => ctx.do_return(),
+            IR::Loop => ctx.do_loop(),
             IR::Drop => {
-                ctx.stack.pop();
+                ctx.pop();
             }
         }
         Ok(())
