@@ -1,4 +1,4 @@
-import [_Assert_ _Log_] := "core"
+import [_Assert_] := "core"
 
 let obj := [
   on {send: do f}
@@ -43,15 +43,15 @@ Assert{: result = 1}
 
 
 
-Assert{panics: [{}
-  let obj := [
-    on {send: f}
-      f{x}
-  ]
-  obj{send: 
-    on {x} 1
-  }
-]}
+# Assert{panics: [{}
+#   let obj := [
+#     on {send: f}
+#       f{x}
+#   ]
+#   obj{send: 
+#     on {x} 1
+#   }
+# ]}
 
 
 let obj := [

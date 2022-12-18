@@ -212,42 +212,6 @@ impl<'a> Interpreter<'a> {
         self.frames.last_mut().unwrap()
     }
 
-    pub fn send_direct(
-        &mut self,
-        handler: Rc<Handler>,
-        target: Value,
-        arity: usize,
-    ) -> Runtime<()> {
-        let local_offset = self.stack.len();
-        for (i, param) in handler.params.iter().enumerate() {
-            param.check_arg(&self.stack[local_offset - arity + i])?;
-        }
-        match target {
-            Value::DoObject(_, return_from_index, ref self_value) => {
-                self.frames.push(Frame::Handler {
-                    handler,
-                    ip: 0,
-                    local_offset: local_offset - arity,
-                    self_value: *self_value.clone(),
-                    target_value: target,
-                    return_from_index,
-                })
-            }
-            _ => {
-                let return_from_index = self.frames.len();
-                self.frames.push(Frame::Handler {
-                    handler,
-                    ip: 0,
-                    local_offset: local_offset - arity,
-                    target_value: target.clone(),
-                    self_value: target,
-                    return_from_index,
-                })
-            }
-        };
-        Ok(())
-    }
-
     pub fn send(&mut self, selector: &str, target: Value, arity: usize) -> Runtime<()> {
         let class = target.class();
         let handler = class.get(selector)?;

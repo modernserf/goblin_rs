@@ -222,17 +222,18 @@ impl Expr {
     fn compile_with_binding(self, compiler: &mut Compiler, binding: &Binding) -> CompileIR {
         self.compile_base(compiler, Some(binding))
     }
-    fn get_direct_handler(&self, selector: &str) -> Option<Rc<IRHandler>> {
+    fn get_direct_handler(&self, _: &str) -> Option<Rc<IRHandler>> {
         match self {
-            Self::Integer(_) => int_class().get(selector).ok(),
-            Self::Bool(_) => bool_class().get(selector).ok(),
-            Self::String(_) => string_class().get(selector).ok(),
+            // Self::Integer(_) => int_class().get(selector).ok(),
+            // Self::Bool(_) => bool_class().get(selector).ok(),
+            // Self::String(_) => string_class().get(selector).ok(),
             _ => None,
         }
     }
     fn compile_send(&self, selector: String, arity: usize) -> CompileIR {
         match self.get_direct_handler(&selector) {
-            Some(handler) => Ok(IRBuilder::from(vec![IR::SendDirect(handler, arity)])),
+            Some(_) => todo!(),
+            // Some(handler) => Ok(IRBuilder::from(vec![IR::SendDirect(handler, arity)])),
             None => Ok(IRBuilder::from(vec![IR::Send(selector, arity)])),
         }
     }

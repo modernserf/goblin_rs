@@ -130,10 +130,10 @@ mod test {
         run(include_str!("./stdlib/result.test.gob"));
     }
 
-    // #[test]
-    // fn var() {
-    //     run(include_str!("./stdlib/var.test.gob"));
-    // }
+    #[test]
+    fn var() {
+        run(include_str!("./stdlib/var.test.gob"));
+    }
 
     #[test]
     fn control() {
@@ -158,5 +158,10 @@ mod test {
     #[test]
     fn day_1() {
         run(include_str!("./aoc-2022/day-1.gob"));
+    }
+
+    #[test]
+    fn day_2() {
+        run(include_str!("./aoc-2022/day-2.gob"));
     }
 }
