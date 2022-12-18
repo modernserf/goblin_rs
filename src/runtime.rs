@@ -161,8 +161,12 @@ pub struct Interpreter<'a> {
 impl<'a> Interpreter<'a> {
     pub fn program(code: Vec<IR>, modules: &'a mut ModuleLoader) -> Runtime<Value> {
         let mut interpreter = Interpreter {
-            stack: vec![],
-            frames: vec![Frame::root(code)],
+            stack: Vec::with_capacity(1024),
+            frames: {
+                let mut frames = Vec::with_capacity(64);
+                frames.push(Frame::root(code));
+                frames
+            },
             next_state: NextState::Init,
             modules,
         };
