@@ -9,7 +9,10 @@ mod native;
 mod parser;
 mod runtime;
 
-const COMPILER_FLAGS: CompilerFlags = CompilerFlags { allow_inline: true };
+const COMPILER_FLAGS: CompilerFlags = CompilerFlags {
+    // allow_inline: false,
+    allow_inline: true,
+};
 
 fn compile_module(code: &str) -> Vec<ir::IR> {
     let tokens = lexer::Lexer::lex(code.to_string());

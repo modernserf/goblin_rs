@@ -2,7 +2,7 @@ use std::{cell::RefCell, collections::HashMap, rc::Rc};
 
 use crate::{
     compiler::{CompileIR, Compiler, IRBuilder, IVals},
-    ir::{Address, Class, Handler as IRHandler, Param, Selector, Value, IR},
+    ir::{Address, Class, Handler as IRHandler, Object as IRObject, Param, Selector, Value, IR},
     parser::{Parse, ParseError},
 };
 
@@ -253,6 +253,14 @@ impl Expr {
             Self::Integer(value) => Some(Value::Integer(*value)),
             Self::String(str) => Some(Value::String(Rc::new(str.to_string()))),
             Self::Identifier(key) => compiler.identifier_const(key),
+            Self::Frame(selector, pairs) => {
+                let class = frame_class(selector.to_string(), &pairs);
+                let mut out_args = vec![];
+                for (_, expr) in pairs {
+                    out_args.push(expr.get_const(compiler)?);
+                }
+                Some(Value::Object(IRObject::new(class, out_args).rc()))
+            }
             _ => None,
         }
     }

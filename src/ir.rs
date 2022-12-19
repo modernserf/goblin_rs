@@ -51,12 +51,15 @@ impl IR {
     pub fn unit() -> Self {
         IR::Constant(Value::Unit)
     }
+    #[cfg(test)]
     pub fn int(value: i64) -> Self {
         IR::Constant(Value::Integer(value))
     }
+    #[cfg(test)]
     pub fn bool(value: bool) -> Self {
         IR::Constant(Value::Bool(value))
     }
+    #[cfg(test)]
     pub fn string(value: String) -> Self {
         IR::Constant(Value::String(Rc::new(value)))
     }
