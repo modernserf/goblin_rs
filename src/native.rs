@@ -367,6 +367,10 @@ fn build_array_class() -> Rc<Class> {
             IR::send("from:to:", 2),
         ],
     );
+    class.add_native("reverse", vec![], |target, _| {
+        target.as_array().borrow_mut().reverse();
+        Ok(Value::Unit)
+    });
     // todo
     class.rc()
 }
