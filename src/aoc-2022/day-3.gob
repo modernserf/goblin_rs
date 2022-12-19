@@ -1,0 +1,58 @@
+import [_File_ _Control_ _Slice_ _Assert_] := "core"
+import [_Parser_] := "parse"
+import [_BitSet_] := "bitset"
+
+let Rucksack := [
+  on {: vec}
+    let len := vec{length}
+    let half := len >> 1
+    let left := vec{to: half}
+    let right := vec{from: half}
+    Rucksack{
+      left:   left{into: BitSet{} fold: [add]}
+      right: right{into: BitSet{} fold: [add]}  
+    }
+
+  on {_left_ _right_} [
+    on {sum overlap}
+      let overlap := left & right
+      overlap{to Iter}{into: 0 fold: [+]}
+    on {to BitSet}
+      left | right
+  ]
+]
+
+# lowercase: a-z -> 1-26
+let lowercase := Parser{range: "a" through: "z"} 
+  |>> [{: ch} ch{code at: 0} - "a"{code at: 0} + 1]
+# uppercase: A-Z -> 27-52
+let uppercase := Parser{range: "A" through: "Z"}
+  |>> [{: ch} ch{code at: 0} - "A"{code at: 0} + 27]
+
+let letter := uppercase | lowercase
+
+let line := +letter .>> Parser{newline} |>> Rucksack
+
+let line_group := line{map: [to BitSet]} 
+  {with: [&] join: line{map: [to BitSet]}}
+  {with: [&] join: line{map: [to BitSet]}}
+  {map: [to Iter]}
+  {map: [first]}
+  {map: [some!]}
+
+
+let line_sum := *line |>> [map: [sum overlap]] |>> [into: 0 fold: [+]]
+
+let group_sum := *line_group |>> [into: 0 fold: [+]]
+
+let input := File{read text sync: "./src/aoc-2022/day-3.input.txt"}
+
+Assert{
+  received: Parser{parse: input with: line_sum}{ok!}
+  expected: 7997
+}
+Assert{
+  received: Parser{parse: input with: group_sum}{ok!}
+  expected: 2545
+}
+
