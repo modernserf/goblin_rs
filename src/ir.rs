@@ -176,7 +176,18 @@ pub enum Value {
     Object(Rc<Object>),
     DoObject(Rc<Object>, ParentFrameIndex, Box<Value>),
     Pointer(Address),
-    MutArray(Rc<RefCell<Vec<Value>>>),
+    MutArray(MutArray),
+}
+
+#[derive(Debug, Clone)]
+pub struct MutArray {
+    value: Rc<RefCell<Vec<Value>>>,
+}
+
+impl PartialEq for MutArray {
+    fn eq(&self, other: &Self) -> bool {
+        Rc::ptr_eq(&self.value, &other.value)
+    }
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -198,7 +209,9 @@ pub type ParentFrameIndex = usize;
 
 impl Value {
     pub fn mut_array(vec: Vec<Value>) -> Self {
-        Value::MutArray(Rc::new(RefCell::new(vec)))
+        Value::MutArray(MutArray {
+            value: Rc::new(RefCell::new(vec)),
+        })
     }
 
     pub fn as_bool(&self) -> bool {
@@ -221,7 +234,7 @@ impl Value {
     }
     pub fn as_array(&self) -> Rc<RefCell<Vec<Value>>> {
         match self {
-            Value::MutArray(arr) => arr.clone(),
+            Value::MutArray(arr) => arr.value.clone(),
             _ => panic!("cannot cast to array"),
         }
     }

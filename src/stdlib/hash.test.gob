@@ -1,0 +1,57 @@
+import [_Assert_ _Option_ _HashMap_ _HashSet_] := "core"
+
+let map := HashMap{}
+  {key: "foo" value: 1}
+  {key: "bar" value: 2}
+  {key: "baz" value: 3}
+
+Assert{received: map{size} expected: 3}
+Assert{received: map{key: "quux"} expected: Option{none}}
+Assert{received: map{key: "foo"} expected: Option{some: 1}}
+Assert{received: map{key: "bar"} expected: Option{some: 2}}
+Assert{received: map{key: "baz"} expected: Option{some: 3}}
+
+let map := map{key: "bar" value: 5}
+Assert{received: map{size} expected: 3}
+Assert{received: map{key: "bar"} expected: Option{some: 5}}
+
+let map := map{remove: "foo"}
+Assert{received: map{size} expected: 2}
+Assert{received: map{key: "foo"} expected: Option{none}}
+
+Assert{received: HashMap{}{to Iter}{count} expected: 0}
+Assert{
+  received: HashMap{}
+    {key: "foo" value: 1}
+    {to Iter}
+    {count}
+  expected: 1
+}
+
+Assert{
+  received: HashMap{}
+    {key: "foo" value: 1}
+    {key: "bar" value: 2}
+    {key: "baz" value: 3}
+    {to Iter}
+    {count}
+  expected: 3
+}
+
+let map := HashMap{}
+  {key: "foo" value: 1}
+  {key: "bar" value: 2}
+  {key: "baz" value: 3}
+
+let roundtrip := map
+  {to Iter}
+  {into: HashMap{} fold: {: item into: map}
+    map{key: item{key} value: item{value}}
+  }
+Assert{received: roundtrip{size} expected: 3}
+Assert{received: roundtrip{key: "quux"} expected: Option{none}}
+Assert{received: roundtrip{key: "foo"} expected: Option{some: 1}}
+Assert{received: roundtrip{key: "bar"} expected: Option{some: 2}}
+Assert{received: roundtrip{key: "baz"} expected: Option{some: 3}}
+
+# Assert{received: roundtrip expected: map}

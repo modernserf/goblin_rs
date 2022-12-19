@@ -50,6 +50,10 @@ fn build_stdlib() -> runtime::ModuleLoader {
         "core/range",
         compile_module(include_str!("./stdlib/range.gob")),
     );
+    modules.add_init(
+        "core/hash",
+        compile_module(include_str!("./stdlib/hash.gob")),
+    );
     modules.add_init("parse", compile_module(include_str!("./stdlib/parse.gob")));
     modules.add_init(
         "bitset",
@@ -170,6 +174,10 @@ mod test {
     #[test]
     fn bitset() {
         run(include_str!("./stdlib/bitset.test.gob"));
+    }
+    #[test]
+    fn hash() {
+        run(include_str!("./stdlib/hash.test.gob"));
     }
 
     #[test]

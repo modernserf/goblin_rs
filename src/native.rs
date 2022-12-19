@@ -1,4 +1,9 @@
-use std::{ops::Deref, rc::Rc};
+use std::{
+    collections::hash_map::DefaultHasher,
+    hash::{Hash, Hasher},
+    ops::Deref,
+    rc::Rc,
+};
 
 use crate::{
     ir::{Class, Object, Param, Value, IR},
@@ -110,6 +115,14 @@ fn build_int_class() -> Rc<Class> {
     });
     class.add_native("<<:", vec![Param::Value], |target, args| match &args[0] {
         Value::Integer(arg) => Ok(Value::Integer(target.as_int() << *arg)),
+        _ => expected("number"),
+    });
+    class.add_native("&:", vec![Param::Value], |target, args| match &args[0] {
+        Value::Integer(arg) => Ok(Value::Integer(target.as_int() & *arg)),
+        _ => expected("number"),
+    });
+    class.add_native("|:", vec![Param::Value], |target, args| match &args[0] {
+        Value::Integer(arg) => Ok(Value::Integer(target.as_int() | *arg)),
         _ => expected("number"),
     });
     class.add_native("-", vec![], |target, _| {
@@ -266,6 +279,12 @@ fn build_string_class() -> Rc<Class> {
     );
 
     class.add("to String", vec![], vec![IR::SelfRef]);
+
+    class.add_native("hash", vec![], |target, _| {
+        let mut state = DefaultHasher::new();
+        target.as_string().hash(&mut state);
+        Ok(Value::Integer(state.finish() as i64))
+    });
 
     class.rc()
 }
