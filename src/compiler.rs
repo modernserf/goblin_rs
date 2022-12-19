@@ -443,6 +443,7 @@ mod test {
     use crate::{
         ast::{Binding, Expr, Object},
         ir::{Class, Param},
+        native::int_class,
     };
 
     use super::*;
@@ -1128,6 +1129,22 @@ mod test {
                 Stmt::Expr(ident("y")),
             ]),
             Ok(vec![IR::int(123)])
+        )
+    }
+
+    #[test]
+    fn send_direct() {
+        let flags = CompilerFlags { allow_inline: true };
+        assert_eq!(
+            Compiler::new(flags).program(vec![Stmt::Expr(Expr::Send(
+                "-".to_string(),
+                Box::new(Expr::Integer(123)),
+                vec![]
+            )),]),
+            Ok(vec![
+                IR::int(123),
+                IR::SendDirect(int_class().get("-").unwrap(), 0)
+            ])
         )
     }
 }

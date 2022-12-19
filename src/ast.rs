@@ -134,7 +134,7 @@ impl Stmt {
         match self {
             Self::Expr(expr) => expr.compile(compiler),
             Self::Let(binding, expr, is_export) => {
-                if compiler.allow_inline() && !is_export {
+                if !is_export {
                     if let (Binding::Identifier(key), Some(value)) =
                         (binding.clone(), expr.get_const(compiler))
                     {
@@ -230,23 +230,21 @@ impl Expr {
     fn compile_with_binding(self, compiler: &mut Compiler, binding: &Binding) -> CompileIR {
         self.compile_base(compiler, Some(binding))
     }
-    // TODO: use get_const
-    fn get_direct_handler(&self, _: &str) -> Option<Rc<IRHandler>> {
-        match self {
-            // Self::Integer(_) => int_class().get(selector).ok(),
-            // Self::Bool(_) => bool_class().get(selector).ok(),
-            // Self::String(_) => string_class().get(selector).ok(),
-            _ => None,
-        }
+    fn get_direct_handler(&self, compiler: &mut Compiler, selector: &str) -> Option<Rc<IRHandler>> {
+        let value = self.get_const(compiler)?;
+        value.class().get(selector).ok()
     }
-    fn compile_send(&self, selector: String, arity: usize) -> CompileIR {
-        match self.get_direct_handler(&selector) {
-            Some(_) => todo!(),
-            // Some(handler) => Ok(IRBuilder::from(vec![IR::SendDirect(handler, arity)])),
+    fn compile_send(&self, compiler: &mut Compiler, selector: String, arity: usize) -> CompileIR {
+        match self.get_direct_handler(compiler, &selector) {
+            Some(handler) => Ok(IRBuilder::from(vec![IR::SendDirect(handler, arity)])),
             None => Ok(IRBuilder::from(vec![IR::Send(selector, arity)])),
         }
     }
     fn get_const(&self, compiler: &mut Compiler) -> Option<Value> {
+        if !compiler.allow_inline() {
+            return None;
+        }
+
         match self {
             Self::Unit => Some(Value::Unit),
             Self::Bool(value) => Some(Value::Bool(*value)),
@@ -270,9 +268,10 @@ impl Expr {
             return Ok(IRBuilder::from(vec![IR::Constant(value)]));
         }
         match self {
-            Self::Unit | Self::Bool(_) | Self::Integer(_) | Self::String(_) => {
-                unreachable!()
-            }
+            Self::Unit => Ok(IRBuilder::from(vec![IR::unit()])),
+            Self::Bool(value) => Ok(IRBuilder::from(vec![IR::bool(value)])),
+            Self::Integer(value) => Ok(IRBuilder::from(vec![IR::int(value)])),
+            Self::String(str) => Ok(IRBuilder::from(vec![IR::string(str)])),
             Self::SelfRef => Ok(IRBuilder::from(vec![IR::SelfRef])),
             Self::Identifier(name) => compiler.identifier(name),
             Self::Send(selector, target, args) => {
@@ -282,7 +281,7 @@ impl Expr {
                     ir.append(arg.compile_arg(compiler)?);
                 }
 
-                let send = target.compile_send(selector, arity)?;
+                let send = target.compile_send(compiler, selector, arity)?;
                 ir.append(target.compile_target(compiler)?);
                 ir.append(send);
                 Ok(ir)

@@ -27,22 +27,23 @@ impl PartialEq for MoreFn {
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum IR {
-    Constant(Value),             // ( -- value)
-    Local(Address),              // ( -- *address)
-    Var(Address),                // ( -- address)
-    IVal(Index),                 // ( -- instance[index])
-    SelfRef,                     // ( -- self_value)
-    Module(String),              // ( -- module)
-    Object(Rc<Class>, Arity),    // (...instance -- object)
-    DoObject(Rc<Class>, Arity),  // (...instance -- object)
-    NewSelf(Arity),              // (...instance -- object)
-    Deref,                       // (address -- *address)
-    SetVar,                      // (value address -- )
-    Send(Selector, Arity),       // (...args target -- result)
-    TrySend(Selector, Arity),    // (...args target -- result)
-    SendNative(NativeFn, Arity), // (...args target -- result)
-    Native(MoreFn),              // (...)
-    Drop,                        // (value --)
+    Constant(Value),                // ( -- value)
+    Local(Address),                 // ( -- *address)
+    Var(Address),                   // ( -- address)
+    IVal(Index),                    // ( -- instance[index])
+    SelfRef,                        // ( -- self_value)
+    Module(String),                 // ( -- module)
+    Object(Rc<Class>, Arity),       // (...instance -- object)
+    DoObject(Rc<Class>, Arity),     // (...instance -- object)
+    NewSelf(Arity),                 // (...instance -- object)
+    Deref,                          // (address -- *address)
+    SetVar,                         // (value address -- )
+    Send(Selector, Arity),          // (...args target -- result)
+    SendDirect(Rc<Handler>, Arity), // (...args target -- result)
+    TrySend(Selector, Arity),       // (...args target -- result)
+    SendNative(NativeFn, Arity),    // (...args target -- result)
+    Native(MoreFn),                 // (...)
+    Drop,                           // (value --)
     Return,
     Loop,
 }
@@ -51,15 +52,12 @@ impl IR {
     pub fn unit() -> Self {
         IR::Constant(Value::Unit)
     }
-    #[cfg(test)]
     pub fn int(value: i64) -> Self {
         IR::Constant(Value::Integer(value))
     }
-    #[cfg(test)]
     pub fn bool(value: bool) -> Self {
         IR::Constant(Value::Bool(value))
     }
-    #[cfg(test)]
     pub fn string(value: String) -> Self {
         IR::Constant(Value::String(Rc::new(value)))
     }
@@ -140,6 +138,10 @@ impl IR {
             IR::Send(selector, arity) => {
                 let target = ctx.pop();
                 ctx.send(&selector, target, arity)?;
+            }
+            IR::SendDirect(handler, arity) => {
+                let target = ctx.pop();
+                ctx.send_direct(handler, target, arity)?;
             }
             IR::TrySend(selector, arity) => {
                 let target = ctx.pop();
