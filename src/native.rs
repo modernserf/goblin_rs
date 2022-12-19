@@ -279,14 +279,12 @@ fn build_array_class() -> Rc<Class> {
         target.as_array().borrow_mut().push(args.pop().unwrap());
         Ok(Value::Unit)
     });
+    // TODO: distinguish between at: with / without wrapping
     class.add(
         "at:",
         vec![Param::Value],
         vec![
             IR::Local(0),
-            IR::SelfRef,
-            IR::send("length", 0),
-            IR::SendNative(at_wrap, 1),
             IR::SelfRef,
             IR::SendNative(
                 |target, mut args| {
@@ -303,9 +301,6 @@ fn build_array_class() -> Rc<Class> {
         vec![Param::Value, Param::Value],
         vec![
             IR::Local(0),
-            IR::SelfRef,
-            IR::send("length", 0),
-            IR::SendNative(at_wrap, 1),
             IR::Local(1),
             IR::SelfRef,
             IR::SendNative(

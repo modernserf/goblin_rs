@@ -197,4 +197,8 @@ mod test {
     fn day_5() {
         run(include_str!("./aoc-2022/day-5.gob"));
     }
+    #[test]
+    fn day_6() {
+        run(include_str!("./aoc-2022/day-6.gob"));
+    }
 }
