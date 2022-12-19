@@ -1,0 +1,37 @@
+import [_Assert_ _Slice_ _Range_] := "core" 
+
+# range with values 
+let r := Range{to: 5}
+Assert{received: r{size} expected: 5}
+Assert{: r{has: 0}}
+Assert{: r{has: 4}}
+Assert{: !r{has: 5}}
+# range with start
+let r := Range{from: 3 to: 5}
+Assert{received: r{size} expected: 2}
+Assert{: !r{has: 0}}
+Assert{: r{has: 4}}
+Assert{: !r{has: 5}}
+
+# superset
+let r := Range{to: 5}
+Assert{: r{is superset: Range{to: 3}}}
+Assert{: r{is superset: Range{from: 1 to: 5}}}
+Assert{: !r{is superset: Range{from: 1 to: 6}}}
+
+# intersection
+let r := Range{to: 5}
+Assert{
+  received: r & Range{to: 3} 
+  expected: Range{to: 3}}
+Assert{
+  received: r & Range{from: 3 to: 10} 
+  expected: Range{from: 3 to: 5}}
+Assert{
+  received: r & Range{from: 10 to: 20}
+  expected: Range{from: 0 to: 0}
+}
+
+# infinite range
+let r := Range{from: 2}
+Assert{:r{to Iter}{take: 3}{to Slice} = (Slice{}, 2, 3, 4)}

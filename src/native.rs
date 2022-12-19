@@ -152,6 +152,41 @@ fn build_int_class() -> Rc<Class> {
         Value::Integer(arg) => Ok(Value::Bool(target.as_int() > *arg)),
         _ => expected("number"),
     });
+    class.add(
+        "min:",
+        vec![Param::Value],
+        vec![
+            IR::Local(0),
+            IR::SelfRef,
+            IR::Local(0),
+            IR::SelfRef,
+            IR::send("<:", 1),
+            IR::send("false:true:", 2),
+        ],
+    );
+    class.add(
+        "max:",
+        vec![Param::Value],
+        vec![
+            IR::Local(0),
+            IR::SelfRef,
+            IR::Local(0),
+            IR::SelfRef,
+            IR::send(">:", 1),
+            IR::send("false:true:", 2),
+        ],
+    );
+    class.add(
+        "max:min:",
+        vec![Param::Value],
+        vec![
+            IR::Local(0),
+            IR::SelfRef,
+            IR::send("min:", 1),
+            IR::Local(1),
+            IR::send("max:", 1),
+        ],
+    );
 
     class.rc()
 }
@@ -384,6 +419,9 @@ fn build_native_module() -> Rc<Class> {
             ),
         ],
     );
+    class.add_native("panic:", vec![Param::Value], |_, args| {
+        Err(RuntimeError::Panic(format!("{:?}", args[0])))
+    });
     class.add(
         "loop:",
         vec![Param::Do],

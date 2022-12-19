@@ -26,6 +26,7 @@ export let BigInt := [
     native{BigInt: value}
 ]
 
+export import [_Panic_] := "core/panic"
 export import [_Ord_] := "core/ord"
 export import [_Option_] := "core/option"
 export import [_Result_] := "core/result"
@@ -33,3 +34,4 @@ export import [_Control_] := "core/control"
 export import [_Iter_] := "core/iter"
 export import [_Sortable_] := "core/sortable"
 export import [_Slice_] := "core/slice"
+export import [_Range_] := "core/range"

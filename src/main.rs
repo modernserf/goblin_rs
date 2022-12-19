@@ -42,6 +42,14 @@ fn build_stdlib() -> runtime::ModuleLoader {
         "core/slice",
         compile_module(include_str!("./stdlib/slice.gob")),
     );
+    modules.add_init(
+        "core/panic",
+        compile_module(include_str!("./stdlib/panic.gob")),
+    );
+    modules.add_init(
+        "core/range",
+        compile_module(include_str!("./stdlib/range.gob")),
+    );
     modules.add_init("parse", compile_module(include_str!("./stdlib/parse.gob")));
     modules.add_init(
         "bitset",
@@ -165,6 +173,11 @@ mod test {
     }
 
     #[test]
+    fn range() {
+        run(include_str!("./stdlib/range.test.gob"));
+    }
+
+    #[test]
     fn day_1() {
         run(include_str!("./aoc-2022/day-1.gob"));
     }
@@ -177,5 +190,9 @@ mod test {
     #[test]
     fn day_3() {
         run(include_str!("./aoc-2022/day-3.gob"));
+    }
+    #[test]
+    fn day_4() {
+        run(include_str!("./aoc-2022/day-4.gob"));
     }
 }

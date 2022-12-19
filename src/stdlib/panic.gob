@@ -1,0 +1,6 @@
+import native := "native"
+
+export let Panic := [
+  on {: message}
+    native{panic: message}
+]

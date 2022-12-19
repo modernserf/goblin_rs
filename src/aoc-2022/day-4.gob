@@ -1,0 +1,27 @@
+import [_File_ _Assert_ _String_] := "core"
+import [_Range_] := "core/range"
+import [_Parser_] := "parse"
+
+let parse_range := Parser{ok: [from: () to: ()]}
+  {with: [from] join: Parser{integer}}
+  {skip: Parser{token: "-"}}
+  {with: [to] join: Parser{integer} |>> [+: 1]}
+  {map: [{: p} p{: Range}]}
+
+let parse_range_pair := parse_range
+  .>> Parser{token: ","}
+  .>>. parse_range
+  .>> Parser{token: String{newline}}
+
+let part_1 := *parse_range_pair
+  |>> [filter: [{: [0: left 1: right]} left{is superset: right} || right{is superset: left}]]
+  |>> [length]
+
+let part_2 := *parse_range_pair
+  |>> [filter: [{: [0: left 1: right]} (left & right){size} > 0]]
+  |>> [length]
+
+
+let input := File{read text sync: "./src/aoc-2022/day-4.input.txt"}
+Assert{: Parser{parse: input with: part_1}{ok!} = 582}
+Assert{: Parser{parse: input with: part_2}{ok!} = 893}
