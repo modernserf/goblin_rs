@@ -1,3 +1,5 @@
+use compiler::CompilerFlags;
+
 mod ast;
 mod compiler;
 mod grammar;
@@ -7,10 +9,12 @@ mod native;
 mod parser;
 mod runtime;
 
+const COMPILER_FLAGS: CompilerFlags = CompilerFlags { allow_inline: true };
+
 fn compile_module(code: &str) -> Vec<ir::IR> {
     let tokens = lexer::Lexer::lex(code.to_string());
     let ast = parser::Parser::parse(tokens).unwrap();
-    compiler::Compiler::module(ast).unwrap()
+    compiler::Compiler::new(COMPILER_FLAGS).module(ast).unwrap()
 }
 
 fn build_stdlib() -> runtime::ModuleLoader {
@@ -69,7 +73,9 @@ thread_local! {
 fn run(code: &str) {
     let tokens = lexer::Lexer::lex(code.to_string());
     let ast = parser::Parser::parse(tokens).unwrap();
-    let ir = compiler::Compiler::program(ast).unwrap();
+    let ir = compiler::Compiler::new(COMPILER_FLAGS)
+        .program(ast)
+        .unwrap();
     let mut modules = STDLIB.with(|m| m.clone());
     let result = runtime::Interpreter::program(ir, &mut modules);
     match result {

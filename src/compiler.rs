@@ -1,6 +1,6 @@
 use crate::{
     ast::Stmt,
-    ir::{Address, Class, Index, IR},
+    ir::{Address, Class, Index, Value, IR},
 };
 use std::collections::HashMap;
 
@@ -13,6 +13,11 @@ pub enum CompileError {
     InvalidDoReference(String),
     DuplicateExport(String),
     InvalidExport(String),
+}
+
+#[derive(Debug, Clone, Copy)]
+pub struct CompilerFlags {
+    pub allow_inline: bool,
 }
 
 pub type Compile<T> = Result<T, CompileError>;
@@ -70,8 +75,9 @@ impl Exports {
     }
 }
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone)]
 enum BindingRecord {
+    Constant(Value),
     Local(Address),
     Var(Address),
     Do(Address),
@@ -83,6 +89,7 @@ enum BindingRecord {
 impl BindingRecord {
     fn ival(self) -> IR {
         match self {
+            Self::Constant(value) => IR::Constant(value),
             Self::Local(addr) => IR::Local(addr),
             Self::Var(addr) => IR::Local(addr),
             Self::Do(addr) => IR::Local(addr),
@@ -93,6 +100,7 @@ impl BindingRecord {
     }
     fn identifier(self, key: String) -> CompileIR {
         let ir = match self {
+            Self::Constant(value) => vec![IR::Constant(value)],
             Self::Local(address) => vec![IR::Local(address)],
             Self::Var(address) => vec![IR::Local(address), IR::Deref],
             Self::IVal(index) => vec![IR::IVal(index)],
@@ -136,6 +144,7 @@ impl BindingRecord {
     }
     fn as_handler_ival(self, next_index: Index, key: &str) -> Compile<Self> {
         match self {
+            Self::Constant(val) => Ok(Self::Constant(val)),
             Self::Local(_) => Ok(Self::IVal(next_index)),
             Self::IVal(_) => Ok(Self::IVal(next_index)),
             _ => Err(CompileError::InvalidVarReference(key.to_string())),
@@ -143,6 +152,7 @@ impl BindingRecord {
     }
     fn as_do_handler_ival(self, next_index: Index) -> Self {
         match self {
+            Self::Constant(value) => Self::Constant(value),
             Self::Local(_) => Self::IVal(next_index),
             Self::IVal(_) => Self::IVal(next_index),
             Self::Var(_) => Self::VarIVal(next_index),
@@ -166,12 +176,15 @@ impl Locals {
         }
     }
     fn get(&self, key: &str) -> Option<BindingRecord> {
-        self.locals.get(key).copied()
+        self.locals.get(key).cloned()
     }
     fn add_anon(&mut self) -> usize {
         let address = self.next_index;
         self.next_index += 1;
         address
+    }
+    fn add_const(&mut self, key: String, value: Value) {
+        self.locals.insert(key, BindingRecord::Constant(value));
     }
     fn add_let(&mut self, key: String) -> usize {
         let address = self.next_index;
@@ -210,18 +223,18 @@ impl IVals {
     }
     fn add(&mut self, key: String, value: BindingRecord) -> Compile<BindingRecord> {
         let next_index = self.ivals.len();
-        self.ivals.push(value);
+        self.ivals.push(value.clone());
         let ival = value.as_handler_ival(next_index, &key)?;
-        if self.map.insert(key, ival).is_some() {
+        if self.map.insert(key, ival.clone()).is_some() {
             panic!("duplicate ival key")
         }
         Ok(ival)
     }
     fn add_do(&mut self, key: String, value: BindingRecord) -> Compile<BindingRecord> {
         let next_index = self.ivals.len();
-        self.ivals.push(value);
+        self.ivals.push(value.clone());
         let ival = value.as_do_handler_ival(next_index);
-        if self.map.insert(key, ival).is_some() {
+        if self.map.insert(key, ival.clone()).is_some() {
             panic!("duplicate ival key")
         }
         Ok(ival)
@@ -307,25 +320,30 @@ impl CompilerFrame {
 
 pub struct Compiler {
     frames: Vec<CompilerFrame>,
+    flags: CompilerFlags,
 }
 
 impl Compiler {
-    pub fn program(program: Vec<Stmt>) -> Compile<Vec<IR>> {
-        let mut compiler = Compiler::new();
-        let out = compiler.body(program)?;
-        Ok(out.build())
-    }
-    pub fn module(module: Vec<Stmt>) -> Compile<Vec<IR>> {
-        let mut compiler = Compiler::new();
-        let mut out = compiler.body(module)?;
-        out.append(compiler.frames.pop().unwrap().compile_exports()?);
-        Ok(out.build())
-    }
-    fn new() -> Self {
+    pub fn new(flags: CompilerFlags) -> Self {
         Compiler {
             frames: vec![CompilerFrame::root()],
+            flags,
         }
     }
+    pub fn program(&mut self, program: Vec<Stmt>) -> Compile<Vec<IR>> {
+        let out = self.body(program)?;
+        Ok(out.build())
+    }
+    pub fn module(&mut self, module: Vec<Stmt>) -> Compile<Vec<IR>> {
+        let mut out = self.body(module)?;
+        out.append(self.frames.pop().unwrap().compile_exports()?);
+        Ok(out.build())
+    }
+    // flags
+    pub fn allow_inline(&self) -> bool {
+        self.flags.allow_inline
+    }
+    // AST methods
     pub fn body(&mut self, mut body: Vec<Stmt>) -> CompileIR {
         let mut builder = IRBuilder::new();
         if body.is_empty() {
@@ -358,6 +376,9 @@ impl Compiler {
         self.top_mut().add_export(key, address)?;
         Ok(())
     }
+    pub fn add_const(&mut self, key: String, value: Value) {
+        self.top_mut().locals_mut().add_const(key, value);
+    }
     pub fn add_let(&mut self, key: String) {
         self.top_mut().locals_mut().add_let(key);
     }
@@ -373,6 +394,12 @@ impl Compiler {
     }
     pub fn add_do_param(&mut self, key: String) {
         self.top_mut().locals_mut().add_do_param(key);
+    }
+    pub fn identifier_const(&mut self, key: &str) -> Option<Value> {
+        match self.get(key) {
+            Ok(BindingRecord::Constant(val)) => Some(val),
+            _ => None,
+        }
     }
     pub fn identifier(&mut self, key: String) -> CompileIR {
         self.get(&key)?.identifier(key)
@@ -421,11 +448,17 @@ mod test {
     use super::*;
 
     fn assert_ok(code: Vec<Stmt>, expected: Vec<IR>) {
-        assert_eq!(Compiler::program(code), Ok(expected))
+        let flags = CompilerFlags {
+            allow_inline: false,
+        };
+        assert_eq!(Compiler::new(flags).program(code), Ok(expected))
     }
 
     fn assert_err(code: Vec<Stmt>, expected: CompileError) {
-        assert_eq!(Compiler::program(code), Err(expected))
+        let flags = CompilerFlags {
+            allow_inline: false,
+        };
+        assert_eq!(Compiler::new(flags).program(code), Err(expected))
     }
 
     fn int(val: i64) -> Expr {
@@ -945,8 +978,11 @@ mod test {
 
     #[test]
     fn exports() {
+        let flags = CompilerFlags {
+            allow_inline: false,
+        };
         assert_eq!(
-            Compiler::module(vec![Stmt::Let(b_ident("foo"), Expr::Integer(123), true),]),
+            Compiler::new(flags).module(vec![Stmt::Let(b_ident("foo"), Expr::Integer(123), true),]),
             Ok(vec![
                 IR::int(123),
                 IR::unit(),
@@ -1067,6 +1103,31 @@ mod test {
                 ),
                 IR::unit(),
             ],
+        )
+    }
+
+    #[test]
+    fn inline_constants() {
+        let flags = CompilerFlags { allow_inline: true };
+        assert_eq!(
+            Compiler::new(flags).program(vec![
+                Stmt::Let(b_ident("x"), Expr::Integer(123), false),
+                Stmt::Expr(ident("x")),
+            ]),
+            Ok(vec![IR::int(123)])
+        )
+    }
+
+    #[test]
+    fn inline_indirect_constants() {
+        let flags = CompilerFlags { allow_inline: true };
+        assert_eq!(
+            Compiler::new(flags).program(vec![
+                Stmt::Let(b_ident("x"), Expr::Integer(123), false),
+                Stmt::Let(b_ident("y"), ident("x"), false),
+                Stmt::Expr(ident("y")),
+            ]),
+            Ok(vec![IR::int(123)])
         )
     }
 }

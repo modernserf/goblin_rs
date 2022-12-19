@@ -134,6 +134,15 @@ impl Stmt {
         match self {
             Self::Expr(expr) => expr.compile(compiler),
             Self::Let(binding, expr, is_export) => {
+                if compiler.allow_inline() && !is_export {
+                    if let (Binding::Identifier(key), Some(value)) =
+                        (binding.clone(), expr.get_const(compiler))
+                    {
+                        compiler.add_const(key, value);
+                        return Ok(IRBuilder::new());
+                    }
+                }
+
                 let mut ir = expr.compile_with_binding(compiler, &binding)?;
                 if is_export {
                     ir.append(binding.compile_export(compiler)?);
@@ -221,6 +230,7 @@ impl Expr {
     fn compile_with_binding(self, compiler: &mut Compiler, binding: &Binding) -> CompileIR {
         self.compile_base(compiler, Some(binding))
     }
+    // TODO: use get_const
     fn get_direct_handler(&self, _: &str) -> Option<Rc<IRHandler>> {
         match self {
             // Self::Integer(_) => int_class().get(selector).ok(),
@@ -236,14 +246,26 @@ impl Expr {
             None => Ok(IRBuilder::from(vec![IR::Send(selector, arity)])),
         }
     }
+    fn get_const(&self, compiler: &mut Compiler) -> Option<Value> {
+        match self {
+            Self::Unit => Some(Value::Unit),
+            Self::Bool(value) => Some(Value::Bool(*value)),
+            Self::Integer(value) => Some(Value::Integer(*value)),
+            Self::String(str) => Some(Value::String(Rc::new(str.to_string()))),
+            Self::Identifier(key) => compiler.identifier_const(key),
+            _ => None,
+        }
+    }
 
     fn compile_base(self, compiler: &mut Compiler, binding: Option<&Binding>) -> CompileIR {
+        if let Some(value) = self.get_const(compiler) {
+            return Ok(IRBuilder::from(vec![IR::Constant(value)]));
+        }
         match self {
-            Self::Unit => Ok(IRBuilder::from(vec![IR::unit()])),
+            Self::Unit | Self::Bool(_) | Self::Integer(_) | Self::String(_) => {
+                unreachable!()
+            }
             Self::SelfRef => Ok(IRBuilder::from(vec![IR::SelfRef])),
-            Self::Bool(value) => Ok(IRBuilder::from(vec![IR::bool(value)])),
-            Self::Integer(value) => Ok(IRBuilder::from(vec![IR::int(value)])),
-            Self::String(str) => Ok(IRBuilder::from(vec![IR::string(str)])),
             Self::Identifier(name) => compiler.identifier(name),
             Self::Send(selector, target, args) => {
                 let mut ir = IRBuilder::new();
