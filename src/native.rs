@@ -314,6 +314,45 @@ fn build_array_class() -> Rc<Class> {
     class.rc()
 }
 
+fn build_big_int_class() -> Rc<Class> {
+    let mut class = Class::new();
+    class.add_native("<<:", vec![Param::Value], |target, args| match &args[0] {
+        Value::Bigint(val) => Ok(Value::Bigint(target.as_bigint() << *val)),
+        _ => expected("bigint"),
+    });
+    class.add_native(">>:", vec![Param::Value], |target, args| match &args[0] {
+        Value::Bigint(val) => Ok(Value::Bigint(target.as_bigint() >> *val)),
+        _ => expected("bigint"),
+    });
+    class.add_native("|:", vec![Param::Value], |target, args| match &args[0] {
+        Value::Bigint(val) => Ok(Value::Bigint(target.as_bigint() | *val)),
+        _ => expected("bigint"),
+    });
+    class.add_native("&:", vec![Param::Value], |target, args| match &args[0] {
+        Value::Bigint(val) => Ok(Value::Bigint(target.as_bigint() & *val)),
+        _ => expected("bigint"),
+    });
+    class.add_native("^:", vec![Param::Value], |target, args| match &args[0] {
+        Value::Bigint(val) => Ok(Value::Bigint(target.as_bigint() ^ *val)),
+        _ => expected("bigint"),
+    });
+    class.add_native("~", vec![], |target, _| {
+        Ok(Value::Bigint(!target.as_bigint()))
+    });
+    class.add_native("=:", vec![Param::Value], |target, args| match &args[0] {
+        Value::Bigint(val) => Ok(Value::Bool(target.as_bigint() == *val)),
+        _ => Ok(Value::Bool(false)),
+    });
+    class.add_native("!=:", vec![Param::Value], |target, args| match &args[0] {
+        Value::Bigint(val) => Ok(Value::Bool(target.as_bigint() != *val)),
+        _ => Ok(Value::Bool(true)),
+    });
+    class.add_native("popcount", vec![], |target, _| {
+        Ok(Value::Integer(target.as_bigint().count_ones() as i64))
+    });
+    class.rc()
+}
+
 fn build_native_module() -> Rc<Class> {
     let mut class = Class::new();
     class.add(
@@ -375,6 +414,10 @@ fn build_native_module() -> Rc<Class> {
             _ => expected("string"),
         },
     );
+    class.add_native("BigInt:", vec![Param::Value], |_, args| match &args[0] {
+        Value::Integer(int) => Ok(Value::Bigint(*int as u128)),
+        _ => expected("integer"),
+    });
     class.rc()
 }
 
@@ -384,6 +427,7 @@ thread_local! {
     static INT_CLASS: Rc<Class> = build_int_class();
     static STRING_CLASS: Rc<Class> = build_string_class();
     static ARRAY_CLASS: Rc<Class> = build_array_class();
+    static BIG_INT_CLASS: Rc<Class>= build_big_int_class();
     static NATIVE_MODULE: Rc<Class> = build_native_module();
 }
 
@@ -401,6 +445,9 @@ pub fn string_class() -> Rc<Class> {
 }
 pub fn array_class() -> Rc<Class> {
     ARRAY_CLASS.with(|c| c.clone())
+}
+pub fn big_int_class() -> Rc<Class> {
+    BIG_INT_CLASS.with(|c| c.clone())
 }
 
 pub fn native_module() -> Value {

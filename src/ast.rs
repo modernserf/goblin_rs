@@ -3,7 +3,6 @@ use std::{cell::RefCell, collections::HashMap, rc::Rc};
 use crate::{
     compiler::{CompileIR, Compiler, IRBuilder, IVals},
     ir::{Address, Class, Handler as IRHandler, Param, Selector, Value, IR},
-    native::{bool_class, int_class, string_class},
     parser::{Parse, ParseError},
 };
 

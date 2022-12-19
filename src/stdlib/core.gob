@@ -21,6 +21,11 @@ export let File := [
     native{read text sync: path}
 ]
 
+export let BigInt := [
+  on {: value}
+    native{BigInt: value}
+]
+
 export import [_Ord_] := "core/ord"
 export import [_Option_] := "core/option"
 export import [_Result_] := "core/result"

@@ -43,6 +43,10 @@ fn build_stdlib() -> runtime::ModuleLoader {
         compile_module(include_str!("./stdlib/slice.gob")),
     );
     modules.add_init("parse", compile_module(include_str!("./stdlib/parse.gob")));
+    modules.add_init(
+        "bitset",
+        compile_module(include_str!("./stdlib/bitset.gob")),
+    );
     modules
 }
 
@@ -156,12 +160,17 @@ mod test {
     }
 
     #[test]
-    fn day_1() {
-        run(include_str!("./aoc-2022/day-1.gob"));
+    fn bitset() {
+        run(include_str!("./stdlib/bitset.test.gob"));
     }
 
-    #[test]
-    fn day_2() {
-        run(include_str!("./aoc-2022/day-2.gob"));
-    }
+    // #[test]
+    // fn day_1() {
+    //     run(include_str!("./aoc-2022/day-1.gob"));
+    // }
+
+    // #[test]
+    // fn day_2() {
+    //     run(include_str!("./aoc-2022/day-2.gob"));
+    // }
 }
