@@ -1,0 +1,261 @@
+import [_Log_ _Assert_ _Slice_ _Control_ _File_ _String_  _Panic_] := "core"
+import [_Parser_] := "parse"
+
+let number :=
+  | Parser{string: "-"} >>. Parser{integer} |>> [-]
+  | Parser{integer}
+
+let instruction :=
+  | (Parser{string: "noop"} >>. Parser{ok: [noop]})
+  | (Parser{string: "addx "} >>. number |>> [{: value} [addx: value]])
+
+let program := instruction{skip: Parser{newline}}{repeat}
+
+let input := "noop
+addx 3
+addx -5
+"
+
+Assert{: Parser{parse: input with: program}{ok!} = (Slice{}, [noop], [addx: 3], [addx: -5])}
+
+let VM := [
+  on {: code} 
+    VM{_code_ state: [init] ip: 0 x: 1}
+  on {_code_ _state_ _ip_ _x_} [
+    on {x}
+      x
+    on {next}
+      if ip > code{length} then Panic{: "end of input"} end
+      state{:
+        on {init}
+          code{at: ip}{:
+            on {noop}
+              VM{_code_ state: [init] ip: ip + 1 _x_}
+            on {addx: value}
+              VM{_code_ state: [addx: value] _ip_ _x_}
+          }
+        on {addx: value}
+          VM{_code_ state: [init] ip: ip + 1 x: x + value}
+      }
+  ]
+]
+
+let input := "noop
+addx 3
+addx -5
+"
+var vm := VM{: Parser{parse: input with: program}{ok!}}
+Control{times: 5 do: {}
+  set vm{next}
+}
+Assert{: vm{x} = -1}
+
+let input := "addx 15
+addx -11
+addx 6
+addx -3
+addx 5
+addx -1
+addx -8
+addx 13
+addx 4
+noop
+addx -1
+addx 5
+addx -1
+addx 5
+addx -1
+addx 5
+addx -1
+addx 5
+addx -1
+addx -35
+addx 1
+addx 24
+addx -19
+addx 1
+addx 16
+addx -11
+noop
+noop
+addx 21
+addx -15
+noop
+noop
+addx -3
+addx 9
+addx 1
+addx -3
+addx 8
+addx 1
+addx 5
+noop
+noop
+noop
+noop
+noop
+addx -36
+noop
+addx 1
+addx 7
+noop
+noop
+noop
+addx 2
+addx 6
+noop
+noop
+noop
+noop
+noop
+addx 1
+noop
+noop
+addx 7
+addx 1
+noop
+addx -13
+addx 13
+addx 7
+noop
+addx 1
+addx -33
+noop
+noop
+noop
+addx 2
+noop
+noop
+noop
+addx 8
+noop
+addx -1
+addx 2
+addx 1
+noop
+addx 17
+addx -9
+addx 1
+addx 1
+addx -3
+addx 11
+noop
+noop
+addx 1
+noop
+addx 1
+noop
+noop
+addx -13
+addx -19
+addx 1
+addx 3
+addx 26
+addx -30
+addx 12
+addx -1
+addx 3
+addx 1
+noop
+noop
+noop
+addx -9
+addx 18
+addx 1
+addx 2
+noop
+noop
+addx 9
+noop
+noop
+noop
+addx -1
+addx 2
+addx -37
+addx 1
+addx 3
+noop
+addx 15
+addx -21
+addx 22
+addx -6
+addx 1
+noop
+addx 2
+addx 1
+noop
+addx -10
+noop
+noop
+addx 20
+addx 1
+addx 2
+addx 2
+addx -6
+addx -11
+noop
+noop
+noop
+"
+
+let result := Parser{parse: input with: program}{ok!}
+var vm := VM{: result}
+var xs := Slice{}, vm{x}
+Control{times: 240 do: {}
+  set xs{push: vm{x}}
+  set vm{next}
+}
+let sum := (Slice{}, 20, 60, 100, 140, 180, 220)
+  {map: {: i} xs{at: i} * i}
+  {into: 0 fold: [+]}
+Assert{: sum = 13140}
+
+let pixels := xs{from: 1}{map: {: x index: i}
+  let i := i % 40
+  let out := if (x = (i - 1)) || (x = i) || (x = (i + 1)) then
+    "#"
+  else 
+    "."
+  end
+  if i = 0 then String{newline} ++ out else out end
+}{into: "" fold: [++]}
+
+Assert{: pixels = "
+##..##..##..##..##..##..##..##..##..##..
+###...###...###...###...###...###...###.
+####....####....####....####....####....
+#####.....#####.....#####.....#####.....
+######......######......######......####
+#######.......#######.......#######....."}
+
+let input := File{read text sync: "./src/aoc-2022/day-10.input.txt"}
+let result := Parser{parse: input with: program}{ok!}
+var vm := VM{: result}
+var xs := Slice{}, vm{x}
+Control{times: 240 do: {}
+  set xs{push: vm{x}}
+  set vm{next}
+}
+let part_1 := (Slice{}, 20, 60, 100, 140, 180, 220)
+  {map: {: i} xs{at: i} * i}
+  {into: 0 fold: [+]}
+
+Assert{:part_1 = 14060}
+
+let pixels := xs{from: 1}{map: {: x index: i}
+  let i := i % 40
+  let out := if (x = (i - 1)) || (x = i) || (x = (i + 1)) then
+    "#"
+  else 
+    "."
+  end
+  if i = 0 then String{newline} ++ out else out end
+}{into: "" fold: [++]}
+
+Assert{: pixels = "
+###...##..###..#..#.####.#..#.####...##.
+#..#.#..#.#..#.#.#..#....#.#..#.......#.
+#..#.#..#.#..#.##...###..##...###.....#.
+###..####.###..#.#..#....#.#..#.......#.
+#....#..#.#....#.#..#....#.#..#....#..#.
+#....#..#.#....#..#.#....#..#.####..##.."}
