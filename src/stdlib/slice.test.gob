@@ -35,6 +35,11 @@ Slice{}{: {empty} ()}
 # Assert{: unsorted{sort} = (Slice{}, 1, 2, 3, 4)}
 # Assert{: unsorted = (Slice{}, 4, 1, 3, 2)}
 
-# Assert{: slice{map: [*: 2]} = (Slice{}, 2, 4, 6)}
-# Assert{: slice{filter: [<: 2]} = (Slice{}, 1)}
-# Assert{: slice{into: 0 fold: [+]} = 6}
+Assert{: slice{map: [*: 2]} = (Slice{}, 2, 4, 6)}
+Assert{: slice{filter: [<: 2]} = (Slice{}, 1)}
+Assert{: slice{into: 0 fold: [+]} = 6}
+
+var slice := Slice{}, 1,2,3
+let top := Slice{pop: var slice}{some!}
+Assert{: top = 3}
+Assert{: slice = (Slice{}, 1, 2)}

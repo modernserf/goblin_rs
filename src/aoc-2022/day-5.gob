@@ -1,0 +1,70 @@
+import [_Slice_ _File_ _Control_ _Assert_] := "core"
+import [_Parser_] := "parse"
+
+#     [C]         [Q]         [V]    
+#     [D]         [D] [S]     [M] [Z]
+#     [G]     [P] [W] [M]     [C] [G]
+#     [F]     [Z] [C] [D] [P] [S] [W]
+# [P] [L]     [C] [V] [W] [W] [H] [L]
+# [G] [B] [V] [R] [L] [N] [G] [P] [F]
+# [R] [T] [S] [S] [S] [T] [D] [L] [P]
+# [N] [J] [M] [L] [P] [C] [H] [Z] [R]
+#  1   2   3   4   5   6   7   8   9 
+
+let init_state := Slice{}
+  {push: Slice{}, "N", "R", "G", "P"}
+  {push: Slice{}, "J", "T", "B", "L", "F", "G", "D", "C"}
+  {push: Slice{}, "M", "S", "V"}
+  {push: Slice{}, "L", "S", "R", "C", "Z", "P"}
+  {push: Slice{}, "P", "S", "L", "V", "C", "W", "D", "Q"}
+  {push: Slice{}, "C", "T", "N", "W", "D", "M", "S"}
+  {push: Slice{}, "H", "D", "G", "W", "P"}
+  {push: Slice{}, "Z", "L", "P", "H", "S", "C", "M", "V"}
+  {push: Slice{}, "R", "P", "F", "L", "W", "G", "Z"}
+
+let line := Parser{ok: [count: () source: () dest: ()]}
+  {skip: Parser{string: "move "}}
+  {with: [count] join: Parser{integer}}
+  {skip: Parser{string: " from "}}
+  {with: [source] join: Parser{integer} |>> [-: 1]}
+  {skip: Parser{string: " to "}}
+  {with: [dest] join: Parser{integer} |>> [-: 1]}
+  {skip: Parser{newline}}
+
+let input := File{read text sync: "./src/aoc-2022/day-5.input.txt"}
+let lines := Parser{parse: input with: *line}{ok!}
+
+let end_state := lines{into: init_state fold: {: line into: state}
+  var source := state{at: line{source}}
+  var dest := state{at: line{dest}}
+  Control{times: line{count} do: {: __}
+    let popped := Slice{pop: var source}{some!}
+    set dest{push: popped}
+  }
+  let next := state
+    {at: line{source} value: source}
+    {at: line{dest} value: dest}
+  next
+}
+
+let part_1 := end_state{map: [at: -1]}{into: "" fold: [++]}
+
+Assert{: part_1 = "VPCDMSLWJ"}
+
+let end_state := lines{into: init_state fold: {: line into: state}
+  let source := state{at: line{source}}
+  let split_at := source{length} - line{count}
+  let moved_chunk := source{from: split_at}
+  let next_source := source{to: split_at}
+  let next_dest := state{at: line{dest}} ++ moved_chunk
+
+  state
+    {at: line{source} value: next_source}
+    {at: line{dest} value: next_dest}
+}
+
+let part_2 := end_state{into: "" fold: {: stack into: str} 
+  str ++ stack{at: -1}
+}
+
+Assert{: part_2 = "TPWCGNCCG"}

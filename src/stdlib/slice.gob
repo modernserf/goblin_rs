@@ -1,4 +1,5 @@
 import native := "native"
+import [_Panic_] := "core/panic"
 import [_Option_] := "core/option"
 import [_Control_] := "core/control"
 import [_Sortable_] := "core/sortable"
@@ -45,8 +46,12 @@ let Slice := [
     on {length}
       to - from
     on {at: index}
+      if self{is empty} then Panic{: "cannot get item from empty slice"} end
+      let index := index % self{length}
       array{at: index + from}
     on {at: index value: val}
+      if self{is empty} then Panic{: "cannot set at index in empty slice"} end
+      let index := index % self{length}
       let next_array := array{from: from to: to}
       next_array{at: index value: val}
       Slice{
@@ -55,6 +60,8 @@ let Slice := [
         to: next_array{length}
       }
     on {at: index update: do f}
+      if self{is empty} then Panic{: "cannot update at index in empty slice"} end
+      let index := index % self{length}
       let next_array := array{from: from to: to}
       let next_value := f{: next_array{at: index}}
       next_array{at: index value: next_value}

@@ -419,6 +419,21 @@ fn build_native_module() -> Rc<Class> {
             ),
         ],
     );
+    class.add(
+        "log:",
+        vec![Param::Value],
+        vec![
+            IR::Local(0),
+            IR::send("to String", 0),
+            IR::SendNative(
+                |target, _| {
+                    println!("{}", target.as_string());
+                    Ok(Value::Unit)
+                },
+                0,
+            ),
+        ],
+    );
     class.add_native("panic:", vec![Param::Value], |_, args| {
         Err(RuntimeError::Panic(format!("{:?}", args[0])))
     });

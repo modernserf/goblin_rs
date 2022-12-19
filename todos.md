@@ -13,3 +13,13 @@ otherwise   -> error
 ```
 
 frame - object - do block continuum of data-focused vs behavior-focused
+
+Perf ideas:
+
+- constant folding / propagation
+- send direct to constants / self
+- move common low-level calls (addition, equality etc) to IR
+- inline method calls to constants / self
+- only compile self-references if used
+- IR to get Ival of target rather than self & inline getter methods to use this
+- increment locals counter on unused expressions instead of dropping
