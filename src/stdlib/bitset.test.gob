@@ -28,7 +28,4 @@ Assert{
   expected: BitSet{}, 1, 58
 }
 
-Assert{
-  expected: bs{to Iter}{to Slice}
-  received: Slice{}, 1, 30, 58
-}
+Assert{: bs{to Iter}{to Slice} = (Slice{}, 1, 30, 58)}

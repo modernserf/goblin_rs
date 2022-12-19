@@ -179,16 +179,16 @@ pub enum Value {
     MutArray(MutArray),
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct MutArray {
     value: Rc<RefCell<Vec<Value>>>,
 }
 
-impl PartialEq for MutArray {
-    fn eq(&self, other: &Self) -> bool {
-        Rc::ptr_eq(&self.value, &other.value)
-    }
-}
+// impl PartialEq for MutArray {
+//     fn eq(&self, other: &Self) -> bool {
+//         Rc::ptr_eq(&self.value, &other.value)
+//     }
+// }
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct Object {
