@@ -1,0 +1,203 @@
+import [_File_ _Slice_ _Control_ _Log_ _Assert_] := "core"
+
+
+let parse := [{: str}
+  import [_Parser_] := "parse"
+
+  let char_offset := "a"{code at: 0}
+  let cell :=
+    | Parser{token: "S"}{then: Parser{ok: [start: () level: 0]}}
+    | Parser{token: "E"}{then: Parser{ok: [end: () level: 25]}}
+    | Parser{range: "a" through: "z"}{map: [{: ch} [level: ch{code at: 0} - char_offset]]}
+
+  let row := cell{repeat}{skip: Parser{newline}}
+  let grid := row{repeat}
+
+  Parser{parse: str with: grid}{ok!}
+]
+
+let HeightMap := [
+  on {from string: str}
+    let grid := parse{: str}
+    var start := ()
+    var _end_ := ()
+    grid{each: {: row index: y}
+      row{each: {: cell index: x}
+        cell{:
+          on {start: __ level: __}
+            set start := [_x_ _y_]
+          on {end: __ level: __}
+            set _end_ := [_x_ _y_]
+          on {level: __}
+            ()
+        }
+      }
+    }
+    HeightMap{_grid_ _start_ _end_}
+
+  on {_grid_ _start_ _end_} [
+    on {height}
+      grid{length}
+    on {width}
+      grid{at: 0}{length}
+    on {neighbors: p}
+      let len := grid{length}
+      var neighbors := Slice{}
+      self{neighbors: p dx: -1 dy: 0 into: var neighbors}
+      self{neighbors: p dx: 1 dy: 0  into: var neighbors}
+      self{neighbors: p dx: 0 dy: -1 into: var neighbors}
+      self{neighbors: p dx: 0 dy: 1  into: var neighbors}
+      neighbors
+    on {neighbors: [_x_ _y_] dx: dx dy: dy into: var neighbors}
+      if (x + dx < 0) || (x + dx >= self{width}) || (y + dy < 0) || (y + dy >= self{height}) then return end
+      let current_level := self{x: x y: y}
+      let level := self{x: x + dx y: y + dy}
+      if level <= (current_level + 1) then
+        set neighbors{push: [x: x + dx y: y + dy]}
+      end
+
+    on {reverse neighbors: p}
+      let len := grid{length}
+      var neighbors := Slice{}
+      self{reverse neighbors: p dx: -1 dy: 0 into: var neighbors}
+      self{reverse neighbors: p dx: 1 dy: 0  into: var neighbors}
+      self{reverse neighbors: p dx: 0 dy: -1 into: var neighbors}
+      self{reverse neighbors: p dx: 0 dy: 1  into: var neighbors}
+      neighbors
+    on {reverse neighbors: [_x_ _y_] dx: dx dy: dy into: var neighbors}
+      if (x + dx < 0) || (x + dx >= self{width}) || (y + dy < 0) || (y + dy >= self{height}) then return end
+      let current_level := self{x: x y: y}
+      let level := self{x: x + dx y: y + dy}
+      if level >= (current_level - 1) then
+        set neighbors{push: [x: x + dx y: y + dy]}
+      end
+    on {x: x y: y}
+      grid{at: y}{at: x}{level}
+    on {start}
+      start
+    on {end}
+      _end_
+    on {lowest points}
+      var out := Slice{}
+      grid{each: {: row index: y}
+        row{each: {: cell index: x}
+          if cell{level} = 0 then 
+            set out{push: [_x_ _y_]}
+          end
+        }
+      }
+      out
+  ]
+]
+
+let Visited := [
+  on {from grid: grid}
+    var state := Slice{}
+    Control{times: grid{height} do: {}
+      var row := Slice{}
+      Control{times: grid{width} do: {}
+        set row{push: 1000000}
+      }
+      set state{push: row}
+    }
+    Visited{state: state}
+  on {_state_} [
+    on {steps at: point}
+      state{at: point{y}}{at: point{x}}
+    on {at: point value: value}
+      Visited{state: state{at: point{y} update: [at: point{x} value: value]}}
+    on {print}
+      state{each: {: row}
+        Log{: row{map: {: count}
+          if count >= 1000 then " ___"
+          else if count >= 100 then " " ++ count
+          else if count >= 10 then "  " ++ count
+          else "   " ++ count
+          end
+        }{into: "" fold: [++]}
+      }}
+  ]
+]
+
+let Search := [
+  on {part 1: grid}
+    var state := Search{
+      grid: grid 
+      visited: Visited{from grid: grid}{at: grid{start} value: 0}
+      worklist: Slice{}, grid{start}
+    }
+    Control{loop: {}
+      state{next}{:
+        on {done: visited}
+          return visited{steps at: grid{end}}
+        on {continue: next_state}
+          set state := next_state
+      }
+    }
+  on {part 2: grid}
+    var state := Search {
+      grid: grid 
+      visited: Visited{from grid: grid}{at: grid{end} value: 0}
+      worklist: Slice{}, grid{end}
+    }
+    Control{loop: {}
+      state{next reverse}{:
+        on {done: visited}
+          return grid{lowest points}{map: {: point} 
+            let steps := visited{steps at: point}
+            steps
+          }{into: 10000 fold: [min]}
+        on {continue: next_state}
+          set state := next_state
+      }
+    }
+
+
+  on {_grid_ _visited_ _worklist_} [
+    on {next}
+      self{next: {grid: grid current: current} 
+        grid{neighbors: current}
+      }
+    on {next reverse}
+      self{next: {grid: grid current: current} 
+        grid{reverse neighbors: current}
+      }
+    on {next: do op}
+      worklist{shift}{:
+        on {none}
+          return [done: visited]
+        on {some: [_first_ _rest_]}
+          var next_worklist := rest
+          var next_visited := visited
+          let current_steps := visited{steps at: first}
+          op{grid: grid current: first}{each: {: neighbor}
+            let neighbor_steps := visited{steps at: neighbor}
+            if neighbor_steps > (current_steps + 1) then
+              set next_worklist{push: neighbor}
+              set next_visited{at: neighbor value: current_steps + 1}
+            end
+          }
+          [continue: Search{_grid_ visited: next_visited worklist: next_worklist}]
+      }
+
+  ]
+]
+
+
+let input := "Sabqponm
+abcryxxl
+accszExk
+acctuvwj
+abdefghi
+"
+let map := HeightMap{from string: input}
+Assert{: map{start} = [x: 0 y: 0]}
+Assert{: map{end} = [x: 5 y: 2]}
+Assert{: Search{part 1: map} = 31}
+Assert{: Search{part 2: map} = 29}
+
+let input := File{read text sync: "./src/aoc-2022/day-12.input.txt"}
+let map := HeightMap{from string: input}
+
+Assert{: Search{part 1: map} = 350}
+Assert{: Search{part 2: map} = 349}

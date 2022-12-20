@@ -341,12 +341,8 @@ fn build_array_class() -> Rc<Class> {
         "from:to:",
         vec![Param::Value, Param::Value],
         vec![
-            // check from arg
+            // TODO: check args
             IR::Local(0),
-            IR::SelfRef,
-            IR::send("length", 0),
-            IR::SendNative(at_wrap, 1),
-            // TODO: check to arg
             IR::Local(1),
             IR::SelfRef,
             IR::SendNative(
@@ -483,7 +479,7 @@ fn build_native_module() -> Rc<Class> {
         vec![IR::Constant(Value::mut_array(vec![]))],
     );
     class.add_native("debug:", vec![Param::Value], |_, args| {
-        println!("{:?}", args[0]);
+        println!("{}", args[0].debug());
         Ok(Value::Unit)
     });
     class.add_native(

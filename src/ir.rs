@@ -189,6 +189,17 @@ pub struct MutArray {
     value: Rc<RefCell<Vec<Value>>>,
 }
 
+impl MutArray {
+    fn debug(&self) -> String {
+        self.value
+            .borrow_mut()
+            .iter()
+            .map(|x| x.debug())
+            .collect::<Vec<_>>()
+            .join(",")
+    }
+}
+
 // impl PartialEq for MutArray {
 //     fn eq(&self, other: &Self) -> bool {
 //         Rc::ptr_eq(&self.value, &other.value)
@@ -256,6 +267,27 @@ impl Value {
         }
     }
 
+    pub fn debug(&self) -> String {
+        match self {
+            Value::Pointer(_) => panic!("must deref pointer before sending message"),
+            Value::Unit => "()".to_string(),
+            Value::Integer(value) => value.to_string(),
+            Value::Bigint(value) => value.to_string(),
+            Value::String(value) => format!("\"{}\"", value),
+            Value::Bool(value) => value.to_string(),
+            Value::MutArray(items) => items.debug(),
+            Value::Object(obj) => format!(
+                "{{{}}}",
+                obj.ivals
+                    .iter()
+                    .map(|val| val.debug())
+                    .collect::<Vec<_>>()
+                    .join(",")
+            ),
+            Value::DoObject(_, _, _) => "<do object>".to_string(),
+        }
+    }
+
     pub fn class(&self) -> Rc<Class> {
         match self {
             Value::Pointer(_) => panic!("must deref pointer before sending message"),
@@ -293,8 +325,14 @@ impl Class {
         self.add_handler(selector.to_string(), params, body)
     }
     pub fn add_handler(&mut self, selector: String, params: Vec<Param>, body: Vec<IR>) {
-        self.handlers
-            .insert(selector, Rc::new(Handler { body, params }));
+        self.handlers.insert(
+            selector.to_string(),
+            Rc::new(Handler {
+                selector,
+                body,
+                params,
+            }),
+        );
     }
     pub fn add_native(&mut self, selector: &str, params: Vec<Param>, f: NativeFn) {
         let arity = params.len();
@@ -317,6 +355,7 @@ impl Class {
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct Handler {
+    pub selector: String,
     pub params: Vec<Param>,
     pub body: Vec<IR>,
 }

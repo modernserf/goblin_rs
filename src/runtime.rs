@@ -11,6 +11,7 @@ pub enum RuntimeError {
     ModuleLoadLoop(String),
     UnknownModule(String),
     Panic(String),
+    WithStackTrace(Box<RuntimeError>, Vec<String>),
 }
 pub type Runtime<T> = Result<T, RuntimeError>;
 
@@ -138,6 +139,12 @@ impl Frame {
             Frame::Handler { ip, .. } => *ip = 0,
         }
     }
+    fn trace(&self) -> &str {
+        match self {
+            Frame::Root { .. } => "<root>",
+            Frame::Handler { handler, .. } => &handler.selector,
+        }
+    }
 }
 
 enum NextState {
@@ -175,7 +182,7 @@ impl<'a> Interpreter<'a> {
     fn run(&mut self) -> Runtime<Value> {
         loop {
             match self.next() {
-                NextResult::IR(ir) => ir.eval(self)?,
+                NextResult::IR(ir) => ir.eval(self).map_err(|err| self.add_trace(err))?,
                 NextResult::Return(offset) => {
                     let value = self.pop();
                     self.stack.truncate(offset);
@@ -184,6 +191,10 @@ impl<'a> Interpreter<'a> {
                 NextResult::Done => return Ok(self.pop()),
             };
         }
+    }
+    fn add_trace(&self, error: RuntimeError) -> RuntimeError {
+        let stack_trace = self.frames.iter().map(|f| f.trace().to_string()).collect();
+        RuntimeError::WithStackTrace(Box::new(error), stack_trace)
     }
     fn next(&mut self) -> NextResult {
         if let NextState::Return = self.next_state {
