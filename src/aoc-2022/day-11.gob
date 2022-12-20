@@ -1,0 +1,224 @@
+import [_Slice_ _Control_ _Assert_ _Log_] := "core"
+
+let Monkey := [
+  on {_items_ _op_ _test_ if true: t if false: f} [
+    on {inspect}
+      items{map: {: item}
+        let item := op{: item} // 3
+        let next := if (item % test) = 0 then t else f end
+        [_item_ _next_]
+      }
+    on {inspect without relaxing}
+      items{map: {: item}
+        let item := op{: item}
+        let next := if (item % test) = 0 then t else f end
+        [_item_ _next_]
+      }
+    on {push: value}
+      Monkey{items: items{push: value} _op_ _test_ if true: t if false: f}
+    on {empty}
+      Monkey{items: Slice{} _op_ _test_ if true: t if false: f}
+    on {items}
+      items
+    on {test}
+      test
+  ]
+  on {round: var monkeys counts: var counts}
+    Control{times: monkeys{length} do: {: i}
+      let inspections := monkeys{at: i}{inspect}
+      set monkeys{at: i update: [empty]}
+      set counts{at: i update: [+: inspections{length}]}
+      inspections{each: {: [_item_ _next_]}
+        set monkeys{at: next update: [push: item]}
+      }
+    }
+  on {round without relaxing: var monkeys counts: var counts modulo: modulo}
+    Control{times: monkeys{length} do: {: i}
+      let inspections := monkeys{at: i}{inspect without relaxing}
+      set monkeys{at: i update: [empty]}
+      set counts{at: i update: [+: inspections{length}]}
+      inspections{each: {: [_item_ _next_]}
+        let mod_value := item % modulo
+        set monkeys{at: next update: [push: mod_value]}
+      }
+    }
+]
+
+# var monkeys := Slice{},
+#   Monkey{
+#     items: Slice{}, 79, 98
+#     op: [{: old} old * 19]
+#     test: 23 
+#     if true: 2 
+#     if false: 3
+#   },
+#   Monkey{
+#     items: Slice{}, 54, 65, 75, 74
+#     op: [{: old} old + 6]
+#     test: 19
+#     if true: 2
+#     if false: 0
+#   },
+#   Monkey{
+#     items: Slice{},  79, 60, 97
+#     op: [{: old} old * old]
+#     test: 13
+#     if true: 1
+#     if false: 3
+#   },
+#   Monkey{
+#     items: Slice{}, 74
+#     op: [{: old} old + 3]
+#     test: 17
+#     if true: 0
+#     if false: 1
+#   }
+# var counts := Slice{}, 0, 0, 0, 0
+
+# Monkey{round: var monkeys counts: var counts}
+# Assert{
+#   received: monkeys{at: 0}{items}
+#   expected: Slice{}, 20, 23, 27, 26
+# }
+
+# Control{times: 19 do: {}
+#   Monkey{round: var monkeys counts: var counts}
+# }
+# var max := 0
+# var max2 := 0
+# counts{each: {: count}
+#   if count >= max then
+#     set max2 := max
+#     set max := count
+#   else if count >= max2 then
+#     set max2 := count
+#   end
+# }
+
+# Log{: max * max2}
+
+# let monkeys := Slice{},
+#   Monkey{
+#     items: Slice{}, 79, 98
+#     op: [{: old} old * 19]
+#     test: 23 
+#     if true: 2 
+#     if false: 3
+#   },
+#   Monkey{
+#     items: Slice{}, 54, 65, 75, 74
+#     op: [{: old} old + 6]
+#     test: 19
+#     if true: 2
+#     if false: 0
+#   },
+#   Monkey{
+#     items: Slice{}, 79, 60, 97
+#     op: [{: old} old * old]
+#     test: 13
+#     if true: 1
+#     if false: 3
+#   },
+#   Monkey{
+#     items: Slice{}, 74
+#     op: [{: old} old + 3]
+#     test: 17
+#     if true: 0
+#     if false: 1
+#   }
+
+let monkeys := Slice{},
+  Monkey{
+    items: Slice{}, 85, 79, 63, 72
+    op: [{: old} old * 17]
+    test: 2
+    if true: 2
+    if false: 6
+  },
+  Monkey{
+    items: Slice{}, 53, 94, 65, 81, 93, 73, 57, 92
+    op: [{: old} old * old]
+    test: 7
+    if true: 0
+    if false: 2
+  },
+  Monkey{
+    items: Slice{}, 62, 63
+    op: [{: old} old + 7]
+    test: 13
+    if true: 7
+    if false: 6
+  },
+  Monkey{
+    items: Slice{}, 57, 92, 56
+    op: [{: old} old + 4]
+    test: 5
+    if true: 4
+    if false: 5
+  },
+  Monkey{
+    items: Slice{}, 67
+    op: [{: old} old + 5]
+    test: 3
+    if true: 1
+    if false: 5
+  },
+  Monkey{
+    items: Slice{}, 85, 56, 66, 72, 57, 99
+    op: [{: old} old + 6]
+    test: 19
+    if true: 1
+    if false: 0
+  },
+  Monkey{
+    items: Slice{}, 86, 65, 98, 97, 69
+    op: [{: old} old * 13]
+    test: 11
+    if true: 3
+    if false: 7
+  },
+  Monkey{
+    items: Slice{}, 87, 68, 92, 66, 91, 50, 68
+    op: [{: old} old + 2]
+    test: 17
+    if true: 4
+    if false: 3
+  }
+
+let print := [{: monkeys}
+  monkeys{each: {: monkey index: i}
+    Log{: 
+      "monkey " ++ i ++ " ["
+      ++ monkey{items}{into: "" fold: {: x into: y} y ++ " " ++ x} 
+      ++ " ]" 
+    }
+}]
+
+let monkey_business := [{rounds: rounds monkeys: init_monkeys relaxing: relaxing}
+  var monkeys := init_monkeys
+  let modulo := monkeys{map: [test]}{into: 1 fold: [*]}
+  var counts := monkeys{map: {: __} 0}
+
+  Control{times: rounds do: {}
+    if relaxing then
+      Monkey{round: var monkeys counts: var counts}
+    else
+      Monkey{round without relaxing: var monkeys counts: var counts modulo: modulo}
+    end
+  }
+  var max := 0
+  var max2 := 0
+  counts{each: {: count index: i}
+    Log{: "" ++ i ++ ": " ++ count}
+    if count >= max then
+      set max2 := max
+      set max := count
+    else if count >= max2 then
+      set max2 := count
+    end
+  }  
+  max * max2
+]
+
+Assert{: monkey_business{rounds: 20 monkeys: monkeys relaxing: true} = 118674}
+Assert{: monkey_business{rounds: 10000 monkeys: monkeys relaxing: false} = 32333418600}
