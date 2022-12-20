@@ -3,6 +3,7 @@ use std::{
     hash::{Hash, Hasher},
     ops::Deref,
     rc::Rc,
+    vec,
 };
 
 use crate::{
@@ -145,6 +146,18 @@ fn build_int_class() -> Rc<Class> {
         _ => Ok(Value::Bool(true)),
     });
     // numeric comparison
+    class.add(
+        "order:",
+        vec![Param::Value],
+        vec![
+            IR::Local(0),
+            IR::SelfRef,
+            IR::send("-:", 1),
+            IR::Module("core/ord".to_string()),
+            IR::send("Ord", 0),
+            IR::send("from int:", 1),
+        ],
+    );
     class.add_native("<:", vec![Param::Value], |target, args| match &args[0] {
         Value::Integer(arg) => Ok(Value::Bool(target.as_int() < *arg)),
         _ => expected("number"),
@@ -371,7 +384,6 @@ fn build_array_class() -> Rc<Class> {
         target.as_array().borrow_mut().reverse();
         Ok(Value::Unit)
     });
-    // todo
     class.rc()
 }
 

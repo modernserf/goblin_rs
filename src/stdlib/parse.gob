@@ -268,6 +268,32 @@ export let Parser := [
     on {*} {repeat}
       self{repeat: 0}
 
+    on {separate by: separator} Parser{:[
+      on {parse: var state}
+        var result := Slice{}
+        # first item
+        parser{parse: var state}{:
+          on {ok: item} 
+            set result{push: item}
+          on {error: err}
+            return Result{ok: result}
+        }
+        Control{loop: {}
+          separator{parse: var state}{:
+            on {ok: __} ()
+            on {error: err}
+              return Result{ok: result}
+          }
+           
+          parser{parse: var state}{:
+            on {ok: item}
+              set result{push: item}
+            on {error: err}
+              return Result{error: err}
+          }
+        }
+    ]}
+
     on {opt} {optional} Parser{:[
       on {parse: var state}
         let res := parser{parse: var state}

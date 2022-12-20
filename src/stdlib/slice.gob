@@ -27,6 +27,34 @@ let SliceIter := [
     ]}
 ]
 
+let sort := [
+  on {array: array f: do f}
+    sort{array: array f: f lo: 0 hi: array{length} - 1}
+  on {array: array f: do f lo: lo hi: hi}
+    if (lo >= hi) || (lo < 0) then return end
+    let p := sort{partition: array f: f lo: lo hi: hi}
+    sort{array: array f: f lo: lo    hi: p - 1}
+    sort{array: array f: f lo: p + 1 hi: hi}
+
+  on {partition: array f: do f lo: lo hi: hi}
+    let pivot := array{at: hi}
+    var i := lo - 1
+    Control{times: hi - lo do: {: j}
+      let j := j + lo
+      if f{left: array{at: j} right: pivot}{<=} then
+        set i := i + 1
+        sort{array: array swap: i with: j}
+      end
+    }
+    set i := i + 1
+    sort{array: array swap: i with: hi}
+    return i
+
+  on {array: array swap: i with: j}
+    let tmp := array{at: i}
+    array{at: i value: array{at: j}}
+    array{at: j value: tmp}
+]
 
 let Slice := [
   on {}
@@ -201,7 +229,7 @@ let Slice := [
     on {sort by: do f}
       if from >= (to - 1) then return self end
       let out := array{from: from to: to}
-      out{sort by: f}
+      sort{array: out f: f}
       Slice{array: out from: 0 to: out{length}}
   ]
 ]

@@ -16,6 +16,7 @@ export let Ord := [
     else target end
   on {<} [
     on {: do f} f{<}
+    on {to String} "Ord{<}"
     on {<} true
     on {<=} true
     on {==} false
@@ -25,6 +26,7 @@ export let Ord := [
   ]
   on {==} [
     on {: do f} f{==}
+    on {to String} "Ord{==}"
     on {<} false
     on {<=} true
     on {==} true
@@ -34,6 +36,7 @@ export let Ord := [
   ]
   on {>} [
     on {: do f} f{>}
+    on {to String} "Ord{>}"
     on {<} false
     on {<=} false
     on {==} false
