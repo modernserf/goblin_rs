@@ -1,0 +1,215 @@
+import [_Slice_ _Control_ _Log_ _Assert_ _File_] := "core"
+
+let parse := [{: input}
+  import [_Parser_] := "parse"
+  let node := Parser{ok: [x: () y: ()]}
+    {with: [x] join: Parser{integer}}
+    {skip: Parser{token: ","}}
+    {with: [y] join: Parser{integer}}
+
+  let sequence := node{separate by: Parser{string: " -> "}}
+  let lines := sequence{separate by: Parser{newline}}
+  
+  Parser{parse: input with: lines}{ok!}
+]
+
+let State := [
+  on {from seqs: seqs} 
+    let boundaries := seqs{
+      into: [min x: 1000 max x: 0 min y: 0 max y: 0]
+      fold: {: seq into: state}
+        seq{into: state fold: {: node into: state} [
+          min x: node{x}{min: state{min x}}
+          max x: node{x}{max: state{max x}}
+          min y: node{y}{min: state{min y}}
+          max y: node{y}{max: state{max y}}
+        ]}
+    }
+    let grid := Slice{
+      fill: boundaries{max y} - boundaries{min y} + 1
+      with: Slice{
+        fill: boundaries{max x} - boundaries{min x} + 1
+        with: [space]
+      }
+    }
+    let source := [x: 500 y: 0]
+    seqs{
+      into: State{_grid_ _boundaries_ _source_ current: source}
+      fold: [add rock sequence]}
+
+  on {_grid_ _boundaries_ _source_ _current_} [
+    on {add rock sequence: seq}
+      var next_grid := grid
+      Control{times: seq{length} - 1 do: {: i}
+        let prev := seq{at: i}
+        let next := seq{at: i + 1}
+        # Log{:"" ++ prev{x} ++ "," ++ prev{y} ++ " -> " ++ next{x} ++ "," ++ next{y}}
+        let start_x := prev{x}{min: next{x}}
+        let end_x := prev{x}{max: next{x}}
+        let start_y := prev{y}{min: next{y}}
+        let end_y := prev{y}{max: next{y}}
+
+        let steps := (end_x - start_x){max: end_y - start_y} + 1
+        Control{times: steps do: {: j}
+          let x := (start_x + j){min: end_x} - boundaries{min x}
+          let y := (start_y + j){min: end_y} - boundaries{min y}
+          set next_grid{at: y update: [at: x value: [rock]]}
+        }
+      }
+      State{grid: next_grid _boundaries_ _source_ _current_}
+
+    on {add floor}
+      let width := grid{at: 0}{length}
+      let next_grid := grid
+        {push: Slice{fill: width with: [space]}}
+        {push: Slice{fill: width with: [rock]}}
+      let next_boundaries := boundaries{->max y: [+: 2]}
+      State{grid: next_grid boundaries: next_boundaries _source_ _current_}
+
+    on {at: point}
+      if !self{in bounds: point} then return [space] end
+      let [_x_ _y_] := point
+      grid{at: y - boundaries{min y}}{at: x - boundaries{min x}}
+
+    on {in bounds: [_x_ _y_]}
+      if (x < boundaries{min x}) || (x > boundaries{max x}) || (y < boundaries{min y}) || (y > boundaries{max y}) then
+        return false
+      end
+      true
+
+    on {step}
+      if !self{in bounds: current} then
+        return [end: self]
+      end
+
+      let next := current{->y:[+: 1]}
+
+      if self{at: next} = [space] then
+        return [continue: State{_grid_ _boundaries_ _source_ current: next}]
+      end
+      let next := next{->x: [-: 1]}
+      if self{at: next} = [space] then
+        return [continue: State{_grid_ _boundaries_ _source_ current: next}]
+      end
+      let next := next{->x: [+: 2]}
+      if self{at: next} = [space] then
+        return [continue: State{_grid_ _boundaries_ _source_ current: next}]
+      end
+      let next_grid := grid{
+        at: current{y} - boundaries{min y} 
+        update: [
+          at: current{x} - boundaries{min x} 
+          value: [sand]
+        ]
+      }
+      [done: State{grid: next_grid _boundaries_ _source_ current: source}]
+
+    on {step 2}
+      if (current{x} = boundaries{min x}) || (current{x} = boundaries{max x}) then
+        return [continue: self{widen: current}]
+      end
+
+      let next := current{->y:[+: 1]}
+      if self{at: next} = [space] then
+        return [continue: State{_grid_ _boundaries_ _source_ current: next}]
+      end
+      let next := next{->x: [-: 1]}
+      if self{at: next} = [space] then
+        return [continue: State{_grid_ _boundaries_ _source_ current: next}]
+      end
+      let next := next{->x: [+: 2]}
+      if self{at: next} = [space] then
+        return [continue: State{_grid_ _boundaries_ _source_ current: next}]
+      end
+
+      if current = source then
+        return [end: self]
+      end
+
+      let next_grid := grid{
+        at: current{y} - boundaries{min y} 
+        update: [
+          at: current{x} - boundaries{min x} 
+          value: [sand]
+        ]
+      }
+      [done: State{grid: next_grid _boundaries_ _source_ current: source}]
+
+    on {widen: point}
+      let grid := grid
+        {map: {: row} Slice{}, [space] ++ row, [space]}
+        {at: -1 update: [at: 0 value: [rock]]}
+        {at: -1 update: [at: -1 value: [rock]]}
+      let boundaries := boundaries{->min x: [-: 1]}{->max x: [+: 1]}
+      State{_grid_ _boundaries_ _source_ _current_}  
+    
+    on {print}
+      Log{: "(" ++ boundaries{min x} ++ ", " ++ boundaries{min y} ++ ")"}
+      grid{each: {: row index: dy}
+        Log{: row
+          {map: [{: item index: dx} 
+            if (current{x} = (dx + boundaries{min x})) &&
+              (current{y} = (dy + boundaries{min y})) then
+              return "*"
+            end
+          
+            item{:
+              on {rock} "#"
+              on {sand} "o"
+              on {space} "."
+            }
+          ]}
+          {into: "" fold: [++]}
+        }
+      }
+      ()
+  ]
+]
+
+let part_1 := [{: parsed}
+  var state := State{from seqs: parsed}
+  var count := 0
+  Control{loop: {}
+    state{step}{:
+      on {continue: next}
+        set state := next
+      on {done: next}
+        set state := next
+        set count{+: 1}
+      on {end: next}
+        next{print}
+        return count
+    }
+  }
+]
+
+# NOTE: this takes several minutes to compute with real input
+# could be a lot faster by computing total sand volume - rock volume - space blocked by rock
+let part_2 := [{: parsed}
+  var state := State{from seqs: parsed}{add floor}
+  var count := 0
+  Control{loop: {}
+    state{step 2}{:
+      on {continue: next}
+        set state := next
+      on {done: next}
+        set state := next
+        set count{+: 1}
+      on {end: next}
+        set count{+: 1}
+        next{print}
+        return count
+    }
+  }
+]
+
+let input := "498,4 -> 498,6 -> 496,6
+503,4 -> 502,4 -> 502,9 -> 494,9"
+let parsed := parse{: input}
+Assert{: part_1{: parsed} = 24}
+part_2{: parsed}
+Assert{: part_2{: parsed} = 93}
+
+let parsed := parse{: File{read text sync: "./src/aoc-2022/day-14.input.txt"}}
+Assert{: part_1{: parsed} = 1298}
+Assert{: part_2{: parsed} = 25585}
