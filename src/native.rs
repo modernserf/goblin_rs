@@ -130,8 +130,20 @@ fn build_int_class() -> Rc<Class> {
         Value::Integer(arg) => Ok(Value::Integer(target.as_int() | *arg)),
         _ => expected("number"),
     });
+    class.add_native("^:", vec![Param::Value], |target, args| match &args[0] {
+        Value::Integer(arg) => Ok(Value::Integer(target.as_int() ^ *arg)),
+        _ => expected("number"),
+    });
     class.add_native("-", vec![], |target, _| {
         Ok(Value::Integer(-target.as_int()))
+    });
+    class.add_native("abs", vec![], |target, _| {
+        Ok(Value::Integer(target.as_int().abs()))
+    });
+    class.add_native("hash", vec![], |target, _| {
+        let mut state = DefaultHasher::new();
+        target.as_int().hash(&mut state);
+        Ok(Value::Integer(state.finish() as i64))
     });
     class.add_native("to String", vec![], |target, _| {
         Ok(Value::String(Rc::new(target.as_int().to_string())))

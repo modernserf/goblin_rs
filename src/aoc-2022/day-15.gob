@@ -1,0 +1,277 @@
+import [_Log_ _Assert_ _Slice_ _Option_ _Control_ _HashSet_] := "core"
+
+let Point := [
+  on {_x_ _y_} [
+    on {debug}
+      "(" ++ x ++ "," ++ y ++ ")"
+    on {x} x
+    on {y} y
+    on {manhattan distance: other}
+      (x - other{x}){abs} + (y - other{y}){abs}
+    on {=: other}
+      (x = other{x}) && (y = other{y})
+    on {hash}
+      x{hash} ^ y{hash}
+    on {in bounds: boundaries}
+      (boundaries{x min} <= x) &&
+        (x <= boundaries{x max}) &&
+        (boundaries{y min} <= y) &&
+        (y <= boundaries{y max})
+  ]
+]
+
+let Range := [
+  on {_from_ _to_} [
+    on {: do f} f{_from_ _to_}
+    on {debug}
+      "Range{from: " ++ from ++ " to: " ++ to ++ "}"
+    on {size}
+      to - from + 1
+    on {contains: value}
+      (from <= value) && (value <= to)
+    on {=: other}
+      other{:
+        on {from: f to: t}
+          (from = f) && (to = t)
+        on {head: __ tail: __}
+          false
+      }
+    on {+: other}
+      other{:
+        on {from: f to: t}
+          if (f > to) || (t < from) then
+            Range{head: self tail: other}
+          else
+            Range{from: from{min: f} to: to{max: t}}
+          end
+        on {head: __ tail: __}
+          self + other
+      }
+  ]
+  on {_head_ _tail_} [
+    on {: do f} f{_head_ _tail_}
+    on {debug}
+      "Range{head: " ++ head{debug} ++ " tail: " ++ tail{debug} ++ "}"
+    on {size}
+      head{size} + tail{size}
+    on {contains: value}
+      if head{contains: value} then return true end
+      tail{contains: value}
+    on {=: other}
+      other{:
+        on {from: __ to: __}
+          false
+        on {head: h tail: t}
+          (head = h) && (tail = t)
+      }
+    on {+: other}
+      other + head + tail
+  ]
+]
+
+[{}
+  Assert{: Range{from: 0 to: 0}{size} = 1}
+  Assert{: Range{from: 0 to: 10}{size} = 11}
+  Assert{: Range{from: 0 to: 10} + Range{from: 0 to: 5} = Range{from: 0 to: 10}}
+  Assert{: Range{from: 0 to: 10} + Range{from: 3 to: 5} = Range{from: 0 to: 10}}
+  Assert{: Range{from: 0 to: 10} + Range{from: 3 to: 15} = Range{from: 0 to: 15}}
+  Assert{: 
+    Range{from: 0 to: 10} + Range{from: 20 to: 30} 
+      = Range{head: Range{from: 0 to: 10} tail: Range{from: 20 to: 30} }}
+  Assert{: Range{from: 0 to: 10} + Range{from: 20 to: 30} + Range{from: 5 to: 25} = Range{from: 0 to: 30}}
+]{}
+
+let Slash := [
+  # \
+  on {_x_ _y_ _down_} [
+    on {: do f} f{_x_ _y_ _down_}
+    on {intersect at: other}
+      other{:
+        on {x: __ y: __ down: __}
+          Option{none}
+        on {x: ox y: oy up: up}
+          let dx := ox - x
+          let dy := oy - y
+          let d_down := dx + ((dy - dx) >> 1)
+          if d_down < 0 then return Option{none} end
+          Option{some: Point{x: x + d_down y: y + d_down}}
+      }
+  ]
+  # /
+  on {_x_ _y_ _up_} [
+    on {: do f} f{_x_ _y_ _up_}
+    on {intersect at: other}
+      other{:
+        on {x: __ y: __ up: __}
+          Option{none}
+        on {x: __ y: __ down: __}
+          other{intersect at: self}
+      }
+  ]
+]
+
+let Area := [
+  on {sensor: sensor beacon: beacon}
+    Area{center: sensor radius: sensor{manhattan distance: beacon}}
+  on {_center_ _radius_} [
+    on {range at y: y}
+      let dy := (center{y} - y){abs}
+      let r_at := (radius - dy)
+      if r_at < 0 then return Option{none} end
+      Option{some: Range{from: center{x} - r_at to: center{x} + r_at}}
+    on {edges}
+      Slice{},
+        # NE \
+        Slash{x: center{x} y: center{y} - radius - 1 down: radius + 1},
+        # SE /
+        Slash{x: center{x} y: center{y} + radius + 1 up: radius + 1},
+        # SW \
+        Slash{x: center{x} - radius - 1 y: center{y} down: radius + 1},
+        # NW /
+        Slash{x: center{x} - radius - 1 y: center{y} up: radius + 1}
+    on {contains: point}
+      center{manhattan distance: point} <= radius
+  ]
+]
+
+[{}
+  let area := Area{sensor: Point{x: 0 y: 0} beacon: Point{x: 10 y: 0}}
+  Assert{: area{range at y: 0}{some!}  = Range{from: -10 to: 10}}
+  Assert{: area{range at y: 1}{some!}  = Range{from: -9 to: 9}}
+  Assert{: area{range at y: 10}{some!} = Range{from: 0 to: 0}}
+  Assert{: area{range at y: 20}{is none}}
+
+  let area := Area{sensor: Point{x: 8 y: 7} beacon: Point{x: 2 y: 10}}
+  Assert{: area{range at y: 10}{some!}{size} = 13}
+  Assert{: area{range at y: 16}{some!}{size} = 1}
+  Assert{: area{range at y: 17}{is none}}
+  Assert{: area{range at y: -2}{some!}{size} = 1}
+]{}
+
+let parse := [{: input}
+  import [_Parser_] := "parse"
+
+  let signed_int := 
+    | Parser{token: "-"}{then: Parser{integer}}{map: [-]}
+    | Parser{integer}
+
+  let line := Parser{ok: [sx: () sy: () bx: () by: ()]}
+    {skip: Parser{string: "Sensor at x="}}
+    {with: [sx] join: signed_int}
+    {skip: Parser{string: ", y="}}
+    {with: [sy] join: signed_int}
+    {skip: Parser{string: ": closest beacon is at x="}}
+    {with: [bx] join: signed_int}
+    {skip: Parser{string: ", y="}}
+    {with: [by] join: signed_int}
+    {skip: Parser{newline}}
+    {map: [{: [_sx_ _sy_ _bx_ _by_]}
+      [sensor: Point{x: sx y: sy} beacon: Point{x: bx y: by}]
+    ]}
+
+  Parser{parse: input with: line{repeat}}{ok!}
+]
+
+let input := "Sensor at x=2, y=18: closest beacon is at x=-2, y=15
+Sensor at x=9, y=16: closest beacon is at x=10, y=16
+Sensor at x=13, y=2: closest beacon is at x=15, y=3
+Sensor at x=12, y=14: closest beacon is at x=10, y=16
+Sensor at x=10, y=20: closest beacon is at x=10, y=16
+Sensor at x=14, y=17: closest beacon is at x=10, y=16
+Sensor at x=8, y=7: closest beacon is at x=2, y=10
+Sensor at x=2, y=0: closest beacon is at x=2, y=10
+Sensor at x=0, y=11: closest beacon is at x=2, y=10
+Sensor at x=20, y=14: closest beacon is at x=25, y=17
+Sensor at x=17, y=20: closest beacon is at x=21, y=22
+Sensor at x=16, y=7: closest beacon is at x=15, y=3
+Sensor at x=14, y=3: closest beacon is at x=15, y=3
+Sensor at x=20, y=1: closest beacon is at x=15, y=3
+"
+
+let part_1 := [{: input at y: y}
+  let lines := parse{: input}
+  let cleared_range := lines
+    {map: {: line} line{: Area}}
+    {filter map: [range at y: y]}
+    {fold: [+]}
+
+  let beacons_in_line := lines
+    {map: [beacon]}
+    {unique}
+    {filter: {: beacon}
+      (beacon{y} = y) && (cleared_range{contains: beacon{x}})
+    }
+    {length}
+
+  cleared_range{size} - beacons_in_line
+] 
+
+Assert{: part_1{: input at y: 10} = 26}
+
+let part_2 := [{: input max: max}
+  let lines := parse{: input}
+  let areas := lines{map: {: line} line{: Area}}
+  let edges := areas{map: [edges]}
+
+  var intersections := HashSet{}
+
+  Control{times: edges{length} - 1 do: {:i}
+    Control{times: edges{length} - i - 1 do: {:j}
+      let left := edges{at: i}
+      let right := edges{at: j}
+      left{each: {: left_edge}
+        right{each: {: right_edge}
+          left_edge{intersect at: right_edge}{:
+            on {none}
+            on {some: point}
+              set intersections{add: point}
+          }
+        }
+      }
+    }
+  }
+
+  let point := intersections
+    {to Iter}
+    {filter: [in bounds: [x min: 0 x max: max y min: 0 y max: max]]}
+    {filter: [{: point}
+      areas{each: {:area}
+        if area{contains: point} then return false end
+      }
+      true
+    ]}
+    {first}
+    {some!}
+
+  (point{x} * 4000000) + point{y}
+]
+
+Assert{: part_2{: input max: 20} = 56000011}
+
+let input := "Sensor at x=2391367, y=3787759: closest beacon is at x=2345659, y=4354867
+Sensor at x=1826659, y=2843839: closest beacon is at x=1654342, y=3193298
+Sensor at x=980874, y=2369046: closest beacon is at x=31358, y=2000000
+Sensor at x=2916267, y=2516612: closest beacon is at x=3064453, y=2107409
+Sensor at x=3304786, y=844925: closest beacon is at x=3064453, y=2107409
+Sensor at x=45969, y=76553: closest beacon is at x=31358, y=2000000
+Sensor at x=2647492, y=1985479: closest beacon is at x=2483905, y=2123337
+Sensor at x=15629, y=2015720: closest beacon is at x=31358, y=2000000
+Sensor at x=3793239, y=3203486: closest beacon is at x=3528871, y=3361675
+Sensor at x=3998240, y=15268: closest beacon is at x=4731853, y=1213406
+Sensor at x=3475687, y=3738894: closest beacon is at x=3528871, y=3361675
+Sensor at x=3993022, y=3910207: closest beacon is at x=3528871, y=3361675
+Sensor at x=258318, y=2150378: closest beacon is at x=31358, y=2000000
+Sensor at x=1615638, y=1108834: closest beacon is at x=2483905, y=2123337
+Sensor at x=1183930, y=3997648: closest beacon is at x=1654342, y=3193298
+Sensor at x=404933, y=3377916: closest beacon is at x=1654342, y=3193298
+Sensor at x=3829801, y=2534117: closest beacon is at x=3528871, y=3361675
+Sensor at x=2360813, y=2494240: closest beacon is at x=2483905, y=2123337
+Sensor at x=2286195, y=3134541: closest beacon is at x=1654342, y=3193298
+Sensor at x=15626, y=1984269: closest beacon is at x=31358, y=2000000
+Sensor at x=3009341, y=3849969: closest beacon is at x=3528871, y=3361675
+Sensor at x=1926292, y=193430: closest beacon is at x=1884716, y=-881769
+Sensor at x=3028318, y=3091480: closest beacon is at x=3528871, y=3361675
+"
+
+Assert{: part_1{: input at y: 2000000} = 4424278}
+Assert{: part_2{: input max: 4000000} = 10382630753392}

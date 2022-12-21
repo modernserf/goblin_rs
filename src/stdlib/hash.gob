@@ -136,5 +136,7 @@ export let HashSet := [
       HashSet{state: next_state}
     on {size}
       state{size}
+    on {to Iter}
+      state{to Iter}{map: [key]}
   ]
 ]

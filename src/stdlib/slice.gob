@@ -214,6 +214,13 @@ let Slice := [
         set result := f{: item into: result} ? f{: item into: result index: index}
       }
       result
+    on {fold: do f}
+      let [_first_ _rest_] := self{shift}{some!}
+      rest{into: first fold: f}
+
+    on {unique}
+      import [_HashSet_] := "core/hash"
+      self{into: HashSet{} fold: [add]}{to Iter}{to Slice}
 
     # transforming
     on {reverse}
