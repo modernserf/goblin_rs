@@ -246,6 +246,8 @@ export let Slice := [
     slice
   on {from Iter: iter}
     iter{into: SliceImpl{} fold: [push]}
+  on {from Array: array}
+    SliceImpl{array: array from: 0 to: array{length}}
   on {pop: var slice}
     let res := slice{pop}
     res{:

@@ -194,44 +194,69 @@ mod test {
         run(include_str!("./stdlib/range.test.gob"));
     }
 
-    // #[test]
-    // fn day_1() {
-    //     run(include_str!("./aoc-2022/day-1.gob"));
-    // }
-    // #[test]
-    // fn day_2() {
-    //     run(include_str!("./aoc-2022/day-2.gob"));
-    // }
-    // #[test]
-    // fn day_3() {
-    //     run(include_str!("./aoc-2022/day-3.gob"));
-    // }
-    // #[test]
-    // fn day_4() {
-    //     run(include_str!("./aoc-2022/day-4.gob"));
-    // }
-    // #[test]
-    // fn day_5() {
-    //     run(include_str!("./aoc-2022/day-5.gob"));
-    // }
-    // #[test]
-    // fn day_6() {
-    //     run(include_str!("./aoc-2022/day-6.gob"));
-    // }
-    // #[test]
-    // fn day_7() {
-    //     run(include_str!("./aoc-2022/day-7.gob"));
-    // }
-    // #[test]
-    // fn day_8() {
-    //     run(include_str!("./aoc-2022/day-8.gob"));
-    // }
-    // #[test]
-    // fn day_9() {
-    //     run(include_str!("./aoc-2022/day-9.gob"));
-    // }
-    // #[test]
-    // fn day_10() {
-    //     run(include_str!("./aoc-2022/day-10.gob"));
-    // }
+    #[test]
+    #[ignore]
+    fn day_1() {
+        run(include_str!("./aoc-2022/day-1.gob"));
+    }
+    #[test]
+    #[ignore]
+    fn day_2() {
+        run(include_str!("./aoc-2022/day-2.gob"));
+    }
+    #[test]
+    #[ignore]
+    fn day_3() {
+        run(include_str!("./aoc-2022/day-3.gob"));
+    }
+    #[test]
+    #[ignore]
+    fn day_4() {
+        run(include_str!("./aoc-2022/day-4.gob"));
+    }
+    #[test]
+    #[ignore]
+    fn day_5() {
+        run(include_str!("./aoc-2022/day-5.gob"));
+    }
+    #[test]
+    #[ignore]
+    fn day_6() {
+        run(include_str!("./aoc-2022/day-6.gob"));
+    }
+    #[test]
+    #[ignore]
+    fn day_7() {
+        run(include_str!("./aoc-2022/day-7.gob"));
+    }
+    #[test]
+    #[ignore]
+    fn day_8() {
+        run(include_str!("./aoc-2022/day-8.gob"));
+    }
+    #[test]
+    #[ignore]
+    fn day_9() {
+        run(include_str!("./aoc-2022/day-9.gob"));
+    }
+    #[test]
+    #[ignore]
+    fn day_10() {
+        run(include_str!("./aoc-2022/day-10.gob"));
+    }
+    #[test]
+    #[ignore]
+    fn day_11() {
+        run(include_str!("./aoc-2022/day-11.gob"));
+    }
+    #[test]
+    #[ignore]
+    fn day_12() {
+        run(include_str!("./aoc-2022/day-12.gob"));
+    }
+    #[test]
+    #[ignore]
+    fn day_13() {
+        run(include_str!("./aoc-2022/day-13.gob"));
+    }
 }

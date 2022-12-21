@@ -13,6 +13,16 @@ pub enum RuntimeError {
     Panic(String),
     WithStackTrace(Box<RuntimeError>, Vec<String>),
 }
+impl RuntimeError {
+    #[cfg(test)]
+    fn base_error(self) -> RuntimeError {
+        match self {
+            Self::WithStackTrace(err, _) => err.base_error(),
+            err => err,
+        }
+    }
+}
+
 pub type Runtime<T> = Result<T, RuntimeError>;
 
 #[derive(Debug, Clone)]
@@ -343,7 +353,10 @@ mod test {
 
     fn assert_err(code: Vec<IR>, expected: RuntimeError) {
         let mut modules = ModuleLoader::new();
-        assert_eq!(Interpreter::program(code, &mut modules), Err(expected));
+        assert_eq!(
+            Interpreter::program(code, &mut modules).map_err(|e| e.base_error()),
+            Err(expected)
+        );
     }
 
     fn add() -> IR {
@@ -865,7 +878,8 @@ mod test {
         modules.add_init("foo", vec![IR::Module("foo".to_string())]);
 
         assert_eq!(
-            Interpreter::program(vec![IR::Module("foo".to_string())], &mut modules),
+            Interpreter::program(vec![IR::Module("foo".to_string())], &mut modules)
+                .map_err(|e| e.base_error()),
             Err(RuntimeError::ModuleLoadLoop("foo".to_string()))
         );
     }

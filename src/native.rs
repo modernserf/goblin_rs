@@ -294,6 +294,28 @@ fn build_string_class() -> Rc<Class> {
             ),
         ],
     );
+    class.add(
+        "chars",
+        vec![],
+        vec![
+            IR::SelfRef,
+            IR::SendNative(
+                |target, _| {
+                    let chars = target
+                        .as_string()
+                        .chars()
+                        .map(|ch| Value::String(Rc::new(ch.to_string())))
+                        .collect::<Vec<_>>();
+
+                    Ok(Value::mut_array(chars))
+                },
+                0,
+            ),
+            IR::Module("core/slice".to_string()),
+            IR::send("Slice", 0),
+            IR::send("from Array:", 1),
+        ],
+    );
 
     class.add("to String", vec![], vec![IR::SelfRef]);
 

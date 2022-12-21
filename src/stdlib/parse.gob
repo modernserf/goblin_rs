@@ -25,7 +25,7 @@ let Err := [
 export let Parser := [
   # make as method
   on {parse: source with: parser}
-    var state := ParseState{source: source}
+    var state := ParseState{source: source{chars}}
     parser
       {skip: Parser{end}}
       {parse: var state}

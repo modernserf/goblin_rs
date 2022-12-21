@@ -30,6 +30,9 @@ impl Lexer {
         self.chars[self.index]
     }
     fn advance(&mut self) {
+        if self.index == self.chars.len() {
+            panic!("unexpected end of input")
+        }
         self.index += 1;
     }
     fn next(&mut self) -> Token {

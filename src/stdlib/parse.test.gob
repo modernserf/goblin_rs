@@ -9,14 +9,14 @@ Assert{
   received: Parser{parse: "h" with: Parser{token: "h"}}
   expected: Result{ok: "h"}
 }
-Assert{
-  received: Parser{parse: Slice{}, 3 with: Parser{match: [>: 1]}}
-  expected: Result{ok: 3}
-}
-Assert{
-  received: Parser{parse: Slice{}, 0 with: Parser{match: [>: 1]}}
-  expected: Result{error: [expected: [match: [>: 1]] received: 0]}
-}
+# Assert{
+#   received: Parser{parse: Slice{}, 3 with: Parser{match: [>: 1]}}
+#   expected: Result{ok: 3}
+# }
+# Assert{
+#   received: Parser{parse: Slice{}, 0 with: Parser{match: [>: 1]}}
+#   expected: Result{error: [expected: [match: [>: 1]] received: 0]}
+# }
 Assert{
   received: Parser{parse: "1" with: Parser{digit}}
   expected: Result{ok: 1}

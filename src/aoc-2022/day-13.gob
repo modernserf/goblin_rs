@@ -116,6 +116,5 @@ Assert{: part_2{: parse{: input}} = 140}
 
 let input := File{read text sync: "./src/aoc-2022/day-13.input.txt"}
 let parsed := parse{: input}
-Log{: "parse ok"}
 Assert{: part_1{: parsed} = 5013}
-part_2{: parsed}
+Assert{: part_2{: parsed} = 25038}
