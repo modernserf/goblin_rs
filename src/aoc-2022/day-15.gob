@@ -274,4 +274,5 @@ Sensor at x=3028318, y=3091480: closest beacon is at x=3528871, y=3361675
 "
 
 Assert{: part_1{: input at y: 2000000} = 4424278}
+
 Assert{: part_2{: input max: 4000000} = 10382630753392}

@@ -2,7 +2,7 @@ use std::collections::HashMap;
 
 use crate::{
     ast::{Binding, Expr, Object, Stmt},
-    grammar::Token,
+    grammar::{Source, SourceContext, Token, TokenWithSource},
 };
 
 #[derive(Debug, Clone, PartialEq)]
@@ -11,11 +11,30 @@ pub enum ParseError {
     ExpectedToken(Token),
     DuplicateKey(String),
     MixedKeyPair(String),
+    WithSource(Box<ParseError>, Source),
+    InContext(Box<ParseError>, SourceContext),
 }
 
 impl ParseError {
     pub fn expected(str: &str) -> Self {
         Self::Expected(str.to_string())
+    }
+    pub fn with_source(self, source: Source) -> Self {
+        ParseError::WithSource(Box::new(self), source)
+    }
+    pub fn in_context(self, context: &str) -> Self {
+        match self {
+            Self::WithSource(err, source) => Self::InContext(err, source.in_context(context)),
+            _ => self,
+        }
+    }
+
+    #[cfg(test)]
+    pub fn without_source(self) -> Self {
+        match self {
+            Self::WithSource(err, _) => *err,
+            _ => self,
+        }
     }
 }
 
@@ -76,21 +95,28 @@ impl<T> SelectorBuilder<T> {
 }
 
 pub struct Parser {
-    tokens: Vec<Token>,
+    tokens: Vec<TokenWithSource>,
     index: usize,
 }
 impl Parser {
-    pub fn parse(tokens: Vec<Token>) -> Parse<Vec<Stmt>> {
-        Self::new(tokens).program()
+    pub fn parse(tokens: Vec<TokenWithSource>) -> Parse<Vec<Stmt>> {
+        let mut parser = Self::new(tokens);
+        parser.program().map_err(|err| match parser.peek_source() {
+            Some(source) => err.with_source(source),
+            None => err,
+        })
     }
-    fn new(tokens: Vec<Token>) -> Self {
+    fn new(tokens: Vec<TokenWithSource>) -> Self {
         Self { tokens, index: 0 }
     }
     fn peek(&self) -> Token {
         self.tokens
             .get(self.index)
-            .cloned()
+            .map(|t| t.token.clone())
             .unwrap_or(Token::EndOfInput)
+    }
+    fn peek_source(&self) -> Option<Source> {
+        self.tokens.get(self.index).map(|t| t.source.clone())
     }
     fn advance(&mut self) {
         self.index += 1
@@ -497,11 +523,26 @@ mod test {
     use Token::*;
 
     fn assert_ok(code: Vec<Token>, expected: Vec<Stmt>) {
-        assert_eq!(Parser::parse(code), Ok(expected))
+        assert_eq!(
+            Parser::parse(
+                code.into_iter()
+                    .map(|token| token.with_source(Source::new(0, 0)))
+                    .collect()
+            ),
+            Ok(expected)
+        )
     }
 
     fn assert_err(code: Vec<Token>, expected: ParseError) {
-        assert_eq!(Parser::parse(code), Err(expected))
+        assert_eq!(
+            Parser::parse(
+                code.into_iter()
+                    .map(|token| token.with_source(Source::new(0, 0)))
+                    .collect()
+            )
+            .map_err(|err| err.without_source()),
+            Err(expected)
+        )
     }
 
     fn ident(str: &str) -> Token {

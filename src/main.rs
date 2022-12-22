@@ -15,7 +15,7 @@ const COMPILER_FLAGS: CompilerFlags = CompilerFlags {
 };
 
 fn compile_module(code: &str) -> Vec<ir::IR> {
-    let tokens = lexer::Lexer::lex(code.to_string());
+    let tokens = lexer::Lexer::lex(code);
     let ast = parser::Parser::parse(tokens).unwrap();
     compiler::Compiler::new(COMPILER_FLAGS).module(ast).unwrap()
 }
@@ -74,8 +74,10 @@ thread_local! {
 }
 
 fn run(code: &str) {
-    let tokens = lexer::Lexer::lex(code.to_string());
-    let ast = parser::Parser::parse(tokens).unwrap();
+    let tokens = lexer::Lexer::lex(code);
+    let ast = parser::Parser::parse(tokens)
+        .map_err(|err| err.in_context(code))
+        .unwrap();
     let ir = compiler::Compiler::new(COMPILER_FLAGS)
         .program(ast)
         .unwrap();

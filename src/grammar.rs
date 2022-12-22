@@ -67,6 +67,13 @@ impl Token {
             tok => tok.to_keyword(),
         }
     }
+
+    pub fn with_source(self, source: Source) -> TokenWithSource {
+        TokenWithSource {
+            token: self,
+            source,
+        }
+    }
 }
 type KeywordTokens = Rc<(HashMap<String, Token>, HashMap<Token, String>)>;
 
@@ -104,4 +111,56 @@ fn keyword_tokens() -> KeywordTokens {
 thread_local! {
   static KEYWORD_TOKENS: KeywordTokens = keyword_tokens();
   static OPERATORS: HashSet<char> = HashSet::from_iter("~!@$%^&*-+=|/.,<>".chars());
+}
+
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct Source {
+    index: usize,
+    length: usize,
+}
+
+impl Source {
+    pub fn new(index: usize, length: usize) -> Self {
+        Self { index, length }
+    }
+    pub fn in_context(&self, source: &str) -> SourceContext {
+        let mut line_number = 1;
+        let mut line_start = 0;
+        for (i, char) in source.chars().enumerate().take(self.index) {
+            if char == '\n' {
+                line_number += 1;
+                line_start = i;
+            }
+        }
+        let max_context_padding = 10;
+        let excerpt_start = line_start.max(self.index - max_context_padding);
+        let mut excerpt_end = self.index + max_context_padding;
+        for (i, char) in source.chars().enumerate().skip(self.index) {
+            if char == '\n' {
+                excerpt_end = i;
+                break;
+            }
+        }
+
+        let context = source[excerpt_start..excerpt_end].to_string();
+
+        SourceContext {
+            context,
+            line: line_number,
+            column: self.index - line_start,
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct SourceContext {
+    context: String,
+    line: usize,
+    column: usize,
+}
+
+#[derive(Debug, Clone)]
+pub struct TokenWithSource {
+    pub token: Token,
+    pub source: Source,
 }

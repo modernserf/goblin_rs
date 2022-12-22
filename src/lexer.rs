@@ -1,4 +1,4 @@
-use crate::grammar::Token;
+use crate::grammar::{Source, Token, TokenWithSource};
 
 pub struct Lexer {
     chars: Vec<char>,
@@ -6,18 +6,20 @@ pub struct Lexer {
 }
 
 impl Lexer {
-    pub fn lex(str: String) -> Vec<Token> {
+    pub fn lex(str: &str) -> Vec<TokenWithSource> {
         let mut out = vec![];
         let mut lexer = Lexer::new(str);
         loop {
-            let tok = lexer.next();
-            if tok == Token::EndOfInput {
+            let start = lexer.index;
+            let token = lexer.next();
+            let source = Source::new(start, lexer.index - start);
+            if token == Token::EndOfInput {
                 return out;
             }
-            out.push(tok);
+            out.push(token.with_source(source));
         }
     }
-    fn new(str: String) -> Self {
+    fn new(str: &str) -> Self {
         Lexer {
             chars: str.chars().collect(),
             index: 0,
